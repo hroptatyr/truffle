@@ -12,6 +12,7 @@
 typedef uint32_t idate_t;
 typedef struct trcut_s *trcut_t;
 typedef struct trsch_s *trsch_t;
+typedef struct cline_s *cline_t;
 
 /* a node */
 struct cnode_s {
@@ -53,13 +54,38 @@ DECLF void free_schema(trsch_t);
 
 
 /* idate helpers */
+static int8_t __attribute__((unused)) ml[] = {
+	0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+};
+static int16_t mc[] = {
+/* this is 100 - ml[i] cumulated */
+	0, 69, 141, 210, 280, 349, 419, 488, 557, 627, 696, 766, 835
+};
+
 static int
 idate_sub(idate_t d1, idate_t d2)
 {
+	int m1, m2;
+	int y1, y2;
+	int res;
+
 	if (d1 == d2) {
 		return 0;
 	}
-	return 1;
+	y1 = d1 / 10000;
+	y2 = d2 / 10000;
+
+	/* 0205 - 0128 -> 77 - (100 - 31) = 8
+	 * 0305 - 0128 -> 177 - (100 - 31) - (100 - 28) = 36
+	 * 0105 - 1228 -> -1123 - (69 - 835) = 8 */
+	m1 = ((d1 / 100) % 100);
+	m2 = ((d2 / 100) % 100);
+	res = ((d2 - d1) - (mc[m2] - mc[m1]));
+	if (y1 == y2) {
+		return res % 365;
+	}
+	/* .... plus leap days actually */
+	return (y2 - y1) * 365 + res;
 }
 
 static trsch_t
@@ -88,6 +114,17 @@ cut_add_cc(trcut_t c, struct trcc_s cc)
 	}
 	c->comps[c->ncomps++] = cc;
 	return c;
+}
+
+static cline_t
+make_cline(char month, int8_t yoff, size_t nnodes)
+{
+	cline_t res = malloc(sizeof(*res) + nnodes * (sizeof(*res->n)));
+
+	res->month = month;
+	res->year_off = yoff;
+	res->nn = nnodes;
+	return res;
 }
 
 
@@ -123,14 +160,16 @@ make_cut(trsch_t sch, idate_t dt)
 			struct cnode_s *n1 = p->n + j;
 			struct cnode_s *n2 = n1 + 1;
 
+			fprintf(stderr, "%u %u %u\n", n1->x, n2->x, dt);
 			if (dt >= n1->x && dt <= n2->x) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
+				double xsub = idate_sub(n2->x, n1->x);
+				double tsub = idate_sub(dt, n1->x);
 
 				cc.month = p->month;
 				cc.year_off = p->year_off;
-				cc.y = fabs(n2->y - n1->y);
-				cc.y /= idate_sub(n2->x, n1->x);
+				cc.y = n1->y + tsub * (n2->y - n1->y) / xsub;
 				res = cut_add_cc(res, cc);
 				break;
 			}
@@ -144,101 +183,66 @@ make_cut(trsch_t sch, idate_t dt)
 int
 main(int argc, char *argv[])
 {
-	struct cline_s h = {
-		.month = 'H',
-		.year_off = 0,
-		.nn = 4,
-		.n = {
-			{
-				.x = 21207,
-				.y = 0.0,
-			}, {
-				.x = 21208,
-				.y = 1.0,
-			}, {
-				.x = 20307,
-				.y = 1.0,
-			}, {
-				.x = 20308,
-				.y = 0.0,
-			}
-		}
-	};
-	struct cline_s m = {
-		.month = 'M',
-		.year_off = 0,
-		.nn = 4,
-		.n = {
-			{
-				.x = 20307,
-				.y = 0.0,
-			}, {
-				.x = 20308,
-				.y = 1.0,
-			}, {
-				.x = 20607,
-				.y = 1.0,
-			}, {
-				.x = 20608,
-				.y = 0.0,
-			}
-		}
-	};
-	struct cline_s u = {
-		.month = 'U',
-		.year_off = 0,
-		.nn = 4,
-		.n = {
-			{
-				.x = 20607,
-				.y = 0.0,
-			}, {
-				.x = 20608,
-				.y = 1.0,
-			}, {
-				.x = 20907,
-				.y = 1.0,
-			}, {
-				.x = 20908,
-				.y = 0.0,
-			}
-		}
-	};
-	struct cline_s z = {
-		.month = 'Z',
-		.year_off = 0,
-		.nn = 4,
-		.n = {
-			{
-				.x = 20907,
-				.y = 0.0,
-			}, {
-				.x = 20908,
-				.y = 1.0,
-			}, {
-				.x = 21207,
-				.y = 1.0,
-			}, {
-				.x = 21208,
-				.y = 0.0,
-			}
-		}
-	};
+	cline_t cl;
 	trsch_t sch = NULL;
 	trcut_t c;
 
-	sch = sch_add_cl(sch, &h);
-	sch = sch_add_cl(sch, &m);
-	sch = sch_add_cl(sch, &u);
-	sch = sch_add_cl(sch, &z);
-	c = make_cut(sch, 20404);
+	cl = make_cline('H', 0, 4);
+	cl->n[0].x = 21207;
+	cl->n[0].y = 0.0;
+	cl->n[1].x = 21208;
+	cl->n[1].y = 1.0;
+	cl->n[2].x = 20307;
+	cl->n[2].y = 1.0;
+	cl->n[3].x = 20308;
+	cl->n[3].y = 0.0;
+	sch = sch_add_cl(sch, cl);
 
-	for (size_t i = 0; i < c->ncomps; i++) {
-		fprintf(stderr, "%c%d %.4f\n",
-			c->comps[i].month, c->comps[i].year_off, c->comps[i].y);
+	cl = make_cline('M', 0, 4);
+	cl->n[0].x = 20307;
+	cl->n[0].y = 0.0;
+	cl->n[1].x = 20308;
+	cl->n[1].y = 1.0;
+	cl->n[2].x = 20607;
+	cl->n[2].y = 1.0;
+	cl->n[3].x = 20608;
+	cl->n[3].y = 0.0;
+	sch = sch_add_cl(sch, cl);
+
+	cl = make_cline('U', 0, 4);
+	cl->n[0].x = 20607;
+	cl->n[0].y = 0.0;
+	cl->n[1].x = 20608;
+	cl->n[1].y = 1.0;
+	cl->n[2].x = 20907;
+	cl->n[2].y = 1.0;
+	cl->n[3].x = 20908;
+	cl->n[3].y = 0.0;
+	sch = sch_add_cl(sch, cl);
+
+	cl = make_cline('Z', 0, 4);
+	cl->n[0].x = 20907;
+	cl->n[0].y = 0.0;
+	cl->n[1].x = 20908;
+	cl->n[1].y = 1.0;
+	cl->n[2].x = 21207;
+	cl->n[2].y = 1.0;
+	cl->n[3].x = 21208;
+	cl->n[3].y = 0.0;
+	sch = sch_add_cl(sch, cl);
+
+	/* finally call our main routine */
+	if ((c = make_cut(sch, 20020404))) {
+		for (size_t i = 0; i < c->ncomps; i++) {
+			fprintf(stderr, "%c%d %.4f\n",
+				c->comps[i].month, c->comps[i].year_off, c->comps[i].y);
+		}
+		free_cut(c);
 	}
 
-	free_cut(c);
+	for (size_t i = 0; i < sch->np; i++) {
+		free(sch->p[i]);
+	}
 	free_schema(sch);
 	return 0;
 }
