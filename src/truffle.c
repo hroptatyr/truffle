@@ -180,13 +180,33 @@ make_cut(trsch_t sch, idate_t dt)
 
 
 #if defined STANDALONE
+#if defined __INTEL_COMPILER
+# pragma warning (disable:593)
+#endif	/* __INTEL_COMPILER */
+#include "truffle-clo.h"
+#include "truffle-clo.c"
+#if defined __INTEL_COMPILER
+# pragma warning (default:593)
+#endif	/* __INTEL_COMPILER */
+
 int
 main(int argc, char *argv[])
 {
+	struct gengetopt_args_info argi[1];
 	cline_t cl;
 	trsch_t sch = NULL;
 	trcut_t c;
 
+	if (cmdline_parser(argc, argv, argi)) {
+		exit(1);
+	}
+
+	if (argi->schema_given) {
+		sch = read_schema(argi->schema_arg);
+	} else {
+		;
+	}
+#if 0
 	cl = make_cline('H', 0, 4);
 	cl->n[0].x = 21207;
 	cl->n[0].y = 0.0;
@@ -230,7 +250,7 @@ main(int argc, char *argv[])
 	cl->n[3].x = 21208;
 	cl->n[3].y = 0.0;
 	sch = sch_add_cl(sch, cl);
-
+#endif
 	/* finally call our main routine */
 	if ((c = make_cut(sch, 20020404))) {
 		for (size_t i = 0; i < c->ncomps; i++) {
@@ -244,6 +264,7 @@ main(int argc, char *argv[])
 		free(sch->p[i]);
 	}
 	free_schema(sch);
+	cmdline_parser_free(argi);
 	return 0;
 }
 #endif	/* STANDALONE */
