@@ -10,6 +10,15 @@
 # define DECLF	static
 # define DEFUN	static
 #endif	/* STANDALONE */
+#if !defined LIKELY
+# define LIKELY(_x)	__builtin_expect((_x), 1)
+#endif
+#if !defined UNLIKELY
+# define UNLIKELY(_x)	__builtin_expect((_x), 0)
+#endif
+#if !defined UNUSED
+# define UNUSED(_x)	_x __attribute__((unused))
+#endif	/* !UNUSED */
 
 typedef uint32_t idate_t;
 typedef struct trcut_s *trcut_t;
@@ -189,7 +198,7 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 		cl = make_cline(line[0], yoff, 0);
 
 		do {
-			dt = strtoul(p, &tmp, 10);
+			dt = strtoul(p, &tmp, 10) % 10000;
 			p = tmp + strspn(tmp, skip);
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
@@ -268,6 +277,7 @@ DEFUN trcut_t
 make_cut(trsch_t sch, idate_t dt)
 {
 	trcut_t res = NULL;
+	idate_t d_sans = dt % 10000;
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
@@ -279,8 +289,10 @@ make_cut(trsch_t sch, idate_t dt)
 			if (dt >= n1->x && dt <= n2->x) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
-				double xsub = idate_sub(n2->x, n1->x);
-				double tsub = idate_sub(dt, n1->x);
+				idate_t x1 = n1->x;
+				idate_t x2 = n2->x;
+				double xsub = idate_sub(x2, x1);
+				double tsub = idate_sub(d_sans, x1);
 
 				cc.month = p->month;
 				cc.year_off = p->year_off;
@@ -310,6 +322,7 @@ main(int argc, char *argv[])
 	struct gengetopt_args_info argi[1];
 	trsch_t sch = NULL;
 	trcut_t c;
+	int res = 0;
 
 	if (cmdline_parser(argc, argv, argi)) {
 		exit(1);
@@ -320,22 +333,24 @@ main(int argc, char *argv[])
 	} else {
 		sch = read_schema("-");
 	}
-
-	/* finally call our main routine */
-	if (sch && (c = make_cut(sch, 20020404))) {
-		for (size_t i = 0; i < c->ncomps; i++) {
-			fprintf(stdout, "%c%d %.4f\n",
-				c->comps[i].month,
-				c->comps[i].year_off,
-				c->comps[i].y);
+	if (LIKELY(sch != NULL)) {
+		/* finally call our main routine */
+		if ((c = make_cut(sch, 20020404))) {
+			for (size_t i = 0; i < c->ncomps; i++) {
+				fprintf(stdout, "%c%d %.4f\n",
+					c->comps[i].month,
+					c->comps[i].year_off,
+					c->comps[i].y);
+			}
+			free_cut(c);
 		}
-		free_cut(c);
-	}
-	if (sch) {
 		free_schema(sch);
+	} else {
+		fputs("schema unreadable\n", stderr);
+		res = 1;
 	}
 	cmdline_parser_free(argi);
-	return 0;
+	return res;
 }
 #endif	/* STANDALONE */
 

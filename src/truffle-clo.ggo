@@ -1,6 +1,6 @@
 args ""
 package "truffle"
-usage "truffle [options] DATE"
+usage "truffle [--schema FILE] [--apply FILE] DATE"
 description "Roll-over tool for futures.
 Input is read from stdin and must follow the specs:
   MCODE DATE VALUE DATE VALUE ...
