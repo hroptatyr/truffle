@@ -420,10 +420,16 @@ make_cut(trsch_t sch, idate_t dt)
 {
 	trcut_t res = NULL;
 	idate_t dt_sans = dt % 10000;
+	idate_t dt_year = dt / 10000;
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
 
+		/* check year validity */
+		if (dt_year < p->valid_from || dt_year > p->valid_till) {
+			/* cline isn't applicable */
+			continue;
+		}
 		for (size_t j = 0; j < p->nn - 1; j++) {
 			struct cnode_s *n1 = p->n + j;
 			struct cnode_s *n2 = n1 + 1;
