@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
@@ -455,17 +456,22 @@ make_cut(trsch_t sch, idate_t dt)
 }
 
 static void
-print_cut(trcut_t c, idate_t dt, FILE *whither)
+print_cut(trcut_t c, idate_t dt, double lever, bool rndp, FILE *whither)
 {
 	char buf[32];
 
 	snprint_idate(buf, sizeof(buf), dt);
 	for (size_t i = 0; i < c->ncomps; i++) {
+		double expo = c->comps[i].y * lever;
+
+		if (rndp) {
+			expo = round(expo);
+		}
 		fprintf(whither, "%s\t%c%d\t%.4f\n",
 			buf,
 			c->comps[i].month,
 			c->comps[i].year_off + c->year_off,
-			c->comps[i].y);
+			expo);
 	}
 	return;
 }
@@ -510,10 +516,13 @@ main(int argc, char *argv[])
 	for (size_t i = 0; i < argi->inputs_num; i++) {
 		idate_t dt = read_date(argi->inputs[i], NULL);
 		if ((c = make_cut(sch, dt))) {
+			double lev = argi->lever_given ? argi->lever_arg : 1.0;
+			bool rndp = argi->round_given;
+
 			if (argi->abs_given) {
 				c->year_off = dt / 10000;
 			}
-			print_cut(c, dt, stdout);
+			print_cut(c, dt, lev, rndp, stdout);
 			free_cut(c);
 		}
 	}
