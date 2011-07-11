@@ -19,6 +19,11 @@
 #if !defined UNUSED
 # define UNUSED(_x)	_x __attribute__((unused))
 #endif	/* !UNUSED */
+#if defined DEBUG_FLAG
+# define TRUF_DEBUG(args...)	fprintf(stderr, args)
+#else  /* !DEBUG_FLAG */
+# define TRUF_DEBUG(args...)
+#endif	/* DEBUG_FLAG */
 
 typedef uint32_t idate_t;
 typedef struct trcut_s *trcut_t;
@@ -49,7 +54,7 @@ struct trsch_s {
 struct trcc_s {
 	char month;
 	int8_t year_off;
-	double y;
+	double y __attribute__((aligned(16)));
 };
 
 struct trcut_s {
@@ -118,10 +123,11 @@ cut_add_cc(trcut_t c, struct trcc_s cc)
 {
 	if (c == NULL) {
 		size_t new = sizeof(*c) + 16 * sizeof(*c->comps);
-		c = malloc(new);
+		c = calloc(new, 1);
 	} else if ((c->ncomps % 16) == 0) {
 		size_t new = sizeof(*c) + (c->ncomps + 16) * sizeof(*c->comps);
 		c = realloc(c, new);
+		memset(c->comps + c->ncomps, 0, 16 * sizeof(*c->comps));
 	}
 	c->comps[c->ncomps++] = cc;
 	return c;
@@ -151,6 +157,44 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
 	return cl;
+}
+
+static idate_t
+read_date(const char *str)
+{
+	char *tmp;
+	idate_t res;
+
+	if ((res = strtol(str, &tmp, 10)) && *tmp == '\0') {
+		/* ah brilliant */
+		return res;
+	}
+	if (*tmp != '-') {
+		/* porn date */
+		return 0;
+	}
+	str = tmp + 1;
+	res *= 100;
+	res += strtol(str, &tmp, 10);
+	if (*tmp != '-') {
+		/* porn date */
+		return 0;
+	}
+	str = tmp + 1;
+	res *= 100;
+	res += strtol(str, &tmp, 10);
+	if (*tmp != '\0') {
+		/* porn date */
+		return 0;
+	}
+	return res;
+}
+
+static size_t
+snprint_idate(char *restrict buf, size_t bsz, idate_t dt)
+{
+	return snprintf(buf, bsz, "%u-%02u-%02u",
+			dt / 10000, (dt % 10000) / 100, (dt % 100));
 }
 
 
@@ -277,7 +321,7 @@ DEFUN trcut_t
 make_cut(trsch_t sch, idate_t dt)
 {
 	trcut_t res = NULL;
-	idate_t d_sans = dt % 10000;
+	idate_t dt_sans = dt % 10000;
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
@@ -285,14 +329,14 @@ make_cut(trsch_t sch, idate_t dt)
 		for (size_t j = 0; j < p->nn - 1; j++) {
 			struct cnode_s *n1 = p->n + j;
 			struct cnode_s *n2 = n1 + 1;
+			idate_t x1 = n1->x;
+			idate_t x2 = n2->x;
 
-			if (dt >= n1->x && dt <= n2->x) {
+			if (dt_sans >= x1 && dt_sans <= x2) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
-				idate_t x1 = n1->x;
-				idate_t x2 = n2->x;
 				double xsub = idate_sub(x2, x1);
-				double tsub = idate_sub(d_sans, x1);
+				double tsub = idate_sub(dt_sans, x1);
 
 				cc.month = p->month;
 				cc.year_off = p->year_off;
@@ -303,6 +347,22 @@ make_cut(trsch_t sch, idate_t dt)
 		}
 	}
 	return res;
+}
+
+static void
+print_cut(trcut_t c, idate_t dt, FILE *whither)
+{
+	char buf[32];
+
+	snprint_idate(buf, sizeof(buf), dt);
+	for (size_t i = 0; i < c->ncomps; i++) {
+		fprintf(whither, "%s\t%c%d\t%.4f\n",
+			buf,
+			c->comps[i].month,
+			c->comps[i].year_off,
+			c->comps[i].y);
+	}
+	return;
 }
 
 
@@ -333,22 +393,24 @@ main(int argc, char *argv[])
 	} else {
 		sch = read_schema("-");
 	}
-	if (LIKELY(sch != NULL)) {
-		/* finally call our main routine */
-		if ((c = make_cut(sch, 20020404))) {
-			for (size_t i = 0; i < c->ncomps; i++) {
-				fprintf(stdout, "%c%d %.4f\n",
-					c->comps[i].month,
-					c->comps[i].year_off,
-					c->comps[i].y);
-			}
-			free_cut(c);
-		}
-		free_schema(sch);
-	} else {
+	if (UNLIKELY(sch == NULL)) {
 		fputs("schema unreadable\n", stderr);
 		res = 1;
+		goto sch_out;
 	}
+	/* finally call our main routine */
+	if (argi->inputs_num == 0) {
+		print_schema(sch, stdout);
+	}
+	for (size_t i = 0; i < argi->inputs_num; i++) {
+		idate_t dt = read_date(argi->inputs[i]);
+		if ((c = make_cut(sch, dt))) {
+			print_cut(c, dt, stdout);
+			free_cut(c);
+		}
+	}
+	free_schema(sch);
+sch_out:
 	cmdline_parser_free(argi);
 	return res;
 }
