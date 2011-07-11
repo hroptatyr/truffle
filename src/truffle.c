@@ -311,7 +311,7 @@ print_cline(cline_t cl, FILE *whither)
 	}
 	for (size_t i = 0; i < cl->nn; i++) {
 		fputc(' ', whither);
-		fprintf(whither, " %u %.6f", cl->n[i].x, cl->n[i].y);
+		fprintf(whither, " %04u %.6f", cl->n[i].x, cl->n[i].y);
 	}
 	fputc('\n', whither);
 	return;
