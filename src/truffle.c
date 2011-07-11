@@ -160,17 +160,24 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 }
 
 static idate_t
-read_date(const char *str)
+read_date(const char *str, char **ptr)
 {
-	char *tmp;
 	idate_t res;
+	char *tmp;
 
-	if ((res = strtol(str, &tmp, 10)) && *tmp == '\0') {
+	if ((res = strtol(str, &tmp, 10)) &&
+	    (*tmp == '\0' || isspace(*tmp))) {
 		/* ah brilliant */
+		if (ptr) {
+			*ptr = tmp;
+		}
 		return res;
 	}
 	if (*tmp != '-') {
 		/* porn date */
+		if (ptr) {
+			*ptr = tmp;
+		}
 		return 0;
 	}
 	str = tmp + 1;
@@ -178,14 +185,23 @@ read_date(const char *str)
 	res += strtol(str, &tmp, 10);
 	if (*tmp != '-') {
 		/* porn date */
-		return 0;
+		if (ptr) {
+			*ptr = tmp;
+		}
+		return res;
 	}
 	str = tmp + 1;
 	res *= 100;
 	res += strtol(str, &tmp, 10);
 	if (*tmp != '\0') {
 		/* porn date */
+		if (ptr) {
+			*ptr = tmp;
+		}
 		return 0;
+	}
+	if (ptr) {
+		*ptr = tmp;
 	}
 	return res;
 }
@@ -236,13 +252,13 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 			yoff = strtol(line + 1, &tmp, 10);
 			p = tmp + strspn(tmp, skip);
 		} else {
-			p = line + strspn(line + 1, skip);
+			p = line + strspn(line + 1, skip) + 1;
 			yoff = 0;
 		}
 		cl = make_cline(line[0], yoff, 0);
 
 		do {
-			dt = strtoul(p, &tmp, 10) % 10000;
+			dt = read_date(p, &tmp) % 10000;
 			p = tmp + strspn(tmp, skip);
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
@@ -403,7 +419,7 @@ main(int argc, char *argv[])
 		print_schema(sch, stdout);
 	}
 	for (size_t i = 0; i < argi->inputs_num; i++) {
-		idate_t dt = read_date(argi->inputs[i]);
+		idate_t dt = read_date(argi->inputs[i], NULL);
 		if ((c = make_cut(sch, dt))) {
 			print_cut(c, dt, stdout);
 			free_cut(c);
