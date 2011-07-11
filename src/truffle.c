@@ -58,6 +58,8 @@ struct trcc_s {
 };
 
 struct trcut_s {
+	uint16_t year_off;
+
 	size_t ncomps;
 	struct trcc_s comps[];
 };
@@ -376,7 +378,7 @@ print_cut(trcut_t c, idate_t dt, FILE *whither)
 		fprintf(whither, "%s\t%c%d\t%.4f\n",
 			buf,
 			c->comps[i].month,
-			c->comps[i].year_off,
+			c->comps[i].year_off + c->year_off,
 			c->comps[i].y);
 	}
 	return;
@@ -422,6 +424,9 @@ main(int argc, char *argv[])
 	for (size_t i = 0; i < argi->inputs_num; i++) {
 		idate_t dt = read_date(argi->inputs[i], NULL);
 		if ((c = make_cut(sch, dt))) {
+			if (argi->abs_given) {
+				c->year_off = dt / 10000;
+			}
 			print_cut(c, dt, stdout);
 			free_cut(c);
 		}

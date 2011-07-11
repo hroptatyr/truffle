@@ -4,7 +4,9 @@ usage "truffle [--schema FILE] [--apply FILE] DATE ..."
 description "Roll-over tool for futures.
 Input is read from stdin and must follow the specs:
   MCODE DATE VALUE DATE VALUE ...
-where DATE is %m%d and value is a non-negative double."
+where DATE is %m%d and value is a non-negative double.
+If no DATEs"
 
+option "abs" a "Use absolute contract years" optional
 option "schema" s "Schema file, read from stdin if omitted" string optional
 
