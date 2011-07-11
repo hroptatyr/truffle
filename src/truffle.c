@@ -37,6 +37,8 @@ struct cnode_s {
 };
 
 /* a single line */
+#define DFLT_FROM	(1)
+#define DFLT_TILL	(9999)
 struct cline_s {
 	char month;
 	int8_t year_off;
@@ -273,6 +275,59 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 	return cl;
 }
 
+static cline_t __attribute__((noinline))
+read_schema_line(const char *line, size_t UNUSED(llen))
+{
+/* schema lines can be prefixed with a range of validity years:
+ * * valid for all years,
+ * * - 2002 or * 2002 valid for all years up to and including 2002
+ * 2003 - * valid from 2003
+ * 2002 - 2003 or 2002 2003 valid in 2002 and 2003 */
+	static const char skip[] = " \t";
+	cline_t cl;
+	/* validity */
+	uint16_t vfrom = 0;
+	uint16_t vtill = 0;
+	const char *lp = line;
+
+	while (1) {
+		switch (*lp) {
+			char *tmp;
+			uint16_t tmi;
+		case '0' ... '9':
+			tmi = strtoul(lp, &tmp, 10);
+
+			if (!vfrom) {
+				vfrom = tmi;
+			} else {
+				vtill = tmi;
+			}
+			lp = tmp + strspn(tmp, skip);
+			continue;
+		case '*':
+			vfrom = vfrom ?: DFLT_FROM;
+			vtill = DFLT_TILL;
+			lp += strspn(lp + 1, skip) + 1;
+			continue;
+		case '-':
+			lp += strspn(lp + 1, skip) + 1;
+			vtill = DFLT_TILL;
+			continue;
+		default:
+			break;
+		}
+		break;
+	}
+	if (vtill > DFLT_FROM && vfrom > vtill) {
+		return NULL;
+	}
+	if ((cl = __read_schema_line(lp, llen - (lp - line)))) {
+		cl->valid_from = vfrom;
+		cl->valid_till = vtill ?: vfrom;
+	}
+	return cl;
+}
+
 DEFUN trsch_t
 read_schema(const char *file)
 {
@@ -307,6 +362,31 @@ read_schema(const char *file)
 static void
 print_cline(cline_t cl, FILE *whither)
 {
+	if (cl->valid_from == DFLT_FROM && cl->valid_till == DFLT_TILL) {
+		/* print nothing */
+	} else {
+		if (cl->valid_from == DFLT_FROM) {
+			fputc('*', whither);
+		} else if (cl->valid_from > DFLT_FROM) {
+			fprintf(whither, "%u", cl->valid_from);
+		} else {
+			/* we were meant to fill this bugger */
+			abort();
+		}
+		if (cl->valid_from < cl->valid_till) {
+			fputc('-', whither);
+			if (cl->valid_till >= DFLT_TILL) {
+				fputc('*', whither);
+			} else if (cl->valid_from > 0) {
+				fprintf(whither, "%u", cl->valid_till);
+			} else {
+				/* invalid value in here */
+				abort();
+			}
+		}
+		fputc(' ', whither);
+	}
+
 	fputc(cl->month, whither);
 	if (cl->year_off) {
 		fprintf(whither, "%d", cl->year_off);
