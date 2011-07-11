@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <string.h>
+#include <ctype.h>
 #include <math.h>
 
 #if defined STANDALONE
@@ -127,18 +129,132 @@ make_cline(char month, int8_t yoff, size_t nnodes)
 	return res;
 }
 
+static cline_t
+cline_add_sugar(cline_t cl, idate_t x, double y)
+{
+	size_t idx;
+
+	if ((cl->nn % 4) == 0) {
+		size_t new = sizeof(*cl) + (cl->nn + 4) * sizeof(*cl->n);
+		cl = realloc(cl, new);
+	}
+	idx = cl->nn++;
+	cl->n[idx].x = x;
+	cl->n[idx].y = y;
+	return cl;
+}
+
 
 DEFUN void
 free_schema(trsch_t sch)
 {
+	for (size_t i = 0; i < sch->np; i++) {
+		free(sch->p[i]);
+	}
 	free(sch);
 	return;
+}
+
+static cline_t
+read_schema_line(const char *line, size_t llen __attribute__((unused)))
+{
+	cline_t cl = NULL;
+	static const char skip[] = " \t";
+
+	switch (line[0]) {
+		int yoff;
+		const char *p;
+		char *tmp;
+		idate_t dt;
+		double v;
+	case 'f': case 'F':
+	case 'g': case 'G':
+	case 'h': case 'H':
+	case 'j': case 'J':
+	case 'k': case 'K':
+	case 'm': case 'M':
+	case 'n': case 'N':
+	case 'q': case 'Q':
+	case 'u': case 'U':
+	case 'v': case 'V':
+	case 'x': case 'X':
+	case 'z': case 'Z':
+		if (!isspace(line[1])) {
+			yoff = strtol(line + 1, &tmp, 10);
+			p = tmp + strspn(tmp, skip);
+		} else {
+			p = line + strspn(line + 1, skip);
+			yoff = 0;
+		}
+		cl = make_cline(line[0], yoff, 0);
+
+		do {
+			dt = strtoul(p, &tmp, 10);
+			p = tmp + strspn(tmp, skip);
+			v = strtod(p, &tmp);
+			p = tmp + strspn(tmp, skip);
+			/* add this line */
+			cl = cline_add_sugar(cl, dt, v);
+		} while (*p != '\n');
+	default:
+		break;
+	}
+	return cl;
 }
 
 DEFUN trsch_t
 read_schema(const char *file)
 {
-	return NULL;
+/* lines look like
+ * MONTH YEAR_OFF SPACE DATE VAL ... */
+	size_t llen = 0UL;
+	char *line = NULL;
+	trsch_t res = NULL;
+	FILE *f;
+	ssize_t nrd;
+
+	if (file[0] == '-' && file[1] == '\0') {
+		f = stdin;
+	} else {
+		f = fopen(file, "r");
+	}
+	while ((nrd = getline(&line, &llen, f)) > 0) {
+		cline_t cl;
+
+		if ((cl = read_schema_line(line, nrd))) {
+			res = sch_add_cl(res, cl);
+		}
+	}
+
+	if (line) {
+		free(line);
+	}
+	fclose(f);
+	return res;
+}
+
+static void
+print_cline(cline_t cl, FILE *whither)
+{
+	fputc(cl->month, whither);
+	if (cl->year_off) {
+		fprintf(whither, "%d", cl->year_off);
+	}
+	for (size_t i = 0; i < cl->nn; i++) {
+		fputc(' ', whither);
+		fprintf(whither, " %u %.6f", cl->n[i].x, cl->n[i].y);
+	}
+	fputc('\n', whither);
+	return;
+}
+
+DEFUN void __attribute__((unused))
+print_schema(trsch_t sch, FILE *whither)
+{
+	for (size_t i = 0; i < sch->np; i++) {
+		print_cline(sch->p[i], whither);
+	}
+	return;
 }
 
 DEFUN void
@@ -160,7 +276,6 @@ make_cut(trsch_t sch, idate_t dt)
 			struct cnode_s *n1 = p->n + j;
 			struct cnode_s *n2 = n1 + 1;
 
-			fprintf(stderr, "%u %u %u\n", n1->x, n2->x, dt);
 			if (dt >= n1->x && dt <= n2->x) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
@@ -193,7 +308,6 @@ int
 main(int argc, char *argv[])
 {
 	struct gengetopt_args_info argi[1];
-	cline_t cl;
 	trsch_t sch = NULL;
 	trcut_t c;
 
@@ -204,66 +318,22 @@ main(int argc, char *argv[])
 	if (argi->schema_given) {
 		sch = read_schema(argi->schema_arg);
 	} else {
-		;
+		sch = read_schema("-");
 	}
-#if 0
-	cl = make_cline('H', 0, 4);
-	cl->n[0].x = 21207;
-	cl->n[0].y = 0.0;
-	cl->n[1].x = 21208;
-	cl->n[1].y = 1.0;
-	cl->n[2].x = 20307;
-	cl->n[2].y = 1.0;
-	cl->n[3].x = 20308;
-	cl->n[3].y = 0.0;
-	sch = sch_add_cl(sch, cl);
 
-	cl = make_cline('M', 0, 4);
-	cl->n[0].x = 20307;
-	cl->n[0].y = 0.0;
-	cl->n[1].x = 20308;
-	cl->n[1].y = 1.0;
-	cl->n[2].x = 20607;
-	cl->n[2].y = 1.0;
-	cl->n[3].x = 20608;
-	cl->n[3].y = 0.0;
-	sch = sch_add_cl(sch, cl);
-
-	cl = make_cline('U', 0, 4);
-	cl->n[0].x = 20607;
-	cl->n[0].y = 0.0;
-	cl->n[1].x = 20608;
-	cl->n[1].y = 1.0;
-	cl->n[2].x = 20907;
-	cl->n[2].y = 1.0;
-	cl->n[3].x = 20908;
-	cl->n[3].y = 0.0;
-	sch = sch_add_cl(sch, cl);
-
-	cl = make_cline('Z', 0, 4);
-	cl->n[0].x = 20907;
-	cl->n[0].y = 0.0;
-	cl->n[1].x = 20908;
-	cl->n[1].y = 1.0;
-	cl->n[2].x = 21207;
-	cl->n[2].y = 1.0;
-	cl->n[3].x = 21208;
-	cl->n[3].y = 0.0;
-	sch = sch_add_cl(sch, cl);
-#endif
 	/* finally call our main routine */
-	if ((c = make_cut(sch, 20020404))) {
+	if (sch && (c = make_cut(sch, 20020404))) {
 		for (size_t i = 0; i < c->ncomps; i++) {
-			fprintf(stderr, "%c%d %.4f\n",
-				c->comps[i].month, c->comps[i].year_off, c->comps[i].y);
+			fprintf(stdout, "%c%d %.4f\n",
+				c->comps[i].month,
+				c->comps[i].year_off,
+				c->comps[i].y);
 		}
 		free_cut(c);
 	}
-
-	for (size_t i = 0; i < sch->np; i++) {
-		free(sch->p[i]);
+	if (sch) {
+		free_schema(sch);
 	}
-	free_schema(sch);
 	cmdline_parser_free(argi);
 	return 0;
 }
