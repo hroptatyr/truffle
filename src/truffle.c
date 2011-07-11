@@ -348,7 +348,8 @@ make_cut(trsch_t sch, idate_t dt)
 			idate_t x1 = n1->x;
 			idate_t x2 = n2->x;
 
-			if (dt_sans >= x1 && dt_sans <= x2) {
+			if ((dt_sans >= x1 && dt_sans <= x2) ||
+			    (x1 > x2 && (dt_sans >= x1 || dt_sans <= x2))) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
 				double xsub = idate_sub(x2, x1);
