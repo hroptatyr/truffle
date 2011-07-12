@@ -345,8 +345,9 @@ read_schema(const char *file)
 
 	if (file[0] == '-' && file[1] == '\0') {
 		f = stdin;
-	} else {
-		f = fopen(file, "r");
+	} else if ((f = fopen(file, "r")) == NULL) {
+		fprintf(stderr, "unable to open file %s\n", file);
+		return NULL;
 	}
 	while ((nrd = getline(&line, &llen, f)) > 0) {
 		cline_t cl;
