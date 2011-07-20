@@ -602,8 +602,35 @@ find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
 	return res;
 }
 
+static double
+cut_flow(
+	trcut_t c, idate_t dt, struct trser_s *ser, size_t nser,
+	double *new_dvs, double *old_dvs, double tick_val)
+{
+	uint16_t dt_y = dt / 10000;
+	double res = 0;
+
+	find_dv(new_dvs, ser, nser, dt);
+	for (size_t i = 0; i < c->ncomps; i++) {
+		double expo = c->comps[i].y * tick_val;
+		char mon = c->comps[i].month;
+		uint16_t year = c->comps[i].year_off + dt_y;
+		struct trser_s *this;
+		size_t idx;
+
+		this = __find_ser(ser, nser, mon, year);
+
+		if (this == NULL) {
+			continue;
+		}
+		idx = (this - ser);
+		res += expo * (new_dvs[idx] - old_dvs[idx]);
+	}
+	return res;
+}
+
 static void
-roll_series(trsch_t s, const char *ser_file, FILE *whither)
+roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 {
 	struct trser_s *ser = NULL;
 	size_t nser = 0;
@@ -632,29 +659,12 @@ roll_series(trsch_t s, const char *ser_file, FILE *whither)
 		/* anchor now contains the very first date and value */
 		if ((c = make_cut(s, dt))) {
 			char buf[32];
-			double new_v = old_an.v;
-			uint16_t dt_y = dt / 10000;
+			double cf;
 
+			cf = cut_flow(c, dt, ser, nser, new_dvs, old_dvs, tv);
+			anchor.v = cum ? old_an.v + cf : cf;
 			snprint_idate(buf, sizeof(buf), dt);
-			find_dv(new_dvs, ser, nser, dt);
-
-			for (size_t i = 0; i < c->ncomps; i++) {
-				double expo = c->comps[i].y;
-				char mon = c->comps[i].month;
-				uint16_t year = c->comps[i].year_off + dt_y;
-				struct trser_s *this;
-				size_t idx;
-
-				this = __find_ser(ser, nser, mon, year);
-
-				if (this == NULL) {
-					continue;
-				}
-				idx = (this - ser);
-				new_v += expo * (new_dvs[idx] - old_dvs[idx]);
-			}
-			anchor.v = new_v;
-			fprintf(whither, "%s\t%.8g\n", buf, new_v);
+			fprintf(whither, "%s\t%.8g\n", buf, anchor.v);
 			free_cut(c);
 			memcpy(old_dvs, new_dvs, sizeof(*old_dvs) * nser);
 		}
@@ -716,7 +726,10 @@ main(int argc, char *argv[])
 	}
 	/* finally call our main routine */
 	if (argi->series_given) {
-		roll_series(sch, argi->series_arg, stdout);
+		double tv = argi->tick_value_given
+			? argi->tick_value_arg : 1.0;
+		bool cump = !argi->flow_given;
+		roll_series(sch, argi->series_arg, tv, cump, stdout);
 	} else if (argi->inputs_num == 0) {
 		print_schema(sch, stdout);
 	}
