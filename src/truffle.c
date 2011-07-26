@@ -732,18 +732,19 @@ main(int argc, char *argv[])
 		roll_series(sch, argi->series_arg, tv, cump, stdout);
 	} else if (argi->inputs_num == 0) {
 		print_schema(sch, stdout);
-	}
-	for (size_t i = 0; i < argi->inputs_num; i++) {
-		idate_t dt = read_date(argi->inputs[i], NULL);
-		if ((c = make_cut(sch, dt))) {
-			double lev = argi->lever_given ? argi->lever_arg : 1.0;
-			bool rndp = argi->round_given;
+	} else {
+		double lev = argi->lever_given ? argi->lever_arg : 1.0;
+		bool rndp = argi->round_given;
 
-			if (argi->abs_given) {
-				c->year_off = dt / 10000;
+		for (size_t i = 0; i < argi->inputs_num; i++) {
+			idate_t dt = read_date(argi->inputs[i], NULL);
+			if ((c = make_cut(sch, dt))) {
+				if (argi->abs_given) {
+					c->year_off = dt / 10000;
+				}
+				print_cut(c, dt, lev, rndp, stdout);
+				free_cut(c);
 			}
-			print_cut(c, dt, lev, rndp, stdout);
-			free_cut(c);
 		}
 	}
 	free_schema(sch);
