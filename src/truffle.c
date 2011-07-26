@@ -640,6 +640,7 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	trcut_t c;
 	double *new_dvs;
 	double *old_dvs;
+	bool initp = false;
 
 	if ((f = fopen(ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_file);
@@ -662,7 +663,14 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			double cf;
 
 			cf = cut_flow(c, dt, ser, nser, new_dvs, old_dvs, tv);
-			anchor.v = cum ? old_an.v + cf : cf;
+			if (LIKELY(cum)) {
+				anchor.v = old_an.v + cf;
+			} else if (LIKELY(initp)) {
+				anchor.v = cf;
+			} else {
+				anchor.v = 0;
+				initp = true;
+			}				
 			snprint_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, anchor.v);
 			free_cut(c);
