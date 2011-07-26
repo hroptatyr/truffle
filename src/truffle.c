@@ -589,14 +589,16 @@ find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
 	size_t res = 0;
 
 	for (size_t i = 0; i < nser; i++) {
+		size_t j;
+
 		if (ser[i].nvals == 0) {
 			continue;
 		}
-		for (size_t j = 0; j < ser[i].nvals; j++) {
-			if (ser[i].vals[j].d == dt) {
-				dv[i] = ser[i].vals[j].v;
-				res++;
-			}
+		for (j = 0; j < ser[i].nvals && ser[i].vals[j].d < dt; j++);
+
+		if (ser[i].vals[j].d == dt) {
+			dv[i] = ser[i].vals[j].v;
+			res++;
 		}
 	}
 	return res;
@@ -605,7 +607,7 @@ find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
 static double
 cut_flow(
 	trcut_t c, idate_t dt, struct trser_s *ser, size_t nser,
-	double *new_dvs, double *old_dvs, double tick_val)
+	double *new_dvs, const double *old_dvs, double tick_val)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
