@@ -466,8 +466,41 @@ make_cut(trsch_t sch, idate_t dt)
 	return res;
 }
 
+static int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'F':
+		return 1;
+	case 'G':
+		return 2;
+	case 'H':
+		return 3;
+	case 'J':
+		return 4;
+	case 'K':
+		return 5;
+	case 'M':
+		return 6;
+	case 'N':
+		return 7;
+	case 'Q':
+		return 8;
+	case 'U':
+		return 9;
+	case 'V':
+		return 10;
+	case 'X':
+		return 11;
+	case 'Z':
+		return 12;
+	default:
+		return 0;
+	}
+}
+
 static void
-print_cut(trcut_t c, idate_t dt, double lever, bool rndp, FILE *whither)
+print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 {
 	char buf[32];
 
@@ -475,14 +508,22 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rndp, FILE *whither)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * lever;
 
-		if (rndp) {
+		if (rnd) {
 			expo = round(expo);
 		}
-		fprintf(whither, "%s\t%c%d\t%.8g\n",
-			buf,
-			c->comps[i].month,
-			c->comps[i].year_off + c->year_off,
-			expo);
+		if (!oco) {
+			fprintf(out, "%s\t%c%d\t%.8g\n",
+				buf,
+				c->comps[i].month,
+				c->comps[i].year_off + c->year_off,
+				expo);
+		} else {
+			fprintf(out, "%s\t%d%02d\t%.8g\n",
+				buf,
+				c->comps[i].year_off + c->year_off,
+				m_to_i(c->comps[i].month),
+				expo);
+		}
 	}
 	return;
 }
@@ -745,6 +786,7 @@ main(int argc, char *argv[])
 	} else {
 		double lev = argi->lever_given ? argi->lever_arg : 1.0;
 		bool rndp = argi->round_given;
+		bool ocop = argi->oco_given;
 
 		for (size_t i = 0; i < argi->inputs_num; i++) {
 			idate_t dt = read_date(argi->inputs[i], NULL);
@@ -752,7 +794,7 @@ main(int argc, char *argv[])
 				if (argi->abs_given) {
 					c->year_off = dt / 10000;
 				}
-				print_cut(c, dt, lev, rndp, stdout);
+				print_cut(c, dt, lev, rndp, ocop, stdout);
 				free_cut(c);
 			}
 		}
