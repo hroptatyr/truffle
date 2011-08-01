@@ -31,6 +31,8 @@ typedef uint32_t daysi_t;
 typedef struct trcut_s *trcut_t;
 typedef struct trsch_s *trsch_t;
 typedef struct cline_s *cline_t;
+typedef struct trser_s *trser_t;
+typedef struct trtsc_s *trtsc_t;
 
 #define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
 
@@ -84,6 +86,21 @@ struct trser_s {
 	struct __dv_s *vals;
 };
 #define SER_STEP	(4096 / sizeof(struct __dv_s))
+
+struct __tsc_s {
+	idate_t d;
+
+	size_t nvals;
+	struct {
+		uint32_t cym;
+		double v;
+	} *vals;
+};
+
+struct trtsc_s {
+	size_t ntscs;
+	struct __tsc_s tscs[];
+};
 
 DECLF trcut_t make_cut(trsch_t schema, idate_t when);
 DECLF void free_cut(trcut_t);
@@ -530,6 +547,8 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 	return;
 }
 
+
+/* series handling */
 static struct trser_s*
 __find_ser(struct trser_s *ser, size_t nser, char mon, uint16_t yoff)
 {
@@ -627,6 +646,84 @@ find_next_anchor(
 	return res;
 }
 
+static uint32_t
+cym_to_ym(char month, uint16_t year)
+{
+	return (year << 8) + (uint8_t)month;
+}
+
+#define CSER_STEP	(4096)
+
+static trtsc_t
+conv_series(trser_t ser, size_t nser)
+{
+	idate_t dt = 0;
+	idate_t odt = 0;
+	trtsc_t res = NULL;
+	size_t idx[nser];
+	size_t nvals;
+	struct __tsc_s *tsc;
+
+	memset(idx, 0, sizeof(*idx) * nser);
+	while (1) {
+		odt = dt;
+		dt = 99999999;
+		for (size_t i = 0; i < nser; i++) {
+			if (ser[i].nvals == 0) {
+				continue;
+			}
+			for (size_t j = idx[i]; j < ser[i].nvals; j++) {
+				if (ser[i].vals[j].d < dt &&
+				    ser[i].vals[j].d > odt) {
+					dt = ser[i].vals[j].d;
+				}
+			}
+		}
+		if (UNLIKELY(dt == 99999999)) {
+			break;
+		}
+
+		/* now dt has the start date */
+		if (UNLIKELY(res == NULL)) {
+			size_t new = sizeof(*res) +
+				CSER_STEP * sizeof(*res->tscs);
+			res = malloc(new);
+			memset(res, 0, new);
+		} else if (UNLIKELY(res->ntscs % CSER_STEP == 0)) {
+			size_t new = sizeof(*res) +
+				(res->ntscs + CSER_STEP) * sizeof(*res->tscs);
+			res = realloc(res, new);
+			memset(res->tscs + res->ntscs, 0,
+			       CSER_STEP * sizeof(*res->tscs));
+		}
+		tsc = res->tscs + res->ntscs++;
+
+		nvals = 0;
+		for (size_t i = 0; i < nser; i++) {
+			for (size_t j = idx[i]; j < ser[i].nvals; j++) {
+				if (ser[i].vals[j].d == dt) {
+					idx[i] = j + 1;
+					nvals++;
+				}
+			}
+		}
+		tsc->d = dt;
+		tsc->nvals = nvals;
+		tsc->vals = calloc(nvals, sizeof(*tsc->vals));
+
+		for (size_t i = 0, k = 0; i < nser; i++) {
+			size_t j = idx[i] > 0 ? idx[i] - 1 : 0;
+			if (ser[i].vals[j].d == dt) {
+				tsc->vals[k].cym =
+					cym_to_ym(ser[i].month, ser[i].year);
+				tsc->vals[k].v = ser[i].vals[j].v;
+				k++;
+			}
+		}
+	}
+	return res;
+}
+
 static size_t
 find_dv(double *dv, size_t *idx, struct trser_s *ser, size_t nser, idate_t dt)
 {
@@ -687,6 +784,7 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	double *old_dvs;
 	size_t *idx;
 	bool initp = false;
+	trtsc_t tsc;
 
 	if ((f = fopen(ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_file);
@@ -695,14 +793,16 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 		return;
 	}
 
+	/* convert to date based series */
+	tsc = conv_series(ser, nser);
+
 	/* get us space for nser dvs */
 	new_dvs = calloc(nser, sizeof(*new_dvs));
 	old_dvs = calloc(nser, sizeof(*old_dvs));
 	idx = calloc(nser, sizeof(*idx));
 	/* find the earliest date */
-	while ((anchor = find_next_anchor(ser, nser, idx, old_an),
-		anchor.d) > old_an.d) {
-		idate_t dt = anchor.d;
+	for (size_t i = 0; i < tsc->ntscs; i++) {
+		idate_t dt = tsc->tscs[i].d;
 
 		/* anchor now contains the very first date and value */
 		if ((c = make_cut(s, dt))) {
@@ -724,11 +824,17 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			free_cut(c);
 			memcpy(old_dvs, new_dvs, sizeof(*old_dvs) * nser);
 		}
-		/* copy over values */
-		old_an = anchor;
 	}
 
 	/* free up resources */
+	if (tsc) {
+		for (size_t i = 0; i < tsc->ntscs; i++) {
+			if (tsc->tscs[i].nvals) {
+				free(tsc->tscs[i].vals);
+			}
+		}
+		free(tsc);
+	}
 	if (ser) {
 		for (size_t i = 0; i < nser; i++) {
 			if (ser[i].vals) {
