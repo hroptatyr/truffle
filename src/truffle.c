@@ -605,7 +605,8 @@ read_series(struct trser_s **ser, FILE *f)
 }
 
 static struct __dv_s
-find_next_anchor(struct trser_s *ser, size_t nser, struct __dv_s anchor)
+find_next_anchor(
+	struct trser_s *ser, size_t nser, size_t *idx, struct __dv_s anchor)
 {
 	struct __dv_s res = {.d = 99999999};
 
@@ -613,7 +614,7 @@ find_next_anchor(struct trser_s *ser, size_t nser, struct __dv_s anchor)
 		if (ser[i].nvals == 0) {
 			continue;
 		}
-		for (size_t j = 0; j < ser[i].nvals; j++) {
+		for (size_t j = idx[i]; j < ser[i].nvals; j++) {
 			if (ser[i].vals[j].d > anchor.d &&
 			    ser[i].vals[j].d < res.d) {
 				res = ser[i].vals[j];
@@ -627,20 +628,19 @@ find_next_anchor(struct trser_s *ser, size_t nser, struct __dv_s anchor)
 }
 
 static size_t
-find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
+find_dv(double *dv, size_t *idx, struct trser_s *ser, size_t nser, idate_t dt)
 {
 	size_t res = 0;
 
 	for (size_t i = 0; i < nser; i++) {
 		size_t j;
 
-		if (ser[i].nvals == 0) {
-			continue;
-		}
-		for (j = 0; j < ser[i].nvals && ser[i].vals[j].d < dt; j++);
+		for (j = idx[i];
+		     j < ser[i].nvals && ser[i].vals[j].d < dt; j++);
 
 		if (ser[i].vals[j].d == dt) {
 			dv[i] = ser[i].vals[j].v;
+			idx[i] = j + 1;
 			res++;
 		}
 	}
@@ -650,12 +650,12 @@ find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
 static double
 cut_flow(
 	trcut_t c, idate_t dt, struct trser_s *ser, size_t nser,
-	double *new_dvs, const double *old_dvs, double tick_val)
+	double *new_dvs, const double *old_dvs, size_t *idx, double tick_val)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
 
-	find_dv(new_dvs, ser, nser, dt);
+	find_dv(new_dvs, idx, ser, nser, dt);
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * tick_val;
 		char mon = c->comps[i].month;
@@ -685,6 +685,7 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	trcut_t c;
 	double *new_dvs;
 	double *old_dvs;
+	size_t *idx;
 	bool initp = false;
 
 	if ((f = fopen(ser_file, "r")) == NULL) {
@@ -697,8 +698,9 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	/* get us space for nser dvs */
 	new_dvs = calloc(nser, sizeof(*new_dvs));
 	old_dvs = calloc(nser, sizeof(*old_dvs));
+	idx = calloc(nser, sizeof(*idx));
 	/* find the earliest date */
-	while ((anchor = find_next_anchor(ser, nser, old_an),
+	while ((anchor = find_next_anchor(ser, nser, idx, old_an),
 		anchor.d) > old_an.d) {
 		idate_t dt = anchor.d;
 
@@ -707,7 +709,8 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			char buf[32];
 			double cf;
 
-			cf = cut_flow(c, dt, ser, nser, new_dvs, old_dvs, tv);
+			cf = cut_flow(
+				c, dt, ser, nser, new_dvs, old_dvs, idx, tv);
 			if (LIKELY(cum)) {
 				anchor.v = old_an.v + cf;
 			} else if (LIKELY(initp)) {
@@ -739,6 +742,9 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	}
 	if (old_dvs) {
 		free(old_dvs);
+	}
+	if (idx) {
+		free(idx);
 	}
 	fclose(f);
 	return;
