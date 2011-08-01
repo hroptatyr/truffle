@@ -264,43 +264,62 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	return cl;
 }
 
-static idate_t
-read_date(const char *str, char **ptr)
+static char*
+__p2c(const char *str)
 {
-	idate_t res;
-	char *tmp;
+	union {
+		const char *c;
+		char *p;
+	} this = {.c = str};
+	return this.p;
+}
 
-	if ((res = strtol(str, &tmp, 10)) &&
-	    (*tmp == '\0' || isspace(*tmp))) {
-		/* ah brilliant */
+static idate_t
+read_date(const char *str, char **restrict ptr)
+{
+#define C(x)	(x - '0')
+	idate_t res = 0;
+	const char *tmp;
+
+	tmp = str;
+	res = C(tmp[0]) * 10 + C(tmp[1]);
+	tmp = tmp + 2 + (tmp[2] == '-');
+
+	if (*tmp == '\0' || isspace(*tmp)) {
 		if (ptr) {
-			*ptr = tmp;
+			*ptr = __p2c(tmp);
 		}
 		return res;
 	}
-	if (*tmp != '-') {
-		/* porn date */
+
+	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
+	tmp = tmp + 2 + (tmp[2] == '-');
+
+	if (*tmp == '\0' || isspace(*tmp)) {
 		if (ptr) {
-			*ptr = tmp;
+			*ptr = __p2c(tmp);
+		}
+		return res;
+	}
+
+	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
+	tmp = tmp + 2 + (tmp[2] == '-');
+
+	if (*tmp == '\0' || isspace(*tmp)) {
+		/* date is fucked? */
+		if (ptr) {
+			*ptr = __p2c(tmp);
 		}
 		return 0;
 	}
-	str = tmp + 1;
-	res *= 100;
-	res += strtol(str, &tmp, 10);
-	if (*tmp != '-') {
-		/* porn date */
-		if (ptr) {
-			*ptr = tmp;
-		}
-		return res;
-	}
-	str = tmp + 1;
-	res *= 100;
-	res += strtol(str, &tmp, 10);
+
+	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
+	tmp = tmp + 2;
+
 	if (ptr) {
-		*ptr = tmp;
+		*ptr = __p2c(tmp);
 	}
+#undef C
 	return res;
 }
 
