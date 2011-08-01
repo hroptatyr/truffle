@@ -27,13 +27,17 @@
 #endif	/* DEBUG_FLAG */
 
 typedef uint32_t idate_t;
+typedef uint32_t daysi_t;
 typedef struct trcut_s *trcut_t;
 typedef struct trsch_s *trsch_t;
 typedef struct cline_s *cline_t;
 
+#define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
+
 /* a node */
 struct cnode_s {
 	idate_t x;
+	daysi_t l;
 	double y;
 };
 
@@ -89,38 +93,34 @@ DECLF void free_schema(trsch_t);
 
 
 /* idate helpers */
-static int8_t __attribute__((unused)) ml[] = {
-	0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-};
-static int16_t mc[] = {
-/* this is 100 - ml[i] cumulated */
-	0, 0, 69, 141, 210, 280, 349, 419, 488, 557, 627, 696, 766
+static uint16_t dm[] = {
+/* this is \sum ml, first element is a bit set of leap days to add */
+	0xfff8, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
 };
 
-static int
-idate_sub(idate_t d1, idate_t d2)
+#define BASE_YEAR	(1917)
+
+static daysi_t
+idate_to_daysi(idate_t dt)
 {
-	int m1, m2;
-	int y1, y2;
-	int res;
+/* compute days since 1917-01-01 (Mon),
+ * if year slot is absent in D compute the day in the year of D instead. */
+	int y = dt / 10000;
+	int m = (dt / 100) % 100;
+	int d = dt % 100;
+	daysi_t res = dm[m] + d;
 
-	if (d1 == d2) {
-		return 0;
-	}
-	y1 = d1 / 10000;
-	y2 = d2 / 10000;
+	if (LIKELY(y == 0)) {
+		res |= DAYSI_DIY_BIT;
+	} else {
+		int dy = (y - BASE_YEAR);
 
-	/* 0205 - 0128 -> 77 - (100 - 31) = 8
-	 * 0305 - 0128 -> 177 - (100 - 31) - (100 - 28) = 36
-	 * 0105 - 1228 -> -1123 - (69 - 835) = 8 */
-	m1 = ((d1 / 100) % 100);
-	m2 = ((d2 / 100) % 100);
-	res = ((d2 - d1) - (mc[m2] - mc[m1]));
-	if (y1 == y2) {
-		return res % 365;
+		res += dy * 365 + dy / 4;
+		if (UNLIKELY(dy % 4 == 3)) {
+			res += (dm[0] >> (m)) & 1;
+		}
 	}
-	/* .... plus leap days actually */
-	return (y2 - y1) * 365 + res;
+	return res;
 }
 
 static trsch_t
@@ -175,6 +175,7 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	idx = cl->nn++;
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
+	cl->n[idx].l = idate_to_daysi(x);
 	return cl;
 }
 
@@ -433,6 +434,7 @@ make_cut(trsch_t sch, idate_t dt)
 	trcut_t res = NULL;
 	idate_t dt_sans = dt % 10000;
 	idate_t dt_year = dt / 10000;
+	daysi_t ddt_sans = idate_to_daysi(dt_sans);
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
@@ -442,9 +444,9 @@ make_cut(trsch_t sch, idate_t dt)
 			/* cline isn't applicable */
 			continue;
 		}
-		for (size_t j = 0; j < p->nn - 1; j++) {
+		for (size_t j = 0; j < p->nn; j++) {
 			struct cnode_s *n1 = p->n + j;
-			struct cnode_s *n2 = n1 + 1;
+			struct cnode_s *n2 = j < p->nn ? n1 + 1 : p->n;
 			idate_t x1 = n1->x;
 			idate_t x2 = n2->x;
 
@@ -452,8 +454,8 @@ make_cut(trsch_t sch, idate_t dt)
 			    (x1 > x2 && (dt_sans >= x1 || dt_sans <= x2))) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
-				double xsub = idate_sub(x2, x1);
-				double tsub = idate_sub(dt_sans, x1);
+				double xsub = n2->l - n1->l;
+				double tsub = ddt_sans - n1->l;
 
 				cc.month = p->month;
 				cc.year_off = p->year_off;
