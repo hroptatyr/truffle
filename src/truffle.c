@@ -87,20 +87,18 @@ struct trser_s {
 };
 #define SER_STEP	(4096 / sizeof(struct __dv_s))
 
-struct __tsc_s {
+struct __dvv_s {
 	idate_t d;
-
-	size_t nvals;
-	struct {
-		uint32_t cym;
-		double v;
-	} *vals;
+	double *v;
 };
 
 struct trtsc_s {
-	size_t ntscs;
-	struct __tsc_s tscs[];
+	size_t ndvvs;
+	size_t ncons;
+	uint32_t *cyms;
+	struct __dvv_s dvvs[];
 };
+#define TSC_STEP	(4096)
 
 DECLF trcut_t make_cut(trsch_t schema, idate_t when);
 DECLF void free_cut(trcut_t);
@@ -623,36 +621,11 @@ read_series(struct trser_s **ser, FILE *f)
 	return res;
 }
 
-static struct __dv_s
-find_next_anchor(
-	struct trser_s *ser, size_t nser, size_t *idx, struct __dv_s anchor)
-{
-	struct __dv_s res = {.d = 99999999};
-
-	for (size_t i = 0; i < nser; i++) {
-		if (ser[i].nvals == 0) {
-			continue;
-		}
-		for (size_t j = idx[i]; j < ser[i].nvals; j++) {
-			if (ser[i].vals[j].d > anchor.d &&
-			    ser[i].vals[j].d < res.d) {
-				res = ser[i].vals[j];
-			}
-		}
-	}
-	if (UNLIKELY(res.d == 99999999)) {
-		return anchor;
-	}
-	return res;
-}
-
 static uint32_t
 cym_to_ym(char month, uint16_t year)
 {
 	return (year << 8) + (uint8_t)month;
 }
-
-#define CSER_STEP	(4096)
 
 static trtsc_t
 conv_series(trser_t ser, size_t nser)
@@ -661,13 +634,15 @@ conv_series(trser_t ser, size_t nser)
 	idate_t odt = 0;
 	trtsc_t res = NULL;
 	size_t idx[nser];
-	size_t nvals;
-	struct __tsc_s *tsc;
+	struct __dvv_s *dvv = NULL;
+	struct __dvv_s *odvv = NULL;
 
 	memset(idx, 0, sizeof(*idx) * nser);
 	while (1) {
 		odt = dt;
 		dt = 99999999;
+		odvv = dvv;
+
 		for (size_t i = 0; i < nser; i++) {
 			if (ser[i].nvals == 0) {
 				continue;
@@ -686,87 +661,83 @@ conv_series(trser_t ser, size_t nser)
 		/* now dt has the start date */
 		if (UNLIKELY(res == NULL)) {
 			size_t new = sizeof(*res) +
-				CSER_STEP * sizeof(*res->tscs);
+				TSC_STEP * sizeof(*res->dvvs);
 			res = malloc(new);
-			memset(res, 0, new);
-		} else if (UNLIKELY(res->ntscs % CSER_STEP == 0)) {
+			res->ndvvs = 0;
+			res->ncons = nser;
+			res->cyms = NULL;
+		} else if (UNLIKELY(res->ndvvs % TSC_STEP == 0)) {
 			size_t new = sizeof(*res) +
-				(res->ntscs + CSER_STEP) * sizeof(*res->tscs);
+				(res->ndvvs + TSC_STEP) * sizeof(*res->dvvs);
 			res = realloc(res, new);
-			memset(res->tscs + res->ntscs, 0,
-			       CSER_STEP * sizeof(*res->tscs));
 		}
-		tsc = res->tscs + res->ntscs++;
+		dvv = res->dvvs + res->ndvvs++;
+		dvv->d = dt;
+		dvv->v = calloc(res->ncons, sizeof(*dvv->v));
 
-		nvals = 0;
 		for (size_t i = 0; i < nser; i++) {
 			for (size_t j = idx[i]; j < ser[i].nvals; j++) {
 				if (ser[i].vals[j].d == dt) {
 					idx[i] = j + 1;
-					nvals++;
+					dvv->v[i] = ser[i].vals[j].v;
+					goto cont;
 				}
 			}
-		}
-		tsc->d = dt;
-		tsc->nvals = nvals;
-		tsc->vals = calloc(nvals, sizeof(*tsc->vals));
-
-		for (size_t i = 0, k = 0; i < nser; i++) {
-			size_t j = idx[i] > 0 ? idx[i] - 1 : 0;
-			if (ser[i].vals[j].d == dt) {
-				tsc->vals[k].cym =
-					cym_to_ym(ser[i].month, ser[i].year);
-				tsc->vals[k].v = ser[i].vals[j].v;
-				k++;
+			if (odvv) {
+				dvv->v[i] = odvv->v[i];
+			} else {
+				dvv->v[i] = 0.0;
 			}
+		cont:
+			continue;
 		}
+	}
+	res->cyms = calloc(res->ncons, sizeof(*res->cyms));
+	for (size_t i = 0; i < res->ncons; i++) {
+		res->cyms[i] = cym_to_ym(ser[i].month, ser[i].year);
 	}
 	return res;
 }
 
-static size_t
-find_dv(double *dv, size_t *idx, struct trser_s *ser, size_t nser, idate_t dt)
-{
-	size_t res = 0;
-
-	for (size_t i = 0; i < nser; i++) {
-		size_t j;
-
-		for (j = idx[i];
-		     j < ser[i].nvals && ser[i].vals[j].d < dt; j++);
-
-		if (ser[i].vals[j].d == dt) {
-			dv[i] = ser[i].vals[j].v;
-			idx[i] = j + 1;
-			res++;
-		}
-	}
-	return res;
-}
-
-static double
-cut_flow(
-	trcut_t c, idate_t dt, struct trser_s *ser, size_t nser,
-	double *new_dvs, const double *old_dvs, size_t *idx, double tick_val)
+static double __attribute__((noinline))
+cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
+	double *new_v;
+	double *old_v;
 
-	find_dv(new_dvs, idx, ser, nser, dt);
+	for (size_t i = 0; i < tsc->ndvvs; i++) {
+		if (tsc->dvvs[i].d == dt) {
+			new_v = tsc->dvvs[i].v;
+			old_v = i > 0 ? tsc->dvvs[i - 1].v : NULL;
+			break;
+		}
+	}
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * tick_val;
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year_off + dt_y;
-		struct trser_s *this;
+		uint32_t ym = cym_to_ym(mon, year);
 		size_t idx;
 
-		this = __find_ser(ser, nser, mon, year);
-
-		if (this == NULL) {
-			continue;
+		/* __find_ser(ser, nser, mon, year); */
+		for (size_t i = 0; i < tsc->ncons; i++) {
+			fprintf(stderr, "%u = %u\n", tsc->cyms[i], ym);
+			if (tsc->cyms[i] == ym) {
+				idx = i;
+				goto on;
+			}
 		}
-		idx = (this - ser);
-		res += expo * (new_dvs[idx] - old_dvs[idx]);
+		fprintf(stderr, "didnt get %c%u\n", mon, year);
+		abort();
+	on:
+		//fprintf(stderr, "%zu  %.8g  %.6f  %.6f\n", idx, expo, new_v[idx], old_v ? old_v[idx] : 0.0);
+		if (LIKELY(old_v != NULL)) {
+			res += expo * (new_v[idx] - old_v[idx]);
+		} else {
+			res += expo * new_v[idx];
+		}
 	}
 	return res;
 }
@@ -777,12 +748,9 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	struct trser_s *ser = NULL;
 	size_t nser = 0;
 	FILE *f;
-	struct __dv_s anchor = {0};
-	struct __dv_s old_an = {0};
+	double anchor = 0.0;
+	double old_an = 0.0;
 	trcut_t c;
-	double *new_dvs;
-	double *old_dvs;
-	size_t *idx;
 	bool initp = false;
 	trtsc_t tsc;
 
@@ -796,43 +764,36 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	/* convert to date based series */
 	tsc = conv_series(ser, nser);
 
-	/* get us space for nser dvs */
-	new_dvs = calloc(nser, sizeof(*new_dvs));
-	old_dvs = calloc(nser, sizeof(*old_dvs));
-	idx = calloc(nser, sizeof(*idx));
 	/* find the earliest date */
-	for (size_t i = 0; i < tsc->ntscs; i++) {
-		idate_t dt = tsc->tscs[i].d;
+	for (size_t i = 0; i < tsc->ndvvs; i++) {
+		idate_t dt = tsc->dvvs[i].d;
 
 		/* anchor now contains the very first date and value */
 		if ((c = make_cut(s, dt))) {
 			char buf[32];
 			double cf;
 
-			cf = cut_flow(
-				c, dt, ser, nser, new_dvs, old_dvs, idx, tv);
+			cf = cut_flow(c, dt, tsc, tv);
 			if (LIKELY(cum)) {
-				anchor.v = old_an.v + cf;
+				anchor = old_an + cf;
 			} else if (LIKELY(initp)) {
-				anchor.v = cf;
+				anchor = cf;
 			} else {
-				anchor.v = 0;
+				anchor = 0;
 				initp = true;
 			}				
 			snprint_idate(buf, sizeof(buf), dt);
-			fprintf(whither, "%s\t%.8g\n", buf, anchor.v);
+			fprintf(whither, "%s\t%.8g\n", buf, anchor);
 			free_cut(c);
-			memcpy(old_dvs, new_dvs, sizeof(*old_dvs) * nser);
 		}
 	}
 
 	/* free up resources */
 	if (tsc) {
-		for (size_t i = 0; i < tsc->ntscs; i++) {
-			if (tsc->tscs[i].nvals) {
-				free(tsc->tscs[i].vals);
-			}
+		for (size_t i = 0; i < tsc->ndvvs; i++) {
+			free(tsc->dvvs[i].v);
 		}
+		free(tsc->cyms);
 		free(tsc);
 	}
 	if (ser) {
@@ -842,15 +803,6 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			}
 		}
 		free(ser);
-	}
-	if (new_dvs) {
-		free(new_dvs);
-	}
-	if (old_dvs) {
-		free(old_dvs);
-	}
-	if (idx) {
-		free(idx);
 	}
 	fclose(f);
 	return;
