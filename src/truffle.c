@@ -810,7 +810,7 @@ read_series(FILE *f)
 	return res;
 }
 
-static void __attribute__((noinline))
+static void
 free_series(trtsc_t s)
 {
 	for (size_t i = 0; i < s->ndvvs; i++) {
