@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <sys/mman.h>
 
 #if defined STANDALONE
 # include <stdio.h>
@@ -89,22 +90,100 @@ struct trser_s {
 
 struct __dvv_s {
 	idate_t d;
+	daysi_t dd;
 	double *v;
 };
 
 struct trtsc_s {
 	size_t ndvvs;
 	size_t ncons;
-	uint32_t *cyms;
-	struct __dvv_s dvvs[];
+	idate_t first;
+	idate_t last;
+	uint32_t *cons;
+	struct __dvv_s *dvvs;
 };
 #define TSC_STEP	(4096)
+#define CYM_STEP	(256)
 
 DECLF trcut_t make_cut(trsch_t schema, idate_t when);
 DECLF void free_cut(trcut_t);
 
 DECLF trsch_t read_schema(const char *file);
 DECLF void free_schema(trsch_t);
+
+
+/* alloc helpers */
+#define PROT_MEM		(PROT_READ | PROT_WRITE)
+#define MAP_MEM			(MAP_PRIVATE | MAP_ANONYMOUS)
+
+static inline int
+resize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
+{
+	if (cnt == 0) {
+		size_t new = inc * blksz;
+		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
+		return 1;
+
+	} else if (cnt % inc == 0) {
+		/* resize */
+		size_t old = cnt * blksz;
+		size_t new = (cnt + inc) * blksz;
+		*ptr = mremap(*ptr, old, new, MREMAP_MAYMOVE);
+		return 1;
+	}
+	return 0;
+}
+
+static inline void
+unsize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
+{
+	size_t sz;
+
+	if (*ptr == NULL || cnt == 0) {
+		return;
+	}
+
+	sz = (cnt / inc + 1) * inc * blksz;
+	munmap(*ptr, sz);
+	*ptr = NULL;
+	return;
+}
+
+static inline int
+resize_mall(void **ptr, size_t cnt, size_t blksz, size_t inc)
+{
+	if (cnt == 0) {
+		*ptr = calloc(inc, blksz);
+		return 1;
+	} else if (cnt % inc == 0) {
+		/* resize */
+		size_t new = (cnt + inc) * blksz;
+		*ptr = realloc(*ptr, new);
+		return 1;
+	}
+	return 0;
+}
+
+static inline void
+unsize_mall(void **ptr, size_t cnt, size_t UNUSED(blksz), size_t UNUSED(inc))
+{
+	if (*ptr == NULL || cnt == 0) {
+		return;
+	}
+
+	free(*ptr);
+	*ptr = NULL;
+	return;
+}
+
+static inline void
+upsize_mall(void **ptr, size_t cnt, size_t blksz, size_t inc)
+{
+/* like resize, but definitely provide space for cnt + inc objects */
+	size_t new = (cnt / inc + 1) * inc * blksz;
+	*ptr = realloc(*ptr, new);
+	return;
+}
 
 
 /* idate helpers */
@@ -547,6 +626,12 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 
 
 /* series handling */
+static uint32_t
+cym_to_ym(char month, uint16_t year)
+{
+	return (year << 8) + (uint8_t)month;
+}
+
 static struct trser_s*
 __find_ser(struct trser_s *ser, size_t nser, char mon, uint16_t yoff)
 {
@@ -578,19 +663,93 @@ __find_crea_ser(struct trser_s **ser, size_t *nser, char mon, uint16_t yoff)
 	return (*ser) + (*nser)++;
 }
 
-static size_t
-read_series(struct trser_s **ser, FILE *f)
+static ssize_t
+tsc_find_cym_idx(trtsc_t s, uint32_t ym)
 {
-	size_t res = 0;
+	for (ssize_t i = 0; i < s->ncons; i++) {
+		if (s->cons[i] == ym) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static struct __dvv_s*
+tsc_find_dvv(trtsc_t s, idate_t dt)
+{
+	for (size_t i = 0; i < s->ndvvs; i++) {
+		if (s->dvvs[i].d == dt) {
+			return s->dvvs + i;
+		}
+	}
+	return NULL;
+}
+
+static void
+tsc_add_dv(trtsc_t s, char mon, uint16_t yoff, struct __dv_s dv)
+{
+	struct __dvv_s *this = NULL;
+	ssize_t idx;
+
+	/* find the date in question first */
+	if (dv.d > s->last) {
+		/* append */
+		void **tmp = (void**)&s->dvvs;
+		resize_mmap(tmp, s->ndvvs, sizeof(*s->dvvs), TSC_STEP);
+		this = s->dvvs + s->ndvvs++;
+		this->d = dv.d;
+		/* make room for s->ncons doubles */
+		tmp = (void**)&this->v;
+		upsize_mall(tmp, s->ncons, sizeof(*this->v), CYM_STEP);
+		/* update stats */
+		s->last = dv.d;
+		if (UNLIKELY(s->first == 0)) {
+			s->first = dv.d;
+		}
+	} else if (dv.d < s->first) {
+		/* prepend, FUCK */
+		abort();
+	} else {
+		/* intertwine, BIG FUCK if the date doesn't exist already */
+		if ((this = tsc_find_dvv(s, dv.d)) == NULL) {
+			abort();
+		}
+	}
+
+	/* now find the cmy offset */
+	if ((idx = tsc_find_cym_idx(s, cym_to_ym(mon, yoff))) < 0) {
+		/* append symbol */
+		void **tmp = (void**)&s->cons;
+		if (resize_mall(tmp, s->ncons, sizeof(*s->cons), CYM_STEP)) {
+			for (size_t i = 0; i < s->ndvvs; i++) {
+				tmp = (void**)&s->dvvs[i].v;
+				upsize_mall(
+					tmp, s->ncons,
+					sizeof(*s->dvvs[i].v), CYM_STEP);
+			}
+		}
+		idx = s->ncons++;
+		s->cons[idx] = cym_to_ym(mon, yoff);
+	}
+	/* resize the double vector maybe */
+	this->v[idx] = dv.v;
+	return;
+}
+
+static trtsc_t
+read_series(FILE *f)
+{
+	trtsc_t res = NULL;
 	size_t llen = 0UL;
 	char *line = NULL;
 
+	/* get us some container */
+	res = calloc(1, sizeof(*res));
 	/* read the series file first */
 	while (getline(&line, &llen, f) > 0) {
 		char *con = line;
 		char *dat;
 		char *val;
-		struct trser_s *this;
 		char mon;
 		uint16_t yoff;
 		struct __dv_s dv;
@@ -606,14 +765,7 @@ read_series(struct trser_s **ser, FILE *f)
 
 		mon = con[0];
 		yoff = strtoul(con + 1, NULL, 10);
-		this = __find_crea_ser(ser, &res, mon, yoff);
-		/* check if we need to reallocate */
-		if ((this->nvals % SER_STEP) == 0) {
-			size_t new_sz =
-				(this->nvals + SER_STEP) * sizeof(*this->vals);
-			this->vals = realloc(this->vals, new_sz);
-		}
-		this->vals[this->nvals++] = dv;
+		tsc_add_dv(res, mon, yoff, dv);
 	}
 	if (line) {
 		free(line);
@@ -621,12 +773,20 @@ read_series(struct trser_s **ser, FILE *f)
 	return res;
 }
 
-static uint32_t
-cym_to_ym(char month, uint16_t year)
+static void
+free_series(trtsc_t s)
 {
-	return (year << 8) + (uint8_t)month;
+	for (size_t i = 0; i < s->ndvvs; i++) {
+		void **tmp = (void**)&s->dvvs[i].v;
+		unsize_mall(tmp, s->ncons, sizeof(double), CYM_STEP);
+	}
+	unsize_mall((void**)&s->cons, s->ncons, sizeof(*s->cons), CYM_STEP);
+	unsize_mmap((void**)&s->dvvs, s->ndvvs, sizeof(*s->dvvs), TSC_STEP);
+	free(s);
+	return;
 }
 
+#if 0
 static trtsc_t
 conv_series(trser_t ser, size_t nser)
 {
@@ -698,8 +858,9 @@ conv_series(trser_t ser, size_t nser)
 	}
 	return res;
 }
+#endif
 
-static double __attribute__((noinline))
+static double
 cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
 {
 	uint16_t dt_y = dt / 10000;
@@ -719,19 +880,16 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year_off + dt_y;
 		uint32_t ym = cym_to_ym(mon, year);
-		size_t idx;
+		ssize_t idx;
 
-		/* __find_ser(ser, nser, mon, year); */
-		for (size_t i = 0; i < tsc->ncons; i++) {
-			fprintf(stderr, "%u = %u\n", tsc->cyms[i], ym);
-			if (tsc->cyms[i] == ym) {
-				idx = i;
-				goto on;
-			}
+		if (expo == 0.0) {
+			/* don't bother */
+			continue;
+		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+			fprintf(stderr, "\
+cut contained %c%u but no quotes have been found\n", mon, year);
+			continue;
 		}
-		fprintf(stderr, "didnt get %c%u\n", mon, year);
-		abort();
-	on:
 		//fprintf(stderr, "%zu  %.8g  %.6f  %.6f\n", idx, expo, new_v[idx], old_v ? old_v[idx] : 0.0);
 		if (LIKELY(old_v != NULL)) {
 			res += expo * (new_v[idx] - old_v[idx]);
@@ -745,35 +903,30 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
 static void
 roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 {
-	struct trser_s *ser = NULL;
-	size_t nser = 0;
+	trtsc_t ser;
 	FILE *f;
 	double anchor = 0.0;
 	double old_an = 0.0;
 	trcut_t c;
 	bool initp = false;
-	trtsc_t tsc;
 
 	if ((f = fopen(ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_file);
 		return;
-	} else if ((nser = read_series(&ser, f)) == 0) {
+	} else if ((ser = read_series(f)) == NULL) {
 		return;
 	}
 
-	/* convert to date based series */
-	tsc = conv_series(ser, nser);
-
 	/* find the earliest date */
-	for (size_t i = 0; i < tsc->ndvvs; i++) {
-		idate_t dt = tsc->dvvs[i].d;
+	for (size_t i = 0; i < ser->ndvvs; i++) {
+		idate_t dt = ser->dvvs[i].d;
 
 		/* anchor now contains the very first date and value */
 		if ((c = make_cut(s, dt))) {
 			char buf[32];
 			double cf;
 
-			cf = cut_flow(c, dt, tsc, tv);
+			cf = cut_flow(c, dt, ser, tv);
 			if (LIKELY(cum)) {
 				anchor = old_an + cf;
 			} else if (LIKELY(initp)) {
@@ -789,20 +942,8 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	}
 
 	/* free up resources */
-	if (tsc) {
-		for (size_t i = 0; i < tsc->ndvvs; i++) {
-			free(tsc->dvvs[i].v);
-		}
-		free(tsc->cyms);
-		free(tsc);
-	}
 	if (ser) {
-		for (size_t i = 0; i < nser; i++) {
-			if (ser[i].vals) {
-				free(ser[i].vals);
-			}
-		}
-		free(ser);
+		free_series(ser);
 	}
 	fclose(f);
 	return;
