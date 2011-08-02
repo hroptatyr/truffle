@@ -140,6 +140,21 @@ unsize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
 	return;
 }
 
+static inline void
+upsize_mmap(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc)
+{
+/* like resize, but definitely provide space for cnt + inc objects */
+	size_t old = (cnt / inc + 1) * inc * blksz;
+	size_t new = (cnn / inc + 1) * inc * blksz;
+
+	if (*ptr == NULL) {
+		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
+	} else if (old < new) {
+		*ptr = mremap(*ptr, old, new, MREMAP_MAYMOVE);
+	}
+	return;
+}
+
 static inline int
 resize_mall(void **ptr, size_t cnt, size_t blksz, size_t inc)
 {
@@ -168,11 +183,16 @@ unsize_mall(void **ptr, size_t cnt, size_t UNUSED(blksz), size_t UNUSED(inc))
 }
 
 static inline void
-upsize_mall(void **ptr, size_t cnt, size_t blksz, size_t inc)
+upsize_mall(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc)
 {
 /* like resize, but definitely provide space for cnt + inc objects */
-	size_t new = (cnt / inc + 1) * inc * blksz;
-	*ptr = realloc(*ptr, new);
+	size_t old = (cnt / inc + 1) * inc * blksz;
+	size_t new = (cnn / inc + 1) * inc * blksz;
+	if (*ptr == NULL) {
+		*ptr = malloc(new);
+	} else if (old < new) {
+		*ptr = realloc(*ptr, new);
+	}
 	return;
 }
 
@@ -664,39 +684,73 @@ tsc_find_dvv(trtsc_t s, idate_t dt)
 	return NULL;
 }
 
+static ssize_t
+tsc_find_dvv_idx(trtsc_t s, idate_t dt)
+{
+/* find first index where dvv date >= dt */
+	for (size_t i = 0; i < s->ndvvs; i++) {
+		if (s->dvvs[i].d >= dt) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static void
+tsc_move(trtsc_t s, ssize_t idx, int num)
+{
+/* move dvv vector from index IDX onwards so that NUM dvvs fit in-between */
+	void **tmp = (void**)&s->dvvs;
+	size_t nmov;
+	size_t nndvvs = s->ndvvs + num;
+
+	upsize_mmap(tmp, s->ndvvs, nndvvs, sizeof(*s->dvvs), TSC_STEP);
+	nmov = (s->ndvvs - idx) * sizeof(*s->dvvs);
+	memmove(s->dvvs + idx + num, s->dvvs + idx, nmov);
+	memset(s->dvvs + idx, 0, num * sizeof(*s->dvvs));
+	s->ndvvs = nndvvs;
+	return;
+}
+
+static struct __dvv_s*
+tsc_init_dvv(trtsc_t s, size_t idx, idate_t dt)
+{
+	struct __dvv_s *this = s->dvvs + idx;
+	this->d = dt;
+	/* make room for s->ncons doubles */
+	upsize_mall((void**)&this->v, 0, s->ncons, sizeof(*this->v), CYM_STEP);
+	return this;
+}
+
 static void
 tsc_add_dv(trtsc_t s, char mon, uint16_t yoff, struct __dv_s dv)
 {
 	struct __dvv_s *this = NULL;
-	ssize_t idx;
+	ssize_t idx = 0;
 
 	/* find the date in question first */
 	if (dv.d > s->last) {
 		/* append */
 		void **tmp = (void**)&s->dvvs;
 		resize_mmap(tmp, s->ndvvs, sizeof(*s->dvvs), TSC_STEP);
-		this = s->dvvs + s->ndvvs++;
-		this->d = dv.d;
-		/* make room for s->ncons doubles */
-		tmp = (void**)&this->v;
-		upsize_mall(tmp, s->ncons, sizeof(*this->v), CYM_STEP);
+		this = tsc_init_dvv(s, s->ndvvs++, dv.d);
 		/* update stats */
 		s->last = dv.d;
 		if (UNLIKELY(s->first == 0)) {
 			s->first = dv.d;
 		}
-	} else if (dv.d < s->first) {
+	} else if ((this = tsc_find_dvv(s, dv.d)) != NULL) {
+		/* bingo */
+		;
+	} else if (dv.d < s->first ||
+		   (idx = tsc_find_dvv_idx(s, dv.d)) > 0) {
 		/* prepend, FUCK */
-			fprintf(stderr, "\
-Unsorted input data for %c%hu, %u < %u\n", mon, yoff, dv.d, s->first);
-			exit(1);
+		tsc_move(s, idx, 1);
+		this = tsc_init_dvv(s, idx, dv.d);
+		fputs("\
+warning: unsorted input data will result in poor performance\n", stderr);
 	} else {
-		/* intertwine, BIG FUCK if the date doesn't exist already */
-		if ((this = tsc_find_dvv(s, dv.d)) == NULL) {
-			fprintf(stderr, "\
-Unsorted input data for %c%hu, never seen %u < %u\n", mon, yoff, dv.d, s->last);
-			exit(1);
-		}
+		abort();
 	}
 
 	/* now find the cmy offset */
@@ -707,7 +761,7 @@ Unsorted input data for %c%hu, never seen %u < %u\n", mon, yoff, dv.d, s->last);
 			for (size_t i = 0; i < s->ndvvs; i++) {
 				tmp = (void**)&s->dvvs[i].v;
 				upsize_mall(
-					tmp, s->ncons,
+					tmp, 0, s->ncons,
 					sizeof(*s->dvvs[i].v), CYM_STEP);
 			}
 		}
@@ -756,7 +810,7 @@ read_series(FILE *f)
 	return res;
 }
 
-static void
+static void __attribute__((noinline))
 free_series(trtsc_t s)
 {
 	for (size_t i = 0; i < s->ndvvs; i++) {
@@ -768,80 +822,6 @@ free_series(trtsc_t s)
 	free(s);
 	return;
 }
-
-#if 0
-static trtsc_t
-conv_series(trser_t ser, size_t nser)
-{
-	idate_t dt = 0;
-	idate_t odt = 0;
-	trtsc_t res = NULL;
-	size_t idx[nser];
-	struct __dvv_s *dvv = NULL;
-	struct __dvv_s *odvv = NULL;
-
-	memset(idx, 0, sizeof(*idx) * nser);
-	while (1) {
-		odt = dt;
-		dt = 99999999;
-		odvv = dvv;
-
-		for (size_t i = 0; i < nser; i++) {
-			if (ser[i].nvals == 0) {
-				continue;
-			}
-			for (size_t j = idx[i]; j < ser[i].nvals; j++) {
-				if (ser[i].vals[j].d < dt &&
-				    ser[i].vals[j].d > odt) {
-					dt = ser[i].vals[j].d;
-				}
-			}
-		}
-		if (UNLIKELY(dt == 99999999)) {
-			break;
-		}
-
-		/* now dt has the start date */
-		if (UNLIKELY(res == NULL)) {
-			size_t new = sizeof(*res) +
-				TSC_STEP * sizeof(*res->dvvs);
-			res = malloc(new);
-			res->ndvvs = 0;
-			res->ncons = nser;
-			res->cyms = NULL;
-		} else if (UNLIKELY(res->ndvvs % TSC_STEP == 0)) {
-			size_t new = sizeof(*res) +
-				(res->ndvvs + TSC_STEP) * sizeof(*res->dvvs);
-			res = realloc(res, new);
-		}
-		dvv = res->dvvs + res->ndvvs++;
-		dvv->d = dt;
-		dvv->v = calloc(res->ncons, sizeof(*dvv->v));
-
-		for (size_t i = 0; i < nser; i++) {
-			for (size_t j = idx[i]; j < ser[i].nvals; j++) {
-				if (ser[i].vals[j].d == dt) {
-					idx[i] = j + 1;
-					dvv->v[i] = ser[i].vals[j].v;
-					goto cont;
-				}
-			}
-			if (odvv) {
-				dvv->v[i] = odvv->v[i];
-			} else {
-				dvv->v[i] = 0.0;
-			}
-		cont:
-			continue;
-		}
-	}
-	res->cyms = calloc(res->ncons, sizeof(*res->cyms));
-	for (size_t i = 0; i < res->ncons; i++) {
-		res->cyms[i] = cym_to_ym(ser[i].month, ser[i].year);
-	}
-	return res;
-}
-#endif
 
 static double
 cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
