@@ -79,15 +79,6 @@ struct __dv_s {
 	double v;
 };
 
-struct trser_s {
-	char month;
-	uint16_t year;
-
-	size_t nvals;
-	struct __dv_s *vals;
-};
-#define SER_STEP	(4096 / sizeof(struct __dv_s))
-
 struct __dvv_s {
 	idate_t d;
 	daysi_t dd;
@@ -630,37 +621,6 @@ static uint32_t
 cym_to_ym(char month, uint16_t year)
 {
 	return (year << 8) + (uint8_t)month;
-}
-
-static struct trser_s*
-__find_ser(struct trser_s *ser, size_t nser, char mon, uint16_t yoff)
-{
-	for (size_t i = 0; i < nser; i++) {
-		if (ser[i].month == mon && ser[i].year == yoff) {
-			return ser + i;
-		}
-	}
-	return NULL;
-}
-
-static struct trser_s*
-__find_crea_ser(struct trser_s **ser, size_t *nser, char mon, uint16_t yoff)
-{
-	struct trser_s *res;
-
-	if ((res = __find_ser(*ser, *nser, mon, yoff)) != NULL) {
-		return res;
-	}
-	/* create one, check resize first */
-	if ((*nser % 16) == 0) {
-		size_t new_sz = sizeof(**ser) * (*nser + 16);
-		*ser = realloc(*ser, new_sz);
-	}
-	(*ser)[*nser].month = mon;
-	(*ser)[*nser].year = yoff;
-	(*ser)[*nser].nvals = 0;
-	(*ser)[*nser].vals = NULL;
-	return (*ser) + (*nser)++;
 }
 
 static ssize_t
