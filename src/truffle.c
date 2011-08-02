@@ -850,7 +850,6 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
 cut contained %c%u but no quotes have been found\n", mon, year);
 			continue;
 		}
-		//fprintf(stderr, "%zu  %.8g  %.6f  %.6f\n", idx, expo, new_v[idx], old_v ? old_v[idx] : 0.0);
 		if (LIKELY(old_v != NULL)) {
 			res += expo * (new_v[idx] - old_v[idx]);
 		} else {
@@ -899,6 +898,7 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			fprintf(whither, "%s\t%.8g\n", buf, anchor);
 			free_cut(c);
 		}
+		old_an = anchor;
 	}
 
 	/* free up resources */
