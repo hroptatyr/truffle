@@ -687,11 +687,15 @@ tsc_add_dv(trtsc_t s, char mon, uint16_t yoff, struct __dv_s dv)
 		}
 	} else if (dv.d < s->first) {
 		/* prepend, FUCK */
-		abort();
+			fprintf(stderr, "\
+Unsorted input data for %c%hu, %u < %u\n", mon, yoff, dv.d, s->first);
+			exit(1);
 	} else {
 		/* intertwine, BIG FUCK if the date doesn't exist already */
 		if ((this = tsc_find_dvv(s, dv.d)) == NULL) {
-			abort();
+			fprintf(stderr, "\
+Unsorted input data for %c%hu, never seen %u < %u\n", mon, yoff, dv.d, s->last);
+			exit(1);
 		}
 	}
 
