@@ -895,17 +895,18 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 				anchor = old_an + cf;
 			} else if (LIKELY(initp)) {
 				anchor = cf;
-			} else {
-				anchor = 0;
+			} else if (cf != 0.0) {
+				anchor = 0.0;
+				old_an = cf;
 				initp = true;
 			}
 			if (LIKELY(anchor != 0.0)) {
 				snprint_idate(buf, sizeof(buf), dt);
 				fprintf(whither, "%s\t%.8g\n", buf, anchor);
+				old_an = anchor;
 			}
 			free_cut(c);
 		}
-		old_an = anchor;
 	}
 
 	/* free up resources */
