@@ -824,7 +824,7 @@ free_series(trtsc_t s)
 }
 
 static double
-cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
+cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
@@ -849,11 +849,13 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val)
 			/* don't bother */
 			continue;
 		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+#if 0
 			fprintf(stderr, "\
-cut contained %c%u but no quotes have been found\n", mon, year);
+cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
+#endif	/* 0 */
 			continue;
 		}
-		if (LIKELY(old_v != NULL)) {
+		if (LIKELY(old_v != NULL && base != 0.0)) {
 			res += expo * (new_v[idx] - old_v[idx]);
 		} else {
 			res += expo * new_v[idx];
@@ -888,7 +890,7 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			char buf[32];
 			double cf;
 
-			cf = cut_flow(c, dt, ser, tv);
+			cf = cut_flow(c, dt, ser, tv, old_an);
 			if (LIKELY(cum)) {
 				anchor = old_an + cf;
 			} else if (LIKELY(initp)) {
@@ -896,9 +898,11 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			} else {
 				anchor = 0;
 				initp = true;
-			}				
-			snprint_idate(buf, sizeof(buf), dt);
-			fprintf(whither, "%s\t%.8g\n", buf, anchor);
+			}
+			if (LIKELY(anchor != 0.0)) {
+				snprint_idate(buf, sizeof(buf), dt);
+				fprintf(whither, "%s\t%.8g\n", buf, anchor);
+			}
 			free_cut(c);
 		}
 		old_an = anchor;
