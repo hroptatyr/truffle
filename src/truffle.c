@@ -874,7 +874,7 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
 			continue;
 		}
-		if (LIKELY(old_v != NULL && base != 0.0)) {
+		if (LIKELY(old_v != NULL && !isnan(base))) {
 			res += expo * (new_v[idx] - old_v[idx]);
 		} else {
 			res += expo * new_v[idx];
@@ -889,7 +889,7 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	trtsc_t ser;
 	FILE *f;
 	double anchor = 0.0;
-	double old_an = 0.0;
+	double old_an = FP_NAN;
 	trcut_t c;
 	bool initp = false;
 
@@ -916,14 +916,11 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 				anchor = cf;
 			} else if (cf != 0.0) {
 				anchor = 0.0;
-				old_an = cf;
 				initp = true;
 			}
-			if (LIKELY(anchor != 0.0)) {
-				snprint_idate(buf, sizeof(buf), dt);
-				fprintf(whither, "%s\t%.8g\n", buf, anchor);
-				old_an = anchor;
-			}
+			snprint_idate(buf, sizeof(buf), dt);
+			fprintf(whither, "%s\t%.8g\n", buf, anchor);
+			old_an = anchor;
 			free_cut(c);
 		}
 	}
