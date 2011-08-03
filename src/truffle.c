@@ -45,9 +45,11 @@ struct cnode_s {
 };
 
 /* a single line */
-#define DFLT_FROM	(1)
-#define DFLT_TILL	(9999)
+#define DFLT_FROM	(10000)
+#define DFLT_TILL	(99999999)
 struct cline_s {
+	idate_t valid_from;
+	idate_t valid_till;
 	char month;
 	int8_t year_off;
 	size_t nn;
@@ -413,24 +415,25 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 static cline_t
 read_schema_line(const char *line, size_t UNUSED(llen))
 {
-/* schema lines can be prefixed with a range of validity years:
+/* schema lines can be prefixed with a range of validity dates:
  * * valid for all years,
- * * - 2002 or * 2002 valid for all years up to and including 2002
- * 2003 - * valid from 2003
- * 2002 - 2003 or 2002 2003 valid in 2002 and 2003 */
+ * * - 2002-99-99 valid for all years up to and including 2002
+ * 2003-00-00 - * valid from 2003
+ * 2002-00-00 - 2003-99-99 valid in 2002 and 2003
+ * * - 1989-07-22 valid until (incl.) 22 Jul 1989 */
 	static const char skip[] = " \t";
 	cline_t cl;
 	/* validity */
-	uint16_t vfrom = 0;
-	uint16_t vtill = 0;
+	idate_t vfrom = 0;
+	idate_t vtill = 0;
 	const char *lp = line;
 
 	while (1) {
 		switch (*lp) {
 			char *tmp;
-			uint16_t tmi;
+			idate_t tmi;
 		case '0' ... '9':
-			tmi = strtoul(lp, &tmp, 10);
+			tmi = read_date(lp, &tmp);
 
 			if (!vfrom) {
 				vfrom = tmi;
@@ -559,14 +562,13 @@ make_cut(trsch_t sch, idate_t dt)
 {
 	trcut_t res = NULL;
 	idate_t dt_sans = dt % 10000;
-	idate_t dt_year = dt / 10000;
 	daysi_t ddt_sans = idate_to_daysi(dt_sans);
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
 
 		/* check year validity */
-		if (dt_year < p->valid_from || dt_year > p->valid_till) {
+		if (dt < p->valid_from || dt > p->valid_till) {
 			/* cline isn't applicable */
 			continue;
 		}
