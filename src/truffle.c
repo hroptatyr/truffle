@@ -889,9 +889,8 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	trtsc_t ser;
 	FILE *f;
 	double anchor = 0.0;
-	double old_an = FP_NAN;
+	double old_an = NAN;
 	trcut_t c;
-	bool initp = false;
 
 	if ((f = fopen(ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_file);
@@ -910,13 +909,12 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			double cf;
 
 			cf = cut_flow(c, dt, ser, tv, old_an);
-			if (LIKELY(cum)) {
+			if (UNLIKELY(isnan(old_an))) {
+				anchor = cum ? cf : 0.0;
+			} else if (LIKELY(cum)) {
 				anchor = old_an + cf;
-			} else if (LIKELY(initp)) {
+			} else {
 				anchor = cf;
-			} else if (cf != 0.0) {
-				anchor = 0.0;
-				initp = true;
 			}
 			snprint_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, anchor);
