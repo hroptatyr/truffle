@@ -183,15 +183,17 @@ unsize_mall(void **ptr, size_t cnt, size_t UNUSED(blksz), size_t UNUSED(inc))
 }
 
 static inline void
-upsize_mall(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc)
+upsize_mall(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc, int f)
 {
 /* like resize, but definitely provide space for cnt + inc objects */
 	size_t old = (cnt / inc + 1) * inc * blksz;
 	size_t new = (cnn / inc + 1) * inc * blksz;
 	if (*ptr == NULL) {
 		*ptr = malloc(new);
+		memset(*ptr, f, new);
 	} else if (old < new) {
 		*ptr = realloc(*ptr, new);
+		memset((char*)*ptr + old, f, new - old);
 	}
 	return;
 }
@@ -715,11 +717,11 @@ tsc_move(trtsc_t s, ssize_t idx, int num)
 static struct __dvv_s*
 tsc_init_dvv(trtsc_t s, size_t idx, idate_t dt)
 {
-	struct __dvv_s *this = s->dvvs + idx;
-	this->d = dt;
-	/* make room for s->ncons doubles */
-	upsize_mall((void**)&this->v, 0, s->ncons, sizeof(*this->v), CYM_STEP);
-	return this;
+	struct __dvv_s *t = s->dvvs + idx;
+	t->d = dt;
+	/* make room for s->ncons doubles and set them to nan */
+	upsize_mall((void**)&t->v, 0, s->ncons, sizeof(*t->v), CYM_STEP, -1);
+	return t;
 }
 
 static void
@@ -759,10 +761,9 @@ warning: unsorted input data will result in poor performance\n", stderr);
 		void **tmp = (void**)&s->cons;
 		if (resize_mall(tmp, s->ncons, sizeof(*s->cons), CYM_STEP)) {
 			for (size_t i = 0; i < s->ndvvs; i++) {
-				tmp = (void**)&s->dvvs[i].v;
 				upsize_mall(
-					tmp, 0, s->ncons,
-					sizeof(*s->dvvs[i].v), CYM_STEP);
+					(void**)&s->dvvs[i].v, 0, s->ncons,
+					sizeof(*s->dvvs[i].v), CYM_STEP, -1);
 			}
 		}
 		idx = s->ncons++;
@@ -770,6 +771,23 @@ warning: unsorted input data will result in poor performance\n", stderr);
 	}
 	/* resize the double vector maybe */
 	this->v[idx] = dv.v;
+	return;
+}
+
+static void
+__tsc_fixup(trtsc_t s)
+{
+/* go through the series again and fix up holes */
+	for (size_t i = 1; i < s->ndvvs; i++) {
+		double *old = s->dvvs[i - 1].v;
+		double *this = s->dvvs[i].v;
+
+		for (size_t j = 0; j < s->ncons; j++) {
+			if (isnan(this[j])) {
+				this[j] = old[j];
+			}
+		}
+	}
 	return;
 }
 
@@ -807,6 +825,7 @@ read_series(FILE *f)
 	if (line) {
 		free(line);
 	}
+	__tsc_fixup(res);
 	return res;
 }
 
