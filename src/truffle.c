@@ -861,8 +861,8 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
-	double *new_v;
-	double *old_v;
+	double *new_v = NULL;
+	double *old_v = NULL;
 
 	for (size_t i = 0; i < tsc->ndvvs; i++) {
 		if (tsc->dvvs[i].d == dt) {
