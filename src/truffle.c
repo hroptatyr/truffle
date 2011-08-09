@@ -369,8 +369,17 @@ free_schema(trsch_t sch)
 	return;
 }
 
+static void
+__err_not_asc(const char *line, size_t llen)
+{
+	fputs("error: ", stderr);
+	fwrite(line, llen, 1, stderr);
+	fputs("error: dates are not in ascending order\n", stderr);
+	return;
+}
+
 static cline_t
-read_schema_line(const char *line, size_t llen __attribute__((unused)))
+__read_schema_line(const char *line, size_t llen)
 {
 	cline_t cl = NULL;
 	static const char skip[] = " \t";
@@ -408,6 +417,11 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
 			/* add this line */
+			if (cl->nn && dt <= cl->n[cl->nn - 1].x) {
+				__err_not_asc(line, llen);
+				free(cl);
+				return NULL;
+			}
 			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
 	default:
