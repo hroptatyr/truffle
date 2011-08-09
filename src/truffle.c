@@ -577,9 +577,9 @@ make_cut(trsch_t sch, idate_t dt)
 			/* cline isn't applicable */
 			continue;
 		}
-		for (size_t j = 0; j < p->nn; j++) {
+		for (size_t j = 0; j < p->nn - 1; j++) {
 			struct cnode_s *n1 = p->n + j;
-			struct cnode_s *n2 = j < p->nn ? n1 + 1 : p->n;
+			struct cnode_s *n2 = n1 + 1;
 			idate_t x1 = n1->x;
 			idate_t x2 = n2->x;
 
@@ -589,10 +589,11 @@ make_cut(trsch_t sch, idate_t dt)
 				struct trcc_s cc;
 				double xsub = n2->l - n1->l;
 				double tsub = ddt_sans - n1->l;
+				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
 				cc.year_off = p->year_off;
-				cc.y = n1->y + tsub * (n2->y - n1->y) / xsub;
+				cc.y = n1->y + tsub * ysub / xsub;
 				res = cut_add_cc(res, cc);
 				break;
 			}
