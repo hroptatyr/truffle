@@ -284,7 +284,6 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	if ((cl->nn % CN_STEP) == 0) {
 		size_t new = sizeof(*cl) + (cl->nn + CN_STEP) * sizeof(*cl->n);
 		cl = realloc(cl, new);
-		memset(cl->n + cl->nn, 0, CN_STEP * sizeof(*cl->n));
 	}
 	idx = cl->nn++;
 	cl->n[idx].x = x;
