@@ -235,12 +235,15 @@ idate_to_daysi(idate_t dt)
 static trsch_t
 sch_add_cl(trsch_t s, struct cline_s *cl)
 {
+#define CL_STEP		(16)
 	if (s == NULL) {
-		size_t new = sizeof(*s) + 16 * sizeof(*s->p);
+		size_t new = sizeof(*s) + CL_STEP * sizeof(*s->p);
 		s = malloc(new);
-	} else if ((s->np % 16) == 0) {
-		size_t new = sizeof(*s) + (s->np + 16) * sizeof(*s->p);
+		s->np = 0;
+	} else if ((s->np % CL_STEP) == 0) {
+		size_t new = sizeof(*s) + (s->np + CL_STEP) * sizeof(*s->p);
 		s = realloc(s, new);
+		memset(s->p + s->np, 0, CL_STEP * sizeof(*s->p));
 	}
 	s->p[s->np++] = cl;
 	return s;
@@ -262,24 +265,26 @@ cut_add_cc(trcut_t c, struct trcc_s cc)
 }
 
 static cline_t
-make_cline(char month, int8_t yoff, size_t nnodes)
+make_cline(char month, int8_t yoff)
 {
-	cline_t res = malloc(sizeof(*res) + nnodes * (sizeof(*res->n)));
+	cline_t res = malloc(sizeof(*res));
 
 	res->month = month;
 	res->year_off = yoff;
-	res->nn = nnodes;
+	res->nn = 0;
 	return res;
 }
 
 static cline_t
 cline_add_sugar(cline_t cl, idate_t x, double y)
 {
+#define CN_STEP		(4)
 	size_t idx;
 
-	if ((cl->nn % 4) == 0) {
-		size_t new = sizeof(*cl) + (cl->nn + 4) * sizeof(*cl->n);
+	if ((cl->nn % CN_STEP) == 0) {
+		size_t new = sizeof(*cl) + (cl->nn + CN_STEP) * sizeof(*cl->n);
 		cl = realloc(cl, new);
+		memset(cl->n + cl->nn, 0, CN_STEP * sizeof(*cl->n));
 	}
 	idx = cl->nn++;
 	cl->n[idx].x = x;
@@ -396,7 +401,7 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 			p = line + strspn(line + 1, skip) + 1;
 			yoff = 0;
 		}
-		cl = make_cline(line[0], yoff, 0);
+		cl = make_cline(line[0], yoff);
 
 		do {
 			dt = read_date(p, &tmp) % 10000;
