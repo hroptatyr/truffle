@@ -41,7 +41,7 @@ typedef struct trtsc_s *trtsc_t;
 struct cnode_s {
 	idate_t x;
 	daysi_t l;
-	double y;
+	double y __attribute__((aligned(sizeof(double))));
 };
 
 /* a single line */
@@ -54,7 +54,7 @@ struct cline_s {
 	int8_t year_off;
 	size_t nn;
 	struct cnode_s n[];
-};
+} __attribute__((aligned(sizeof(void*))));
 
 /* schema */
 struct trsch_s {
