@@ -770,6 +770,9 @@ tsc_add_dv(trtsc_t s, char mon, uint16_t yoff, struct __dv_s dv)
 		/* prepend, FUCK */
 		tsc_move(s, idx, 1);
 		this = tsc_init_dvv(s, idx, dv.d);
+		if (UNLIKELY(dv.d < s->first)) {
+			s->first = dv.d;
+		}
 		fputs("\
 warning: unsorted input data will result in poor performance\n", stderr);
 	} else {
