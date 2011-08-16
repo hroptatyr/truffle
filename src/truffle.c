@@ -992,10 +992,18 @@ free_series(trtsc_t s)
 	return;
 }
 
-static double
+struct __cutflo_s {
+	double val;
+	double expo;
+};
+
+static struct __cutflo_s
 cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, bool init)
 {
-	double res = 0;
+	struct __cutflo_s res = {
+		.val = 0,
+		.expo = 0,
+	};
 	double *new_v = NULL;
 	double *old_v = NULL;
 
@@ -1023,10 +1031,11 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
 			continue;
 		}
+		res.expo += expo;
 		if (LIKELY(old_v != NULL && !init)) {
-			res += expo * (new_v[idx] - old_v[idx]);
+			res.val += expo * (new_v[idx] - old_v[idx]);
 		} else {
-			res += expo * new_v[idx];
+			res.val += expo * new_v[idx];
 		}
 	}
 	return res;
@@ -1038,6 +1047,11 @@ cut_base(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
 	double res = 0;
 	double *new_v = NULL;
 
+	for (size_t i = 0; i < tsc->ndvvs; i++) {
+		if (tsc->dvvs[i].d == dt) {
+			new_v = tsc->dvvs[i].v;
+		}
+	}
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * tick_val;
 		char mon = c->comps[i].month;
@@ -1073,8 +1087,9 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	trtsc_t ser;
 	FILE *f;
 	double anchor = 0.0;
-	double old_an = NAN;
+	double old_an = 0.0;
 	trcut_t c;
+	bool init = true;
 
 	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
@@ -1087,32 +1102,33 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	for (size_t i = 0; i < ser->ndvvs; i++) {
 		idate_t dt = ser->dvvs[i].d;
 		daysi_t mc_ds = idate_to_daysi(dt);
+		char buf[32];
+		struct __cutflo_s cf;
 
 		/* anchor now contains the very first date and value */
-		if ((c = make_cut(s, mc_ds - /*yday*/!ser_sp.cump))) {
-			char buf[32];
-			double cf;
-			bool init = isnan(old_an);
-
-			cf = cut_flow(c, dt, ser, ser_sp.tick_val, init);
-			if (ser_sp.cump) {
-				if (UNLIKELY(isnan(old_an))) {
-					if (LIKELY(cf == 0.0)) {
-						goto leave_cut;
-					}
-					anchor = cf;
-				} else {
-					anchor = old_an + cf;
-				}
-			} else {
-				anchor = cf;
-			}
-			snprint_idate(buf, sizeof(buf), dt);
-			fprintf(whither, "%s\t%.8g\n", buf, anchor);
-			old_an = anchor;
-		leave_cut:
-			free_cut(c);
+		if ((c = make_cut(s, mc_ds - /*yday*/!ser_sp.cump)) == NULL) {
+			continue;
 		}
+		cf = cut_flow(c, dt, ser, ser_sp.tick_val, init);
+
+		if (ser_sp.cump) {
+			if (UNLIKELY(init && cf.val == 0.0)) {
+				goto leave_cut;
+			}
+			anchor = old_an + cf.val;
+			init = false;
+		} else {
+			if (LIKELY(!init && cf.expo == 0.0 && cf.val == 0.0)) {
+				goto leave_cut;
+			}
+			anchor = cf.val;
+			init = false;
+		}
+		snprint_idate(buf, sizeof(buf), dt);
+		fprintf(whither, "%s\t%.8g\n", buf, anchor);
+		old_an = anchor;
+	leave_cut:
+		free_cut(c);
 	}
 
 	/* free up resources */
