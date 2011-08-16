@@ -209,6 +209,46 @@ static uint16_t dm[] = {
 
 #define BASE_YEAR	(1917)
 
+static idate_t
+daysi_to_idate(daysi_t ddt)
+{
+/* given days since 1917-01-01 (Mon),
+ * compute the idate_t representation X so that idate_to_daysi(X) == DDT */
+	int m;
+	int d;
+	int y;
+
+	if (LIKELY(ddt & DAYSI_DIY_BIT)) {
+		ddt &= ~DAYSI_DIY_BIT;
+		y = 0;
+	} else {
+		int probe;
+		int guess_y;
+		for (guess_y = ddt / 365;
+		     (probe = guess_y * 365 + guess_y / 4) >= ddt;
+		     guess_y--);
+		ddt -= probe;
+		y = guess_y + BASE_YEAR;
+	}
+	for (m = 1; m < 12 && ddt > dm[m + 1]; m++);
+	d = ddt - dm[m];
+
+	if (UNLIKELY(y > 0 && y % 4 == 0)) {
+		if ((dm[0] >> (m)) & 1) {
+			if (UNLIKELY(ddt == 60)) {
+				m = 2;
+				d = 29;
+			} else if (UNLIKELY(ddt == dm[m] + 1)) {
+				m--;
+				d = ddt - dm[m] - 1;
+			} else {
+				d--;
+			}
+		}
+	}
+	return y * 10000 + m * 100 + d;
+}
+
 static daysi_t
 idate_to_daysi(idate_t dt)
 {
