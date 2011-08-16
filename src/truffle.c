@@ -101,7 +101,7 @@ struct trtsc_s {
 #define TSC_STEP	(4096)
 #define CYM_STEP	(256)
 
-DECLF trcut_t make_cut(trsch_t schema, idate_t when);
+DECLF trcut_t make_cut(trsch_t schema, daysi_t when);
 DECLF void free_cut(trcut_t);
 
 DECLF trsch_t read_schema(const char *file);
@@ -213,10 +213,56 @@ static uint16_t dm[] = {
 static uint32_t ds_sum[256];
 
 #define BASE_YEAR	(1917)
+#define TO_BASE(x)	((x) - BASE_YEAR)
+#define TO_YEAR(x)	((x) + BASE_YEAR)
+
+#if 0
+/* standalone version and adapted to what make_cut() needs */
+static int
+daysi_to_year(daysi_t ddt)
+{
+/* given days since 1917-01-01 (Mon), compute a year */
+	int y;
+
+	if (UNLIKELY(ddt & DAYSI_DIY_BIT)) {
+		return 0;
+	}
+
+	for (y = ddt / 365; (y * 365 + y / 4) >= ddt; y--);
+	return TO_YEAR(y);
+}
+#elif 1
+static int
+daysi_to_year(daysi_t ddt)
+{
+/* given days since 1917-01-01 (Mon), compute a year */
+	if (UNLIKELY(ddt & DAYSI_DIY_BIT)) {
+		return 0;
+	}
+
+	/* scan target */
+	for (int y = TO_BASE(1980); y < TO_BASE(2020); y++) {
+		if (ds_sum[y] > ddt) {
+			return TO_YEAR(y - 1);
+		}
+	}
+	for (int y = 0; y < TO_BASE(1980); y++) {
+		if (ds_sum[y] > ddt) {
+			return TO_YEAR(y - 1);
+		}
+	}
+	for (int y = TO_BASE(2020); y < countof(ds_sum); y++) {
+		if (ds_sum[y] > ddt) {
+			return TO_YEAR(y - 1);
+		}
+	}
+	return 0;
+}
+#endif
 
 /* standalone version, we could use ds_sum but this is most likely
  * causing more cache misses */
-static idate_t __attribute__((unused))
+static idate_t
 daysi_to_idate(daysi_t ddt)
 {
 /* given days since 1917-01-01 (Mon),
@@ -227,16 +273,9 @@ daysi_to_idate(daysi_t ddt)
 
 	if (LIKELY(ddt & DAYSI_DIY_BIT)) {
 		ddt &= ~DAYSI_DIY_BIT;
-		y = 0;
-	} else {
-		int probe;
-		int guess_y;
-		for (guess_y = ddt / 365;
-		     (probe = guess_y * 365 + guess_y / 4) >= ddt;
-		     guess_y--);
-		ddt -= probe;
-		y = guess_y + BASE_YEAR;
 	}
+	y = daysi_to_year(ddt);
+
 	for (m = 1; m < 12 && ddt > dm[m + 1]; m++);
 	d = ddt - dm[m];
 
@@ -294,7 +333,7 @@ daysi_in_year(daysi_t ds, int y)
 		if (UNLIKELY(y % 4 == 0) && ds >= 60) {
 			ds++;
 		}
-		ds += ds_sum[off];
+		ds += ds_sum[off] - 1;
 	}
 	return ds;
 }
@@ -658,17 +697,16 @@ free_cut(trcut_t cut)
 }
 
 DEFUN trcut_t
-make_cut(trsch_t sch, idate_t dt)
+make_cut(trsch_t sch, daysi_t when)
 {
 	trcut_t res = NULL;
-	int y = dt / 10000;
-	daysi_t ddt = idate_to_daysi(dt);
+	int y = daysi_to_year(when);
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
 
 		/* check year validity */
-		if (ddt < p->valid_from || ddt > p->valid_till) {
+		if (when < p->valid_from || when > p->valid_till) {
 			/* cline isn't applicable */
 			continue;
 		}
@@ -678,11 +716,11 @@ make_cut(trsch_t sch, idate_t dt)
 			daysi_t l1 = daysi_in_year(n1->l, y);
 			daysi_t l2 = daysi_in_year(n2->l, y);
 
-			if (ddt >= l1 && ddt <= l2) {
+			if (when >= l1 && when <= l2) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
 				double xsub = l2 - l1;
-				double tsub = ddt - l1;
+				double tsub = when - l1;
 				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
@@ -1049,9 +1087,10 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	/* find the earliest date */
 	for (size_t i = 0; i < ser->ndvvs; i++) {
 		idate_t dt = ser->dvvs[i].d;
+		daysi_t mc_ds = idate_to_daysi(dt);
 
 		/* anchor now contains the very first date and value */
-		if ((c = make_cut(s, dt))) {
+		if ((c = make_cut(s, mc_ds - /*yday*/!ser_sp.cump))) {
 			char buf[32];
 			double cf;
 			bool init = isnan(old_an);
@@ -1114,7 +1153,7 @@ main(int argc, char *argv[])
 
 	/* initialise the daysi sums */
 	for (size_t i = 0; i < countof(ds_sum); i++) {
-		ds_sum[i] = idate_to_daysi((i + BASE_YEAR) * 10000 + 101) - 1;
+		ds_sum[i] = idate_to_daysi((i + BASE_YEAR) * 10000 + 101);
 	}
 
 	if (argi->schema_given) {
@@ -1147,7 +1186,9 @@ main(int argc, char *argv[])
 
 		for (size_t i = 0; i < argi->inputs_num; i++) {
 			idate_t dt = read_date(argi->inputs[i], NULL);
-			if ((c = make_cut(sch, dt))) {
+			daysi_t ds = idate_to_daysi(dt);
+
+			if ((c = make_cut(sch, ds))) {
 				if (argi->abs_given) {
 					c->year_off = dt / 10000;
 				}
