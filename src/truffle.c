@@ -949,7 +949,7 @@ free_series(trtsc_t s)
 }
 
 static double
-cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
+cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, bool init)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
@@ -980,7 +980,7 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
 			continue;
 		}
-		if (LIKELY(old_v != NULL && !isnan(base))) {
+		if (LIKELY(old_v != NULL && !init)) {
 			res += expo * (new_v[idx] - old_v[idx]);
 		} else {
 			res += expo * new_v[idx];
@@ -1020,8 +1020,9 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 		if ((c = make_cut(s, dt))) {
 			char buf[32];
 			double cf;
+			bool init = isnan(old_an);
 
-			cf = cut_flow(c, dt, ser, ser_sp.tick_val, old_an);
+			cf = cut_flow(c, dt, ser, ser_sp.tick_val, init);
 			if (ser_sp.cump) {
 				if (UNLIKELY(isnan(old_an))) {
 					if (LIKELY(cf == 0.0)) {
