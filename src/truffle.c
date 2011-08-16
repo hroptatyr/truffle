@@ -26,6 +26,9 @@
 #else  /* !DEBUG_FLAG */
 # define TRUF_DEBUG(args...)
 #endif	/* DEBUG_FLAG */
+#if !defined countof
+# define countof(x)	(sizeof(x) / sizeof(*(x)))
+#endif	/* !countof */
 
 typedef uint32_t idate_t;
 typedef uint32_t daysi_t;
@@ -207,9 +210,13 @@ static uint16_t dm[] = {
 	0xfff8, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
 };
 
+static uint32_t ds_sum[256];
+
 #define BASE_YEAR	(1917)
 
-static idate_t
+/* standalone version, we could use ds_sum but this is most likely
+ * causing more cache misses */
+static idate_t __attribute__((unused))
 daysi_to_idate(daysi_t ddt)
 {
 /* given days since 1917-01-01 (Mon),
@@ -270,6 +277,22 @@ idate_to_daysi(idate_t dt)
 		}
 	}
 	return res;
+}
+
+static daysi_t
+daysi_in_year(daysi_t ds, int y)
+{
+	int off = y - BASE_YEAR;
+
+	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
+		/* we could technically do something here */
+		;
+	} else if (UNLIKELY(off < 0 || off > countof(ds_sum))) {
+		return 0U;
+	} else {
+		ds = (ds & ~DAYSI_DIY_BIT) + ds_sum[off];
+	}
+	return ds;
 }
 
 static trsch_t
@@ -449,6 +472,8 @@ __read_schema_line(const char *line, size_t llen)
 			p = line + strspn(line + 1, skip) + 1;
 			yoff = 0;
 		}
+
+		/* kick off the schema-line process */
 		cl = make_cline(line[0], yoff);
 
 		do {
@@ -456,14 +481,25 @@ __read_schema_line(const char *line, size_t llen)
 			p = tmp + strspn(tmp, skip);
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
+			if (UNLIKELY(cl->nn == 0)) {
+				/* auto-fill to the left */
+				if (UNLIKELY(v != 0.0 && dt != 101)) {
+					cl = cline_add_sugar(cl, 101, v);
+				}
+			}
 			/* add this line */
-			if (cl->nn && dt <= cl->n[cl->nn - 1].x) {
+			daysi_t ddt = idate_to_daysi(dt);
+			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				free(cl);
 				return NULL;
 			}
 			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
+		/* auto-fill 1 polygons to the right */
+		if (UNLIKELY(v != 0.0 && dt != 1231)) {
+			cl = cline_add_sugar(cl, 1231, v);
+		}
 	default:
 		break;
 	}
@@ -592,8 +628,9 @@ print_cline(cline_t cl, FILE *whither)
 		fprintf(whither, "%d", cl->year_off);
 	}
 	for (size_t i = 0; i < cl->nn; i++) {
+		idate_t dt = cl->n[i].x;
 		fputc(' ', whither);
-		fprintf(whither, " %04u %.8g", cl->n[i].x, cl->n[i].y);
+		fprintf(whither, " %04u %.8g", dt, cl->n[i].y);
 	}
 	fputc('\n', whither);
 	return;
@@ -619,8 +656,8 @@ DEFUN trcut_t
 make_cut(trsch_t sch, idate_t dt)
 {
 	trcut_t res = NULL;
-	idate_t dt_sans = dt % 10000;
-	daysi_t ddt_sans = idate_to_daysi(dt_sans);
+	int y = dt / 10000;
+	daysi_t ddt = idate_to_daysi(dt);
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
@@ -633,15 +670,14 @@ make_cut(trsch_t sch, idate_t dt)
 		for (size_t j = 0; j < p->nn - 1; j++) {
 			struct cnode_s *n1 = p->n + j;
 			struct cnode_s *n2 = n1 + 1;
-			idate_t x1 = n1->x;
-			idate_t x2 = n2->x;
+			daysi_t l1 = daysi_in_year(n1->l, y);
+			daysi_t l2 = daysi_in_year(n2->l, y);
 
-			if ((dt_sans >= x1 && dt_sans <= x2) ||
-			    (x1 > x2 && (dt_sans >= x1 || dt_sans <= x2))) {
+			if (ddt >= l1 && ddt <= l2) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
-				double xsub = n2->l - n1->l;
-				double tsub = ddt_sans - n1->l;
+				double xsub = l2 - l1;
+				double tsub = ddt - l1;
 				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
@@ -986,17 +1022,26 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 			double cf;
 
 			cf = cut_flow(c, dt, ser, ser_sp.tick_val, old_an);
-			if (UNLIKELY(isnan(old_an))) {
-				anchor = ser_sp.cump
-					? cf - ser_sp.basis : ser_sp.basis;
-			} else if (LIKELY(ser_sp.cump)) {
-				anchor = old_an + cf;
+			if (ser_sp.cump) {
+				if (UNLIKELY(isnan(old_an))) {
+					if (LIKELY(cf == 0.0)) {
+						goto leave_cut;
+					}
+					anchor = cf;
+				} else {
+					anchor = old_an + cf;
+				}
 			} else {
+				if (UNLIKELY(isnan(old_an))) {
+					old_an = 0.0;
+					goto leave_cut;
+				}
 				anchor = cf;
 			}
 			snprint_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, anchor);
 			old_an = anchor;
+		leave_cut:
 			free_cut(c);
 		}
 	}
@@ -1030,6 +1075,11 @@ main(int argc, char *argv[])
 
 	if (cmdline_parser(argc, argv, argi)) {
 		exit(1);
+	}
+
+	/* initialise the daysi sums */
+	for (size_t i = 0; i < countof(ds_sum); i++) {
+		ds_sum[i] = idate_to_daysi((i + BASE_YEAR) * 10000 + 101) - 1;
 	}
 
 	if (argi->schema_given) {
