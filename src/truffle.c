@@ -68,7 +68,7 @@ struct trsch_s {
 /* result structure, for cuts etc. */
 struct trcc_s {
 	char month;
-	int8_t year_off;
+	uint16_t year;
 	double y __attribute__((aligned(16)));
 };
 
@@ -724,7 +724,7 @@ make_cut(trsch_t sch, daysi_t when)
 				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
-				cc.year_off = p->year_off;
+				cc.year = y + p->year_off;
 				cc.y = n1->y + tsub * ysub / xsub;
 				res = cut_add_cc(res, cc);
 				break;
@@ -771,6 +771,7 @@ static void
 print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 {
 	char buf[32];
+	int y = dt / 10000;
 
 	snprint_idate(buf, sizeof(buf), dt);
 	for (size_t i = 0; i < c->ncomps; i++) {
@@ -783,12 +784,12 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 			fprintf(out, "%s\t%c%d\t%.8g\n",
 				buf,
 				c->comps[i].month,
-				c->comps[i].year_off + c->year_off,
+				c->comps[i].year - y + c->year_off,
 				expo);
 		} else {
 			fprintf(out, "%s\t%d%02d\t%.8g\n",
 				buf,
-				c->comps[i].year_off + c->year_off,
+				c->comps[i].year - y + c->year_off,
 				m_to_i(c->comps[i].month),
 				expo);
 		}
@@ -994,7 +995,6 @@ free_series(trtsc_t s)
 static double
 cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, bool init)
 {
-	uint16_t dt_y = dt / 10000;
 	double res = 0;
 	double *new_v = NULL;
 	double *old_v = NULL;
@@ -1009,7 +1009,7 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, bool init)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * tick_val;
 		char mon = c->comps[i].month;
-		uint16_t year = c->comps[i].year_off + dt_y;
+		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
 		ssize_t idx;
 
@@ -1035,14 +1035,13 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 static double
 cut_base(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
 {
-	uint16_t dt_y = dt / 10000;
 	double res = 0;
 	double *new_v = NULL;
 
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * tick_val;
 		char mon = c->comps[i].month;
-		uint16_t year = c->comps[i].year_off + dt_y;
+		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
 		ssize_t idx;
 
