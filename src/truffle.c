@@ -1105,10 +1105,6 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 					anchor = old_an + cf;
 				}
 			} else {
-				if (UNLIKELY(isnan(old_an))) {
-					old_an = 0.0;
-					goto leave_cut;
-				}
 				anchor = cf;
 			}
 			snprint_idate(buf, sizeof(buf), dt);
