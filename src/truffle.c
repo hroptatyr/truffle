@@ -48,11 +48,11 @@ struct cnode_s {
 };
 
 /* a single line */
-#define DFLT_FROM	(10000)
-#define DFLT_TILL	(99999999)
+#define DFLT_FROM	(0)
+#define DFLT_TILL	(1048576)
 struct cline_s {
-	idate_t valid_from;
-	idate_t valid_till;
+	daysi_t valid_from;
+	daysi_t valid_till;
 	char month;
 	int8_t year_off;
 	size_t nn;
@@ -518,8 +518,8 @@ read_schema_line(const char *line, size_t UNUSED(llen))
 	static const char skip[] = " \t";
 	cline_t cl;
 	/* validity */
-	idate_t vfrom = 0;
-	idate_t vtill = 0;
+	daysi_t vfrom = 0;
+	daysi_t vtill = 0;
 	const char *lp = line;
 
 	while (1) {
@@ -530,9 +530,9 @@ read_schema_line(const char *line, size_t UNUSED(llen))
 			tmi = read_date(lp, &tmp);
 
 			if (!vfrom) {
-				vfrom = tmi;
+				vfrom = idate_to_daysi(tmi);
 			} else {
-				vtill = tmi;
+				vtill = idate_to_daysi(tmi);
 			}
 			lp = tmp + strspn(tmp, skip);
 			continue;
@@ -604,7 +604,7 @@ print_cline(cline_t cl, FILE *whither)
 		if (cl->valid_from == DFLT_FROM) {
 			fputc('*', whither);
 		} else if (cl->valid_from > DFLT_FROM) {
-			fprintf(whither, "%u", cl->valid_from);
+			fprintf(whither, "%u", daysi_to_idate(cl->valid_from));
 		} else {
 			/* we were meant to fill this bugger */
 			abort();
@@ -614,7 +614,8 @@ print_cline(cline_t cl, FILE *whither)
 			if (cl->valid_till >= DFLT_TILL) {
 				fputc('*', whither);
 			} else if (cl->valid_from > 0) {
-				fprintf(whither, "%u", cl->valid_till);
+				fprintf(whither, "%u",
+					daysi_to_idate(cl->valid_till));
 			} else {
 				/* invalid value in here */
 				abort();
@@ -663,7 +664,7 @@ make_cut(trsch_t sch, idate_t dt)
 		struct cline_s *p = sch->p[i];
 
 		/* check year validity */
-		if (dt < p->valid_from || dt > p->valid_till) {
+		if (ddt < p->valid_from || ddt > p->valid_till) {
 			/* cline isn't applicable */
 			continue;
 		}
