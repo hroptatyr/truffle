@@ -913,8 +913,15 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 	return res;
 }
 
+struct __series_spec_s {
+	const char *ser_file;
+	double tick_val;
+	double basis;
+	bool cump;
+};
+
 static void
-roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
+roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 {
 	trtsc_t ser;
 	FILE *f;
@@ -922,8 +929,8 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	double old_an = NAN;
 	trcut_t c;
 
-	if ((f = fopen(ser_file, "r")) == NULL) {
-		fprintf(stderr, "could not open file %s\n", ser_file);
+	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
+		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
 		return;
 	} else if ((ser = read_series(f)) == NULL) {
 		return;
@@ -938,10 +945,11 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			char buf[32];
 			double cf;
 
-			cf = cut_flow(c, dt, ser, tv, old_an);
+			cf = cut_flow(c, dt, ser, ser_sp.tick_val, old_an);
 			if (UNLIKELY(isnan(old_an))) {
-				anchor = cum ? cf : 0.0;
-			} else if (LIKELY(cum)) {
+				anchor = ser_sp.cump
+					? cf - ser_sp.basis : ser_sp.basis;
+			} else if (LIKELY(ser_sp.cump)) {
 				anchor = old_an + cf;
 			} else {
 				anchor = cf;
@@ -996,10 +1004,15 @@ main(int argc, char *argv[])
 	}
 	/* finally call our main routine */
 	if (argi->series_given) {
-		double tv = argi->tick_value_given
-			? argi->tick_value_arg : 1.0;
-		bool cump = !argi->flow_given;
-		roll_series(sch, argi->series_arg, tv, cump, stdout);
+		struct __series_spec_s sp = {
+			.ser_file = argi->series_arg,
+			.tick_val = argi->tick_value_given
+			? argi->tick_value_arg : 1.0,
+			.basis = argi->basis_given
+			? argi->basis_arg : 0.0,
+			.cump = !argi->flow_given,
+		};
+		roll_series(sch, sp, stdout);
 	} else if (argi->inputs_num == 0) {
 		print_schema(sch, stdout);
 	} else {

@@ -30,3 +30,7 @@ modeoption "tick-value" - "Numeric value of the cash flow per tick."
 	double optional mode="tseries"
 modeoption "flow" f "Output rolled-over cash flows instead of a \
 (cumulative) quote series" optional mode="tseries"
+modeoption "basis" b
+	"Basis of a carry-over future position as price quote, \
+default is the quote upon the first investment."
+	double optional mode="tseries"
