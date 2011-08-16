@@ -290,7 +290,11 @@ daysi_in_year(daysi_t ds, int y)
 	} else if (UNLIKELY(off < 0 || off > countof(ds_sum))) {
 		return 0U;
 	} else {
-		ds = (ds & ~DAYSI_DIY_BIT) + ds_sum[off];
+		ds &= ~DAYSI_DIY_BIT;
+		if (UNLIKELY(y % 4 == 0) && ds >= 60) {
+			ds++;
+		}
+		ds += ds_sum[off];
 	}
 	return ds;
 }
