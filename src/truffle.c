@@ -989,6 +989,35 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 	return res;
 }
 
+static double
+cut_base(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
+{
+	uint16_t dt_y = dt / 10000;
+	double res = 0;
+	double *new_v = NULL;
+
+	for (size_t i = 0; i < c->ncomps; i++) {
+		double expo = c->comps[i].y * tick_val;
+		char mon = c->comps[i].month;
+		uint16_t year = c->comps[i].year_off + dt_y;
+		uint32_t ym = cym_to_ym(mon, year);
+		ssize_t idx;
+
+		if (expo == 0.0) {
+			/* don't bother */
+			continue;
+		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+#if 0
+			fprintf(stderr, "\
+cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
+#endif	/* 0 */
+			continue;
+		}
+		res += expo * (new_v[idx] - base);
+	}
+	return res;
+}
+
 struct __series_spec_s {
 	const char *ser_file;
 	double tick_val;
