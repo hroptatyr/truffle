@@ -1017,7 +1017,7 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, bool init)
 			/* don't bother */
 			continue;
 		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
-#if 0
+#if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
@@ -1049,7 +1049,7 @@ cut_base(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
 			/* don't bother */
 			continue;
 		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
-#if 0
+#if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
