@@ -1010,7 +1010,11 @@ free_series(trtsc_t s)
 
 struct __cutflo_st_s {
 	/* user settable */
+	/** tick value by which to multiply the cash flow */
 	double tick_val;
+	/**
+	 * basis, unused unless set to nan in which case cut flow will
+	 * pick a suitable basis, most of the time the first quote found */
 	double basis;
 	/* our stuff */
 	union {
@@ -1073,6 +1077,10 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 				flo = tot_flo * trans;
 			} else {
 				flo = 0.0;
+				/* guess a basis if the user asked us to */
+				if (isnan(st->basis)) {
+					st->basis = new_v[idx];
+				}
 			}
 
 			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
@@ -1156,6 +1164,7 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	struct __cutflo_st_s cfst = {
 		.tick_val = ser_sp.tick_val,
 		.st = 0,
+		.basis = ser_sp.cump ? NAN : 0.0,
 	};
 
 	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
