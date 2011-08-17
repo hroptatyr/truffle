@@ -1114,9 +1114,7 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 				   expo, st->bases[idx], flo);
 
 			/* record bases */
-			if (st->expos[idx] == 0.0 || expo == 0.0) {
-				st->bases[idx] = new_v[idx];
-			}
+			st->bases[idx] = new_v[idx];
 			st->expos[idx] = expo;
 			is_non_nil = 1;
 		} else if (expo != 0.0) {
@@ -1126,6 +1124,7 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
 				   expo, new_v[idx], st->bases[idx],
 				   flo, flo + st->bases[idx]);
+			st->bases[idx] = new_v[idx];
 			is_non_nil = 1;
 		} else {
 			/* expo == 0.0 || st->expos[idx] == expo */
@@ -1137,8 +1136,8 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 	}
 	st->was_non_nil = st->is_non_nil;
 	st->is_non_nil = is_non_nil;
-	st->inc_flo = res - st->cum_flo;
-	st->cum_flo = res;
+	st->inc_flo = res;
+	st->cum_flo += res;
 	return st->e;
 }
 
