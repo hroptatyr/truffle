@@ -1142,37 +1142,61 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 	return st->e;
 }
 
-static double
-cut_base(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
+static cutflo_trans_t
+cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 {
-	double res = 0;
-	double *new_v = NULL;
+	double res = 0.0;
+	const double *new_v = NULL;
 
-	for (size_t i = 0; i < tsc->ndvvs; i++) {
-		if (tsc->dvvs[i].d == dt) {
-			new_v = tsc->dvvs[i].v;
+	for (size_t i = 0; i < st->tsc->ndvvs; i++) {
+		if (st->tsc->dvvs[i].d == dt) {
+			new_v = st->tsc->dvvs[i].v;
+			break;
 		}
 	}
+	/* assume we're not invested */
+	st->is_non_nil = 0;
 	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo = c->comps[i].y * tick_val;
+		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
 		ssize_t idx;
+		double flo;
 
-		if (expo == 0.0) {
-			/* don't bother */
-			continue;
-		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0) {
 #if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
 			continue;
 		}
-		res += expo * (new_v[idx] - base);
+		/* check for transition changes */
+		if (expo != 0.0) {
+			double tot_flo;
+
+			if (UNLIKELY(isnan(st->basis))) {
+				st->basis = 0.0;
+			}
+
+			tot_flo = (new_v[idx] - st->basis);
+
+			flo = tot_flo * expo;
+			TRUF_DEBUG("NO %+.8g @ %.8g => %.8g\n",
+				   expo, tot_flo, flo);
+			st->is_non_nil = 1;
+		} else {
+			/* expo == 0.0 || st->expos[idx] == expo */
+			flo = 0.0;
+			st->is_non_nil |= expo != 0.0;
+		}
+		/* munch it all together */
+		res += flo;
 	}
-	return res;
+	st->was_non_nil = st->is_non_nil;
+	st->inc_flo = res;
+	st->cum_flo += res;
+	return st->e;
 }
 
 
@@ -1180,7 +1204,8 @@ struct __series_spec_s {
 	const char *ser_file;
 	double tick_val;
 	double basis;
-	bool cump;
+	bool cump:1;
+	bool abs_dimen_p:1;
 };
 
 static void
@@ -1190,6 +1215,8 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	FILE *f;
 	trcut_t c;
 	struct __cutflo_st_s cfst;
+	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
+		LIKELY(!ser_sp.abs_dimen_p) ? cut_flow : cut_base;
 
 	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
@@ -1211,7 +1238,7 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 			continue;
 		}
 
-		if (cut_flow(&cfst, c, dt)) {
+		if (cf(&cfst, c, dt)) {
 			char buf[32];
 			double val = ser_sp.cump
 				? cfst.cum_flo + cfst.basis
@@ -1279,6 +1306,7 @@ main(int argc, char *argv[])
 			.basis = argi->basis_given
 			? argi->basis_arg : NAN,
 			.cump = !argi->flow_given,
+			.abs_dimen_p = argi->abs_dimen_given,
 		};
 		roll_series(sch, sp, stdout);
 	} else if (argi->inputs_num == 0) {
