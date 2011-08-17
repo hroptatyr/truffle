@@ -1095,12 +1095,9 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 		}
 		/* check for transition changes */
 		if (st->expos[idx] != expo) {
-			double trans;
-
-			trans = expo - st->expos[idx];
 			if (st->expos[idx] != 0.0) {
-				double tot_flo = st->bases[idx] - new_v[idx];
-				flo = tot_flo * trans;
+				double tot_flo = new_v[idx] - st->bases[idx];
+				flo = tot_flo * st->expos[idx];
 			} else {
 				flo = 0.0;
 				/* guess a basis if the user asked us to */
@@ -1110,26 +1107,26 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 			}
 
 			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
-				   trans, new_v[idx],
+				   expo - st->expos[idx], new_v[idx],
 				   expo, st->bases[idx], flo);
 
 			/* record bases */
 			st->bases[idx] = new_v[idx];
 			st->expos[idx] = expo;
 			is_non_nil = 1;
-		} else if (expo != 0.0) {
+		} else if (st->expos[idx] != 0.0) {
 			double tot_flo = new_v[idx] - st->bases[idx];
 
-			flo = tot_flo * expo;
+			flo = tot_flo * st->expos[idx];
 			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
 				   expo, new_v[idx], st->bases[idx],
 				   flo, flo + st->bases[idx]);
 			st->bases[idx] = new_v[idx];
 			is_non_nil = 1;
 		} else {
-			/* expo == 0.0 || st->expos[idx] == expo */
+			/* st->expos[idx] == 0.0 && st->expos[idx] == expo */
 			flo = 0.0;
-			is_non_nil |= expo != 0.0;
+			is_non_nil |= st->expos[idx] != 0.0;
 		}
 		/* munch it all together */
 		res += flo;
