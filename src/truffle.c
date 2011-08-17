@@ -1277,7 +1277,7 @@ main(int argc, char *argv[])
 			.tick_val = argi->tick_value_given
 			? argi->tick_value_arg : 1.0,
 			.basis = argi->basis_given
-			? argi->basis_arg : 0.0,
+			? argi->basis_arg : NAN,
 			.cump = !argi->flow_given,
 		};
 		roll_series(sch, sp, stdout);
