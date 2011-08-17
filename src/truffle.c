@@ -1240,9 +1240,17 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 
 		if (cf(&cfst, c, dt)) {
 			char buf[32];
-			double val = ser_sp.cump
-				? cfst.cum_flo + cfst.basis
-				: cfst.inc_flo;
+			double val;
+
+			if (LIKELY(!ser_sp.abs_dimen_p && ser_sp.cump)) {
+				val = cfst.cum_flo + cfst.basis;
+			} else if (LIKELY(!ser_sp.abs_dimen_p)) {
+				val = cfst.inc_flo;
+			} else if (LIKELY(!ser_sp.cump)) {
+				val = cfst.inc_flo;
+			} else {
+				val = cfst.cum_flo;
+			}
 			snprint_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, val);
 		}
