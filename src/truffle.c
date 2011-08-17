@@ -734,6 +734,22 @@ make_cut(trsch_t sch, daysi_t when)
 	return res;
 }
 
+#if 0
+DEFUN bool
+cut_non_nil_expo_p(trcut_t cut)
+{
+/* return whether a cut has a non-nil exposure,
+ * note it is possible for a cut to have total exposure 0.0 and
+ * yet have cash flows */
+	for (size_t i = 0; i < cut->ncomps; i++) {
+		if (cut->comps[i].y != 0.0) {
+			return true;
+		}
+	}
+	return false;
+}
+#endif
+
 static int
 m_to_i(char month)
 {
@@ -992,53 +1008,103 @@ free_series(trtsc_t s)
 	return;
 }
 
-struct __cutflo_s {
-	double val;
-	double expo;
+struct __cutflo_st_s {
+	/* user settable */
+	double tick_val;
+	double basis;
+	/* our stuff */
+	union {
+		int st:2;
+		struct {
+			int was_non_nil:1;
+			int is_non_nil:1;
+		};
+	};
+	double *bases;
+	double *expos;
+	double cum_flo;
+	double inc_flo;
 };
 
-static struct __cutflo_s
-cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, bool init)
+static double
+cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt, trtsc_t tsc)
 {
-	struct __cutflo_s res = {
-		.val = 0,
-		.expo = 0,
-	};
+	double res = 0.0;
 	double *new_v = NULL;
-	double *old_v = NULL;
+
+	/* singleton */
+	if (UNLIKELY(st->bases == NULL)) {
+		st->bases = calloc(tsc->ncons, sizeof(*st->bases));
+	}
+	if (UNLIKELY(st->expos == NULL)) {
+		st->expos = calloc(tsc->ncons, sizeof(*st->expos));
+	}
 
 	for (size_t i = 0; i < tsc->ndvvs; i++) {
 		if (tsc->dvvs[i].d == dt) {
 			new_v = tsc->dvvs[i].v;
-			old_v = i > 0 ? tsc->dvvs[i - 1].v : NULL;
 			break;
 		}
 	}
+	/* assume we're not invested */
+	st->is_non_nil = 0;
 	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo = c->comps[i].y * tick_val;
+		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
 		ssize_t idx;
+		double flo;
 
-		if (expo == 0.0) {
-			/* don't bother */
-			continue;
-		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+		if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
 #if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
 			continue;
 		}
-		res.expo += expo;
-		if (LIKELY(old_v != NULL && !init)) {
-			res.val += expo * (new_v[idx] - old_v[idx]);
+		/* check for transition changes */
+		if (st->expos[idx] != expo) {
+			double trans;
+
+			trans = expo - st->expos[idx];
+			if (st->expos[idx] != 0.0) {
+				double tot_flo = st->bases[idx] - new_v[idx];
+				flo = tot_flo * trans;
+			} else {
+				flo = 0.0;
+			}
+
+			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
+				   trans, new_v[idx],
+				   expo, st->bases[idx], flo);
+
+			/* record bases */
+			if (st->expos[idx] == 0.0 || expo == 0.0) {
+				st->bases[idx] = new_v[idx];
+			}
+			st->expos[idx] = expo;
+			st->is_non_nil = 1;
+		} else if (expo != 0.0) {
+			double tot_flo = new_v[idx] - st->bases[idx];
+
+			flo = tot_flo * expo;
+			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
+				   expo, new_v[idx], st->bases[idx],
+				   flo, flo + st->bases[idx]);
+			st->is_non_nil = 1;
 		} else {
-			res.val += expo * new_v[idx];
+			/* expo == 0.0 || st->expos[idx] == expo */
+			flo = 0.0;
+			st->is_non_nil |= expo != 0.0;
 		}
+		/* munch it all together */
+		res += flo;
 	}
-	return res;
+	st->was_non_nil = st->is_non_nil;
+	st->inc_flo = res - st->cum_flo;
+	st->cum_flo = res;
+	return st->st;
 }
 
 static double
@@ -1086,10 +1152,11 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 {
 	trtsc_t ser;
 	FILE *f;
-	double anchor = 0.0;
-	double old_an = 0.0;
 	trcut_t c;
-	bool init = true;
+	struct __cutflo_st_s cfst = {
+		.tick_val = ser_sp.tick_val,
+		.st = 0,
+	};
 
 	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
@@ -1102,32 +1169,21 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	for (size_t i = 0; i < ser->ndvvs; i++) {
 		idate_t dt = ser->dvvs[i].d;
 		daysi_t mc_ds = idate_to_daysi(dt);
-		char buf[32];
-		struct __cutflo_s cf;
 
 		/* anchor now contains the very first date and value */
-		if ((c = make_cut(s, mc_ds - /*yday*/!ser_sp.cump)) == NULL) {
+		if ((c = make_cut(s, mc_ds)) == NULL) {
 			continue;
 		}
-		cf = cut_flow(c, dt, ser, ser_sp.tick_val, init);
 
-		if (ser_sp.cump) {
-			if (UNLIKELY(init && cf.val == 0.0)) {
-				goto leave_cut;
-			}
-			anchor = old_an + cf.val;
-			init = false;
-		} else {
-			if (LIKELY(!init && cf.expo == 0.0 && cf.val == 0.0)) {
-				goto leave_cut;
-			}
-			anchor = cf.val;
-			init = false;
+		if (cut_flow(&cfst, c, dt, ser)) {
+			char buf[32];
+			double val = ser_sp.cump
+				? cfst.cum_flo + cfst.basis
+				: cfst.inc_flo;
+			snprint_idate(buf, sizeof(buf), dt);
+			fprintf(whither, "%s\t%.8g\n", buf, val);
 		}
-		snprint_idate(buf, sizeof(buf), dt);
-		fprintf(whither, "%s\t%.8g\n", buf, anchor);
-		old_an = anchor;
-	leave_cut:
+		/* free resources */
 		free_cut(c);
 	}
 
