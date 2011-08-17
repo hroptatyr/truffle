@@ -1008,6 +1008,13 @@ free_series(trtsc_t s)
 	return;
 }
 
+typedef enum {
+	CUTFLO_TRANS_NIL_NIL = 0,
+	CUTFLO_TRANS_NON_NIL,
+	CUTFLO_TRANS_NIL_NON,
+	CUTFLO_TRANS_NON_NON,
+} cutflo_trans_t;
+
 struct __cutflo_st_s {
 	/* user settable */
 	/** tick value by which to multiply the cash flow */
@@ -1018,6 +1025,7 @@ struct __cutflo_st_s {
 	double basis;
 	/* our stuff */
 	union {
+		cutflo_trans_t e;
 		int st:2;
 		struct {
 			int was_non_nil:1;
@@ -1030,7 +1038,7 @@ struct __cutflo_st_s {
 	double inc_flo;
 };
 
-static double
+static cutflo_trans_t
 cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt, trtsc_t tsc)
 {
 	double res = 0.0;
@@ -1112,7 +1120,7 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 	st->was_non_nil = st->is_non_nil;
 	st->inc_flo = res - st->cum_flo;
 	st->cum_flo = res;
-	return st->st;
+	return st->e;
 }
 
 static double
