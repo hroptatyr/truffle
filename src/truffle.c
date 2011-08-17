@@ -1070,6 +1070,7 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 {
 	double res = 0.0;
 	const double *new_v = NULL;
+	int is_non_nil = 0;
 
 	for (size_t i = 0; i < st->tsc->ndvvs; i++) {
 		if (st->tsc->dvvs[i].d == dt) {
@@ -1077,8 +1078,6 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 			break;
 		}
 	}
-	/* assume we're not invested */
-	st->is_non_nil = 0;
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
@@ -1119,7 +1118,7 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 				st->bases[idx] = new_v[idx];
 			}
 			st->expos[idx] = expo;
-			st->is_non_nil = 1;
+			is_non_nil = 1;
 		} else if (expo != 0.0) {
 			double tot_flo = new_v[idx] - st->bases[idx];
 
@@ -1127,16 +1126,17 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
 				   expo, new_v[idx], st->bases[idx],
 				   flo, flo + st->bases[idx]);
-			st->is_non_nil = 1;
+			is_non_nil = 1;
 		} else {
 			/* expo == 0.0 || st->expos[idx] == expo */
 			flo = 0.0;
-			st->is_non_nil |= expo != 0.0;
+			is_non_nil |= expo != 0.0;
 		}
 		/* munch it all together */
 		res += flo;
 	}
 	st->was_non_nil = st->is_non_nil;
+	st->is_non_nil = is_non_nil;
 	st->inc_flo = res - st->cum_flo;
 	st->cum_flo = res;
 	return st->e;
@@ -1147,6 +1147,7 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 {
 	double res = 0.0;
 	const double *new_v = NULL;
+	int is_non_nil = 0;
 
 	for (size_t i = 0; i < st->tsc->ndvvs; i++) {
 		if (st->tsc->dvvs[i].d == dt) {
@@ -1154,8 +1155,6 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 			break;
 		}
 	}
-	/* assume we're not invested */
-	st->is_non_nil = 0;
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
@@ -1184,16 +1183,17 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 			flo = tot_flo * expo;
 			TRUF_DEBUG("NO %+.8g @ %.8g => %.8g\n",
 				   expo, tot_flo, flo);
-			st->is_non_nil = 1;
+			is_non_nil = 1;
 		} else {
 			/* expo == 0.0 || st->expos[idx] == expo */
 			flo = 0.0;
-			st->is_non_nil |= expo != 0.0;
+			is_non_nil |= expo != 0.0;
 		}
 		/* munch it all together */
 		res += flo;
 	}
 	st->was_non_nil = st->is_non_nil;
+	st->is_non_nil = is_non_nil;
 	st->inc_flo = res;
 	st->cum_flo += res;
 	return st->e;
