@@ -935,29 +935,6 @@ warning: unsorted input data will result in poor performance\n", stderr);
 	return;
 }
 
-static void
-__tsc_fixup(trtsc_t s)
-{
-/* go through the series again and fix up holes */
-	/* check first guy first */
-	for (size_t j = 0; j < s->ncons; j++) {
-		if (isnan(s->dvvs[0].v[j])) {
-			s->dvvs[0].v[j] = 0.0;
-		}
-	}
-	for (size_t i = 1; i < s->ndvvs; i++) {
-		double *old = s->dvvs[i - 1].v;
-		double *this = s->dvvs[i].v;
-
-		for (size_t j = 0; j < s->ncons; j++) {
-			if (isnan(this[j])) {
-				this[j] = old[j];
-			}
-		}
-	}
-	return;
-}
-
 static trtsc_t
 read_series(FILE *f)
 {
@@ -992,7 +969,6 @@ read_series(FILE *f)
 	if (line) {
 		free(line);
 	}
-	__tsc_fixup(res);
 	return res;
 }
 
@@ -1086,7 +1062,8 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		ssize_t idx;
 		double flo;
 
-		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0) {
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
+		    isnan(new_v[idx])) {
 #if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
@@ -1159,7 +1136,8 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		ssize_t idx;
 		double flo;
 
-		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0) {
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
+		    isnan(new_v[idx])) {
 #if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
