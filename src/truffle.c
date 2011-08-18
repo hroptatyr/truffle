@@ -1064,10 +1064,11 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-#if 1
+			char dts[32];
+			snprint_idate(dts, sizeof(dts), dt);
 			fprintf(stderr, "\
-cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
-#endif	/* 0 */
+cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
+				dts, mon, year, expo);
 			continue;
 		}
 		/* check for transition changes */
@@ -1138,10 +1139,11 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-#if 1
+			char dts[32];
+			snprint_idate(dts, sizeof(dts), dt);
 			fprintf(stderr, "\
-cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
-#endif	/* 0 */
+cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
+				dts, mon, year, expo);
 			continue;
 		}
 		/* check for transition changes */
