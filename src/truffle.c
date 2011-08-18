@@ -990,6 +990,7 @@ typedef enum {
 	CUTFLO_TRANS_NON_NIL,
 	CUTFLO_TRANS_NIL_NON,
 	CUTFLO_TRANS_NON_NON,
+	CUTFLO_HAS_TRANS_BIT = 4,
 } cutflo_trans_t;
 
 struct __cutflo_st_s {
@@ -1005,10 +1006,11 @@ struct __cutflo_st_s {
 	/* our stuff */
 	union {
 		cutflo_trans_t e;
-		int st:2;
+		int st:3;
 		struct {
 			int was_non_nil:1;
 			int is_non_nil:1;
+			int has_trans:1;
 		};
 	};
 	double *bases;
@@ -1175,6 +1177,79 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 	return st->e;
 }
 
+static cutflo_trans_t
+cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
+{
+	double res = 0.0;
+	const double *new_v = NULL;
+	int is_non_nil = 0;
+	int has_trans;
+
+	for (size_t i = 0; i < st->tsc->ndvvs; i++) {
+		if (st->tsc->dvvs[i].d == dt) {
+			new_v = st->tsc->dvvs[i].v;
+			break;
+		}
+	}
+	for (size_t i = 0; i < c->ncomps; i++) {
+		double expo = c->comps[i].y * st->tick_val;
+		char mon = c->comps[i].month;
+		uint16_t year = c->comps[i].year;
+		uint32_t ym = cym_to_ym(mon, year);
+		ssize_t idx;
+		double flo;
+
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
+		    isnan(new_v[idx])) {
+			char dts[32];
+			snprint_idate(dts, sizeof(dts), dt);
+			fprintf(stderr, "\
+cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
+				dts, mon, year, expo);
+			continue;
+		}
+		/* check for transition changes */
+		if (st->expos[idx] != expo) {
+			if (st->expos[idx] != 0.0) {
+				double tot_flo = new_v[idx] - st->bases[idx];
+				double trans_expo = st->expos[idx] - expo;
+				flo = tot_flo * trans_expo;
+			} else {
+				flo = 0.0;
+				/* guess a basis if the user asked us to */
+				if (isnan(st->basis)) {
+					st->basis = 0.0;
+				}
+			}
+
+			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
+				   expo - st->expos[idx], new_v[idx],
+				   expo, st->bases[idx], flo);
+
+			/* record bases */
+			if (st->expos[idx] == 0.0 || expo == 0.0) {
+				st->bases[idx] = new_v[idx];
+			}
+			st->expos[idx] = expo;
+			is_non_nil = 1;
+			has_trans = 1;
+		} else {
+			/* st->expos[idx] == 0.0 && st->expos[idx] == expo */
+			flo = 0.0;
+			is_non_nil = 0;
+			has_trans = 0;
+		}
+		/* munch it all together */
+		res += flo;
+	}
+	st->has_trans = has_trans;
+	st->was_non_nil = st->is_non_nil;
+	st->is_non_nil = is_non_nil;
+	st->inc_flo = res;
+	st->cum_flo += res;
+	return st->e;
+}
+
 
 struct __series_spec_s {
 	const char *ser_file;
@@ -1182,7 +1257,20 @@ struct __series_spec_s {
 	double basis;
 	bool cump:1;
 	bool abs_dimen_p:1;
+	bool sparsep:1;
 };
+
+static cutflo_trans_t(*pick_cf_fun(struct __series_spec_s ser_sp))
+	(struct __cutflo_st_s*, trcut_t, idate_t)
+{
+	if (LIKELY(!ser_sp.abs_dimen_p && !ser_sp.sparsep)) {
+		return cut_flow;
+	} else if (!ser_sp.sparsep) {
+		return cut_base;
+	} else {
+		return cut_sparse;
+	}
+}
 
 static void
 roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
@@ -1192,7 +1280,9 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	trcut_t c;
 	struct __cutflo_st_s cfst;
 	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
-		LIKELY(!ser_sp.abs_dimen_p) ? cut_flow : cut_base;
+		pick_cf_fun(ser_sp);
+	const unsigned int trbit = UNLIKELY(ser_sp.sparsep)
+		? CUTFLO_HAS_TRANS_BIT : CUTFLO_TRANS_NIL_NIL;
 
 	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
@@ -1214,7 +1304,7 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 			continue;
 		}
 
-		if (cf(&cfst, c, dt)) {
+		if (cf(&cfst, c, dt) > trbit) {
 			char buf[32];
 			double val;
 
@@ -1291,6 +1381,7 @@ main(int argc, char *argv[])
 			? argi->basis_arg : NAN,
 			.cump = !argi->flow_given,
 			.abs_dimen_p = argi->abs_dimen_given,
+			.sparsep = argi->sparse_given,
 		};
 		roll_series(sch, sp, stdout);
 	} else if (argi->inputs_num == 0) {
