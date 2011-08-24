@@ -26,6 +26,9 @@
 #else  /* !DEBUG_FLAG */
 # define TRUF_DEBUG(args...)
 #endif	/* DEBUG_FLAG */
+#if !defined countof
+# define countof(x)	(sizeof(x) / sizeof(*(x)))
+#endif	/* !countof */
 
 typedef uint32_t idate_t;
 typedef uint32_t daysi_t;
@@ -45,11 +48,11 @@ struct cnode_s {
 };
 
 /* a single line */
-#define DFLT_FROM	(10000)
-#define DFLT_TILL	(99999999)
+#define DFLT_FROM	(0)
+#define DFLT_TILL	(1048576)
 struct cline_s {
-	idate_t valid_from;
-	idate_t valid_till;
+	daysi_t valid_from;
+	daysi_t valid_till;
 	char month;
 	int8_t year_off;
 	size_t nn;
@@ -65,7 +68,7 @@ struct trsch_s {
 /* result structure, for cuts etc. */
 struct trcc_s {
 	char month;
-	int8_t year_off;
+	uint16_t year;
 	double y __attribute__((aligned(16)));
 };
 
@@ -98,7 +101,7 @@ struct trtsc_s {
 #define TSC_STEP	(4096)
 #define CYM_STEP	(256)
 
-DECLF trcut_t make_cut(trsch_t schema, idate_t when);
+DECLF trcut_t make_cut(trsch_t schema, daysi_t when);
 DECLF void free_cut(trcut_t);
 
 DECLF trsch_t read_schema(const char *file);
@@ -207,7 +210,90 @@ static uint16_t dm[] = {
 	0xfff8, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
 };
 
+static uint32_t ds_sum[256];
+
 #define BASE_YEAR	(1917)
+#define TO_BASE(x)	((x) - BASE_YEAR)
+#define TO_YEAR(x)	((x) + BASE_YEAR)
+
+#if 0
+/* standalone version and adapted to what make_cut() needs */
+static int
+daysi_to_year(daysi_t ddt)
+{
+/* given days since 1917-01-01 (Mon), compute a year */
+	int y;
+
+	if (UNLIKELY(ddt & DAYSI_DIY_BIT)) {
+		return 0;
+	}
+
+	for (y = ddt / 365; (y * 365 + y / 4) >= ddt; y--);
+	return TO_YEAR(y);
+}
+#elif 1
+static int
+daysi_to_year(daysi_t ddt)
+{
+/* given days since 1917-01-01 (Mon), compute a year */
+	if (UNLIKELY(ddt & DAYSI_DIY_BIT)) {
+		return 0;
+	}
+
+	/* scan target */
+	for (int y = TO_BASE(1980); y < TO_BASE(2020); y++) {
+		if (ds_sum[y] > ddt) {
+			return TO_YEAR(y - 1);
+		}
+	}
+	for (int y = 0; y < TO_BASE(1980); y++) {
+		if (ds_sum[y] > ddt) {
+			return TO_YEAR(y - 1);
+		}
+	}
+	for (int y = TO_BASE(2020); y < countof(ds_sum); y++) {
+		if (ds_sum[y] > ddt) {
+			return TO_YEAR(y - 1);
+		}
+	}
+	return 0;
+}
+#endif
+
+/* standalone version, we could use ds_sum but this is most likely
+ * causing more cache misses */
+static idate_t
+daysi_to_idate(daysi_t ddt)
+{
+/* given days since 1917-01-01 (Mon),
+ * compute the idate_t representation X so that idate_to_daysi(X) == DDT */
+	int m;
+	int d;
+	int y;
+
+	if (LIKELY(ddt & DAYSI_DIY_BIT)) {
+		ddt &= ~DAYSI_DIY_BIT;
+	}
+	y = daysi_to_year(ddt);
+
+	for (m = 1; m < 12 && ddt > dm[m + 1]; m++);
+	d = ddt - dm[m];
+
+	if (UNLIKELY(y > 0 && y % 4 == 0)) {
+		if ((dm[0] >> (m)) & 1) {
+			if (UNLIKELY(ddt == 60)) {
+				m = 2;
+				d = 29;
+			} else if (UNLIKELY(ddt == dm[m] + 1)) {
+				m--;
+				d = ddt - dm[m] - 1;
+			} else {
+				d--;
+			}
+		}
+	}
+	return y * 10000 + m * 100 + d;
+}
 
 static daysi_t
 idate_to_daysi(idate_t dt)
@@ -230,6 +316,26 @@ idate_to_daysi(idate_t dt)
 		}
 	}
 	return res;
+}
+
+static daysi_t
+daysi_in_year(daysi_t ds, int y)
+{
+	int off = y - BASE_YEAR;
+
+	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
+		/* we could technically do something here */
+		;
+	} else if (UNLIKELY(off < 0 || off > countof(ds_sum))) {
+		return 0U;
+	} else {
+		ds &= ~DAYSI_DIY_BIT;
+		if (UNLIKELY(y % 4 == 0) && ds >= 60) {
+			ds++;
+		}
+		ds += ds_sum[off] - 1;
+	}
+	return ds;
 }
 
 static trsch_t
@@ -409,6 +515,8 @@ __read_schema_line(const char *line, size_t llen)
 			p = line + strspn(line + 1, skip) + 1;
 			yoff = 0;
 		}
+
+		/* kick off the schema-line process */
 		cl = make_cline(line[0], yoff);
 
 		do {
@@ -416,14 +524,25 @@ __read_schema_line(const char *line, size_t llen)
 			p = tmp + strspn(tmp, skip);
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
+			if (UNLIKELY(cl->nn == 0)) {
+				/* auto-fill to the left */
+				if (UNLIKELY(v != 0.0 && dt != 101)) {
+					cl = cline_add_sugar(cl, 101, v);
+				}
+			}
 			/* add this line */
-			if (cl->nn && dt <= cl->n[cl->nn - 1].x) {
+			daysi_t ddt = idate_to_daysi(dt);
+			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				free(cl);
 				return NULL;
 			}
 			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
+		/* auto-fill 1 polygons to the right */
+		if (UNLIKELY(v != 0.0 && dt != 1231)) {
+			cl = cline_add_sugar(cl, 1231, v);
+		}
 	default:
 		break;
 	}
@@ -442,8 +561,8 @@ read_schema_line(const char *line, size_t UNUSED(llen))
 	static const char skip[] = " \t";
 	cline_t cl;
 	/* validity */
-	idate_t vfrom = 0;
-	idate_t vtill = 0;
+	daysi_t vfrom = 0;
+	daysi_t vtill = 0;
 	const char *lp = line;
 
 	while (1) {
@@ -454,9 +573,9 @@ read_schema_line(const char *line, size_t UNUSED(llen))
 			tmi = read_date(lp, &tmp);
 
 			if (!vfrom) {
-				vfrom = tmi;
+				vfrom = idate_to_daysi(tmi);
 			} else {
-				vtill = tmi;
+				vtill = idate_to_daysi(tmi);
 			}
 			lp = tmp + strspn(tmp, skip);
 			continue;
@@ -528,7 +647,7 @@ print_cline(cline_t cl, FILE *whither)
 		if (cl->valid_from == DFLT_FROM) {
 			fputc('*', whither);
 		} else if (cl->valid_from > DFLT_FROM) {
-			fprintf(whither, "%u", cl->valid_from);
+			fprintf(whither, "%u", daysi_to_idate(cl->valid_from));
 		} else {
 			/* we were meant to fill this bugger */
 			abort();
@@ -538,7 +657,8 @@ print_cline(cline_t cl, FILE *whither)
 			if (cl->valid_till >= DFLT_TILL) {
 				fputc('*', whither);
 			} else if (cl->valid_from > 0) {
-				fprintf(whither, "%u", cl->valid_till);
+				fprintf(whither, "%u",
+					daysi_to_idate(cl->valid_till));
 			} else {
 				/* invalid value in here */
 				abort();
@@ -552,8 +672,9 @@ print_cline(cline_t cl, FILE *whither)
 		fprintf(whither, "%d", cl->year_off);
 	}
 	for (size_t i = 0; i < cl->nn; i++) {
+		idate_t dt = cl->n[i].x;
 		fputc(' ', whither);
-		fprintf(whither, " %04u %.8g", cl->n[i].x, cl->n[i].y);
+		fprintf(whither, " %04u %.8g", dt, cl->n[i].y);
 	}
 	fputc('\n', whither);
 	return;
@@ -576,36 +697,34 @@ free_cut(trcut_t cut)
 }
 
 DEFUN trcut_t
-make_cut(trsch_t sch, idate_t dt)
+make_cut(trsch_t sch, daysi_t when)
 {
 	trcut_t res = NULL;
-	idate_t dt_sans = dt % 10000;
-	daysi_t ddt_sans = idate_to_daysi(dt_sans);
+	int y = daysi_to_year(when);
 
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
 
 		/* check year validity */
-		if (dt < p->valid_from || dt > p->valid_till) {
+		if (when < p->valid_from || when > p->valid_till) {
 			/* cline isn't applicable */
 			continue;
 		}
 		for (size_t j = 0; j < p->nn - 1; j++) {
 			struct cnode_s *n1 = p->n + j;
 			struct cnode_s *n2 = n1 + 1;
-			idate_t x1 = n1->x;
-			idate_t x2 = n2->x;
+			daysi_t l1 = daysi_in_year(n1->l, y);
+			daysi_t l2 = daysi_in_year(n2->l, y);
 
-			if ((dt_sans >= x1 && dt_sans <= x2) ||
-			    (x1 > x2 && (dt_sans >= x1 || dt_sans <= x2))) {
+			if (when >= l1 && when <= l2) {
 				/* something happened between n1 and n2 */
 				struct trcc_s cc;
-				double xsub = n2->l - n1->l;
-				double tsub = ddt_sans - n1->l;
+				double xsub = l2 - l1;
+				double tsub = when - l1;
 				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
-				cc.year_off = p->year_off;
+				cc.year = y + p->year_off;
 				cc.y = n1->y + tsub * ysub / xsub;
 				res = cut_add_cc(res, cc);
 				break;
@@ -614,6 +733,22 @@ make_cut(trsch_t sch, idate_t dt)
 	}
 	return res;
 }
+
+#if 0
+DEFUN bool
+cut_non_nil_expo_p(trcut_t cut)
+{
+/* return whether a cut has a non-nil exposure,
+ * note it is possible for a cut to have total exposure 0.0 and
+ * yet have cash flows */
+	for (size_t i = 0; i < cut->ncomps; i++) {
+		if (cut->comps[i].y != 0.0) {
+			return true;
+		}
+	}
+	return false;
+}
+#endif
 
 static int
 m_to_i(char month)
@@ -652,6 +787,7 @@ static void
 print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 {
 	char buf[32];
+	int y = dt / 10000;
 
 	snprint_idate(buf, sizeof(buf), dt);
 	for (size_t i = 0; i < c->ncomps; i++) {
@@ -664,12 +800,12 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 			fprintf(out, "%s\t%c%d\t%.8g\n",
 				buf,
 				c->comps[i].month,
-				c->comps[i].year_off + c->year_off,
+				c->comps[i].year - y + c->year_off,
 				expo);
 		} else {
 			fprintf(out, "%s\t%d%02d\t%.8g\n",
 				buf,
-				c->comps[i].year_off + c->year_off,
+				c->comps[i].year - y + c->year_off,
 				m_to_i(c->comps[i].month),
 				expo);
 		}
@@ -872,25 +1008,128 @@ free_series(trtsc_t s)
 	return;
 }
 
+struct __cutflo_st_s {
+	/* user settable */
+	/** tick value by which to multiply the cash flow */
+	double tick_val;
+	/**
+	 * basis, unused unless set to nan in which case cut flow will
+	 * pick a suitable basis, most of the time the first quote found */
+	double basis;
+	/* our stuff */
+	union {
+		int st:2;
+		struct {
+			int was_non_nil:1;
+			int is_non_nil:1;
+		};
+	};
+	double *bases;
+	double *expos;
+	double cum_flo;
+	double inc_flo;
+};
+
 static double
-cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
+cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt, trtsc_t tsc)
 {
-	uint16_t dt_y = dt / 10000;
-	double res = 0;
+	double res = 0.0;
 	double *new_v = NULL;
-	double *old_v = NULL;
+
+	/* singleton */
+	if (UNLIKELY(st->bases == NULL)) {
+		st->bases = calloc(tsc->ncons, sizeof(*st->bases));
+	}
+	if (UNLIKELY(st->expos == NULL)) {
+		st->expos = calloc(tsc->ncons, sizeof(*st->expos));
+	}
 
 	for (size_t i = 0; i < tsc->ndvvs; i++) {
 		if (tsc->dvvs[i].d == dt) {
 			new_v = tsc->dvvs[i].v;
-			old_v = i > 0 ? tsc->dvvs[i - 1].v : NULL;
 			break;
+		}
+	}
+	/* assume we're not invested */
+	st->is_non_nil = 0;
+	for (size_t i = 0; i < c->ncomps; i++) {
+		double expo = c->comps[i].y * st->tick_val;
+		char mon = c->comps[i].month;
+		uint16_t year = c->comps[i].year;
+		uint32_t ym = cym_to_ym(mon, year);
+		ssize_t idx;
+		double flo;
+
+		if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+#if 1
+			fprintf(stderr, "\
+cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
+#endif	/* 0 */
+			continue;
+		}
+		/* check for transition changes */
+		if (st->expos[idx] != expo) {
+			double trans;
+
+			trans = expo - st->expos[idx];
+			if (st->expos[idx] != 0.0) {
+				double tot_flo = st->bases[idx] - new_v[idx];
+				flo = tot_flo * trans;
+			} else {
+				flo = 0.0;
+				/* guess a basis if the user asked us to */
+				if (isnan(st->basis)) {
+					st->basis = new_v[idx];
+				}
+			}
+
+			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
+				   trans, new_v[idx],
+				   expo, st->bases[idx], flo);
+
+			/* record bases */
+			if (st->expos[idx] == 0.0 || expo == 0.0) {
+				st->bases[idx] = new_v[idx];
+			}
+			st->expos[idx] = expo;
+			st->is_non_nil = 1;
+		} else if (expo != 0.0) {
+			double tot_flo = new_v[idx] - st->bases[idx];
+
+			flo = tot_flo * expo;
+			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
+				   expo, new_v[idx], st->bases[idx],
+				   flo, flo + st->bases[idx]);
+			st->is_non_nil = 1;
+		} else {
+			/* expo == 0.0 || st->expos[idx] == expo */
+			flo = 0.0;
+			st->is_non_nil |= expo != 0.0;
+		}
+		/* munch it all together */
+		res += flo;
+	}
+	st->was_non_nil = st->is_non_nil;
+	st->inc_flo = res - st->cum_flo;
+	st->cum_flo = res;
+	return st->st;
+}
+
+static double
+cut_base(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
+{
+	double res = 0;
+	double *new_v = NULL;
+
+	for (size_t i = 0; i < tsc->ndvvs; i++) {
+		if (tsc->dvvs[i].d == dt) {
+			new_v = tsc->dvvs[i].v;
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * tick_val;
 		char mon = c->comps[i].month;
-		uint16_t year = c->comps[i].year_off + dt_y;
+		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
 		ssize_t idx;
 
@@ -898,32 +1137,38 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
 			/* don't bother */
 			continue;
 		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
-#if 0
+#if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
 			continue;
 		}
-		if (LIKELY(old_v != NULL && !isnan(base))) {
-			res += expo * (new_v[idx] - old_v[idx]);
-		} else {
-			res += expo * new_v[idx];
-		}
+		res += expo * (new_v[idx] - base);
 	}
 	return res;
 }
 
+struct __series_spec_s {
+	const char *ser_file;
+	double tick_val;
+	double basis;
+	bool cump;
+};
+
 static void
-roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
+roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 {
 	trtsc_t ser;
 	FILE *f;
-	double anchor = 0.0;
-	double old_an = NAN;
 	trcut_t c;
+	struct __cutflo_st_s cfst = {
+		.tick_val = ser_sp.tick_val,
+		.st = 0,
+		.basis = ser_sp.cump ? NAN : 0.0,
+	};
 
-	if ((f = fopen(ser_file, "r")) == NULL) {
-		fprintf(stderr, "could not open file %s\n", ser_file);
+	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
+		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
 		return;
 	} else if ((ser = read_series(f)) == NULL) {
 		return;
@@ -932,25 +1177,23 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	/* find the earliest date */
 	for (size_t i = 0; i < ser->ndvvs; i++) {
 		idate_t dt = ser->dvvs[i].d;
+		daysi_t mc_ds = idate_to_daysi(dt);
 
 		/* anchor now contains the very first date and value */
-		if ((c = make_cut(s, dt))) {
-			char buf[32];
-			double cf;
-
-			cf = cut_flow(c, dt, ser, tv, old_an);
-			if (UNLIKELY(isnan(old_an))) {
-				anchor = cum ? cf : 0.0;
-			} else if (LIKELY(cum)) {
-				anchor = old_an + cf;
-			} else {
-				anchor = cf;
-			}
-			snprint_idate(buf, sizeof(buf), dt);
-			fprintf(whither, "%s\t%.8g\n", buf, anchor);
-			old_an = anchor;
-			free_cut(c);
+		if ((c = make_cut(s, mc_ds)) == NULL) {
+			continue;
 		}
+
+		if (cut_flow(&cfst, c, dt, ser)) {
+			char buf[32];
+			double val = ser_sp.cump
+				? cfst.cum_flo + cfst.basis
+				: cfst.inc_flo;
+			snprint_idate(buf, sizeof(buf), dt);
+			fprintf(whither, "%s\t%.8g\n", buf, val);
+		}
+		/* free resources */
+		free_cut(c);
 	}
 
 	/* free up resources */
@@ -984,6 +1227,11 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
+	/* initialise the daysi sums */
+	for (size_t i = 0; i < countof(ds_sum); i++) {
+		ds_sum[i] = idate_to_daysi((i + BASE_YEAR) * 10000 + 101);
+	}
+
 	if (argi->schema_given) {
 		sch = read_schema(argi->schema_arg);
 	} else {
@@ -996,10 +1244,15 @@ main(int argc, char *argv[])
 	}
 	/* finally call our main routine */
 	if (argi->series_given) {
-		double tv = argi->tick_value_given
-			? argi->tick_value_arg : 1.0;
-		bool cump = !argi->flow_given;
-		roll_series(sch, argi->series_arg, tv, cump, stdout);
+		struct __series_spec_s sp = {
+			.ser_file = argi->series_arg,
+			.tick_val = argi->tick_value_given
+			? argi->tick_value_arg : 1.0,
+			.basis = argi->basis_given
+			? argi->basis_arg : 0.0,
+			.cump = !argi->flow_given,
+		};
+		roll_series(sch, sp, stdout);
 	} else if (argi->inputs_num == 0) {
 		print_schema(sch, stdout);
 	} else {
@@ -1009,7 +1262,9 @@ main(int argc, char *argv[])
 
 		for (size_t i = 0; i < argi->inputs_num; i++) {
 			idate_t dt = read_date(argi->inputs[i], NULL);
-			if ((c = make_cut(sch, dt))) {
+			daysi_t ds = idate_to_daysi(dt);
+
+			if ((c = make_cut(sch, ds))) {
 				if (argi->abs_given) {
 					c->year_off = dt / 10000;
 				}
