@@ -7,8 +7,25 @@ Input is read from stdin and must follow the specs:
 where DATE is %m%d and value is a non-negative double.
 If no DATEs"
 
-option "round" r "Round positions to integer values" optional
-option "lever" l "Offset all positions against this lever" double optional
-option "abs" a "Use absolute contract years" optional
+defmode "tseries" modedesc="Options in this mode apply roll-over schemas \
+to actual time series data."
+
+defmode "contracts" modedesc="Options in this mode apply roll-over schemas \
+to dates, yielding absolute contracts."
+
+## common to all modes
 option "schema" s "Schema file, read from stdin if omitted" string optional
 
+modeoption "round" r "Round positions to integer values"
+	optional mode="contracts"
+modeoption "lever" l "Offset all positions against this lever"
+	double optional mode="contracts"
+modeoption "abs" a "Use absolute contract years"
+	optional mode="contracts"
+
+modeoption "series" - "Series file, CSYM DATE VALUE, to be rolled"
+	string optional mode="tseries"
+modeoption "tick-value" - "Numeric value of the cash flow per tick."
+	double optional mode="tseries"
+modeoption "flow" f "Output rolled-over cash flows instead of a \
+(cumulative) quote series" optional mode="tseries"
