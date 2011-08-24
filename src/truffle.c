@@ -80,7 +80,7 @@ static int8_t __attribute__((unused)) ml[] = {
 };
 static int16_t mc[] = {
 /* this is 100 - ml[i] cumulated */
-	0, 69, 141, 210, 280, 349, 419, 488, 557, 627, 696, 766, 835
+	0, 0, 69, 141, 210, 280, 349, 419, 488, 557, 627, 696, 766
 };
 
 static int
