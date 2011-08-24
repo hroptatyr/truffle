@@ -276,7 +276,7 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 	return cl;
 }
 
-static cline_t __attribute__((noinline))
+static cline_t
 read_schema_line(const char *line, size_t UNUSED(llen))
 {
 /* schema lines can be prefixed with a range of validity years:
@@ -321,6 +321,9 @@ read_schema_line(const char *line, size_t UNUSED(llen))
 	}
 	if (vtill > DFLT_FROM && vfrom > vtill) {
 		return NULL;
+	} else if (vtill == 0 && vfrom == 0) {
+		vfrom = DFLT_FROM;
+		vtill = DFLT_TILL;
 	}
 	if ((cl = __read_schema_line(lp, llen - (lp - line)))) {
 		cl->valid_from = vfrom;
