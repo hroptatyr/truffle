@@ -7,15 +7,16 @@ bin_PROGRAMS =
 noinst_PROGRAMS =
 noinst_HEADERS =
 BUILT_SOURCES =
-CLEANFILES = $(BUILT_SOURCES)
+CLEANFILES =
+EXTRA_DIST = $(BUILT_SOURCES)
 
 bin_PROGRAMS += truffle
 truffle_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
 truffle_LDFLAGS = $(AM_LDFLAGS)
-BUILT_SOURCES += truffle-clo.c
+BUILT_SOURCES += truffle-clo.c truffle-clo.h
 
 ## ggo rule
-%.c: %.ggo
+%.c %.h: %.ggo
 	gengetopt -l -i $< -F $*
 
 # 
