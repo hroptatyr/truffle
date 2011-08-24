@@ -37,6 +37,7 @@ typedef struct trsch_s *trsch_t;
 typedef struct cline_s *cline_t;
 typedef struct trser_s *trser_t;
 typedef struct trtsc_s *trtsc_t;
+typedef const struct trtsc_s *const_trtsc_t;
 
 #define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
 
@@ -822,7 +823,7 @@ cym_to_ym(char month, uint16_t year)
 }
 
 static ssize_t
-tsc_find_cym_idx(trtsc_t s, uint32_t ym)
+tsc_find_cym_idx(const_trtsc_t s, uint32_t ym)
 {
 	for (ssize_t i = 0; i < s->ncons; i++) {
 		if (s->cons[i] == ym) {
@@ -1008,6 +1009,13 @@ free_series(trtsc_t s)
 	return;
 }
 
+typedef enum {
+	CUTFLO_TRANS_NIL_NIL = 0,
+	CUTFLO_TRANS_NON_NIL,
+	CUTFLO_TRANS_NIL_NON,
+	CUTFLO_TRANS_NON_NON,
+} cutflo_trans_t;
+
 struct __cutflo_st_s {
 	/* user settable */
 	/** tick value by which to multiply the cash flow */
@@ -1016,8 +1024,11 @@ struct __cutflo_st_s {
 	 * basis, unused unless set to nan in which case cut flow will
 	 * pick a suitable basis, most of the time the first quote found */
 	double basis;
+	const_trtsc_t tsc;
+
 	/* our stuff */
 	union {
+		cutflo_trans_t e;
 		int st:2;
 		struct {
 			int was_non_nil:1;
@@ -1030,28 +1041,43 @@ struct __cutflo_st_s {
 	double inc_flo;
 };
 
-static double
-cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt, trtsc_t tsc)
+static void
+init_cutflo_st(
+	struct __cutflo_st_s *st, const_trtsc_t series,
+	double tick_val, double basis)
+{
+	st->tick_val = tick_val;
+	st->basis = basis;
+	st->tsc = series;
+	st->e = CUTFLO_TRANS_NIL_NIL;
+	st->bases = calloc(series->ncons, sizeof(*st->bases));
+	st->expos = calloc(series->ncons, sizeof(*st->expos));
+	st->cum_flo = 0.0;
+	st->inc_flo = 0.0;
+	return;
+}
+
+static void
+free_cutflo_st(struct __cutflo_st_s *st)
+{
+	free(st->bases);
+	free(st->expos);
+	return;
+}
+
+static cutflo_trans_t
+cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 {
 	double res = 0.0;
-	double *new_v = NULL;
+	const double *new_v = NULL;
+	int is_non_nil = 0;
 
-	/* singleton */
-	if (UNLIKELY(st->bases == NULL)) {
-		st->bases = calloc(tsc->ncons, sizeof(*st->bases));
-	}
-	if (UNLIKELY(st->expos == NULL)) {
-		st->expos = calloc(tsc->ncons, sizeof(*st->expos));
-	}
-
-	for (size_t i = 0; i < tsc->ndvvs; i++) {
-		if (tsc->dvvs[i].d == dt) {
-			new_v = tsc->dvvs[i].v;
+	for (size_t i = 0; i < st->tsc->ndvvs; i++) {
+		if (st->tsc->dvvs[i].d == dt) {
+			new_v = st->tsc->dvvs[i].v;
 			break;
 		}
 	}
-	/* assume we're not invested */
-	st->is_non_nil = 0;
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
@@ -1060,7 +1086,7 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt, trtsc_t tsc)
 		ssize_t idx;
 		double flo;
 
-		if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0) {
 #if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
@@ -1088,11 +1114,9 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 				   expo, st->bases[idx], flo);
 
 			/* record bases */
-			if (st->expos[idx] == 0.0 || expo == 0.0) {
-				st->bases[idx] = new_v[idx];
-			}
+			st->bases[idx] = new_v[idx];
 			st->expos[idx] = expo;
-			st->is_non_nil = 1;
+			is_non_nil = 1;
 		} else if (expo != 0.0) {
 			double tot_flo = new_v[idx] - st->bases[idx];
 
@@ -1100,59 +1124,87 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
 				   expo, new_v[idx], st->bases[idx],
 				   flo, flo + st->bases[idx]);
-			st->is_non_nil = 1;
+			st->bases[idx] = new_v[idx];
+			is_non_nil = 1;
 		} else {
 			/* expo == 0.0 || st->expos[idx] == expo */
 			flo = 0.0;
-			st->is_non_nil |= expo != 0.0;
+			is_non_nil |= expo != 0.0;
 		}
 		/* munch it all together */
 		res += flo;
 	}
 	st->was_non_nil = st->is_non_nil;
-	st->inc_flo = res - st->cum_flo;
-	st->cum_flo = res;
-	return st->st;
+	st->is_non_nil = is_non_nil;
+	st->inc_flo = res;
+	st->cum_flo += res;
+	return st->e;
 }
 
-static double
-cut_base(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
+static cutflo_trans_t
+cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 {
-	double res = 0;
-	double *new_v = NULL;
+	double res = 0.0;
+	const double *new_v = NULL;
+	int is_non_nil = 0;
 
-	for (size_t i = 0; i < tsc->ndvvs; i++) {
-		if (tsc->dvvs[i].d == dt) {
-			new_v = tsc->dvvs[i].v;
+	for (size_t i = 0; i < st->tsc->ndvvs; i++) {
+		if (st->tsc->dvvs[i].d == dt) {
+			new_v = st->tsc->dvvs[i].v;
+			break;
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo = c->comps[i].y * tick_val;
+		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
 		ssize_t idx;
+		double flo;
 
-		if (expo == 0.0) {
-			/* don't bother */
-			continue;
-		} else if ((idx = tsc_find_cym_idx(tsc, ym)) < 0) {
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0) {
 #if 1
 			fprintf(stderr, "\
 cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 #endif	/* 0 */
 			continue;
 		}
-		res += expo * (new_v[idx] - base);
+		/* check for transition changes */
+		if (expo != 0.0) {
+			double tot_flo;
+
+			if (UNLIKELY(isnan(st->basis))) {
+				st->basis = 0.0;
+			}
+
+			tot_flo = (new_v[idx] - st->basis);
+
+			flo = tot_flo * expo;
+			TRUF_DEBUG("NO %+.8g @ %.8g => %.8g\n",
+				   expo, tot_flo, flo);
+			is_non_nil = 1;
+		} else {
+			/* expo == 0.0 || st->expos[idx] == expo */
+			flo = 0.0;
+			is_non_nil |= expo != 0.0;
+		}
+		/* munch it all together */
+		res += flo;
 	}
-	return res;
+	st->was_non_nil = st->is_non_nil;
+	st->is_non_nil = is_non_nil;
+	st->inc_flo = res;
+	st->cum_flo += res;
+	return st->e;
 }
+
 
 struct __series_spec_s {
 	const char *ser_file;
 	double tick_val;
 	double basis;
-	bool cump;
+	bool cump:1;
+	bool abs_dimen_p:1;
 };
 
 static void
@@ -1161,11 +1213,9 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	trtsc_t ser;
 	FILE *f;
 	trcut_t c;
-	struct __cutflo_st_s cfst = {
-		.tick_val = ser_sp.tick_val,
-		.st = 0,
-		.basis = ser_sp.cump ? NAN : 0.0,
-	};
+	struct __cutflo_st_s cfst;
+	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
+		LIKELY(!ser_sp.abs_dimen_p) ? cut_flow : cut_base;
 
 	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
@@ -1173,6 +1223,9 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	} else if ((ser = read_series(f)) == NULL) {
 		return;
 	}
+
+	/* init out cut flow state structure */
+	init_cutflo_st(&cfst, ser, ser_sp.tick_val, ser_sp.basis);
 
 	/* find the earliest date */
 	for (size_t i = 0; i < ser->ndvvs; i++) {
@@ -1184,11 +1237,19 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 			continue;
 		}
 
-		if (cut_flow(&cfst, c, dt, ser)) {
+		if (cf(&cfst, c, dt)) {
 			char buf[32];
-			double val = ser_sp.cump
-				? cfst.cum_flo + cfst.basis
-				: cfst.inc_flo;
+			double val;
+
+			if (LIKELY(!ser_sp.abs_dimen_p && ser_sp.cump)) {
+				val = cfst.cum_flo + cfst.basis;
+			} else if (LIKELY(!ser_sp.abs_dimen_p)) {
+				val = cfst.inc_flo;
+			} else if (LIKELY(!ser_sp.cump)) {
+				val = cfst.inc_flo;
+			} else {
+				val = cfst.cum_flo;
+			}
 			snprint_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, val);
 		}
@@ -1197,6 +1258,7 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	}
 
 	/* free up resources */
+	free_cutflo_st(&cfst);
 	if (ser) {
 		free_series(ser);
 	}
@@ -1249,8 +1311,9 @@ main(int argc, char *argv[])
 			.tick_val = argi->tick_value_given
 			? argi->tick_value_arg : 1.0,
 			.basis = argi->basis_given
-			? argi->basis_arg : 0.0,
+			? argi->basis_arg : NAN,
 			.cump = !argi->flow_given,
+			.abs_dimen_p = argi->abs_dimen_given,
 		};
 		roll_series(sch, sp, stdout);
 	} else if (argi->inputs_num == 0) {

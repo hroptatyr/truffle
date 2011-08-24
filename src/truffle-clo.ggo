@@ -34,3 +34,8 @@ modeoption "basis" b
 	"Basis of a carry-over future position as price quote, \
 default is the quote upon the first investment."
 	double optional mode="tseries"
+modeoption "abs-dimen" -
+	"Instead of working with cash flows to obtain quotes or flows \
+use absolute dimensions, i.e. act as if the flow today is the quote \
+today minus BASIS (specified by -b)."
+	optional mode="tseries"
