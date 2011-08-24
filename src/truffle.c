@@ -67,6 +67,20 @@ struct trcut_s {
 	struct trcc_s comps[];
 };
 
+struct __dv_s {
+	idate_t d;
+	double v;
+};
+
+struct trser_s {
+	char month;
+	uint16_t year;
+
+	size_t nvals;
+	struct __dv_s *vals;
+};
+#define SER_STEP	(4096 / sizeof(struct __dv_s))
+
 DECLF trcut_t make_cut(trsch_t schema, idate_t when);
 DECLF void free_cut(trcut_t);
 
@@ -198,13 +212,6 @@ read_date(const char *str, char **ptr)
 	str = tmp + 1;
 	res *= 100;
 	res += strtol(str, &tmp, 10);
-	if (*tmp != '\0') {
-		/* porn date */
-		if (ptr) {
-			*ptr = tmp;
-		}
-		return 0;
-	}
 	if (ptr) {
 		*ptr = tmp;
 	}
@@ -480,6 +487,200 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rndp, FILE *whither)
 	return;
 }
 
+static struct trser_s*
+__find_ser(struct trser_s *ser, size_t nser, char mon, uint16_t yoff)
+{
+	for (size_t i = 0; i < nser; i++) {
+		if (ser[i].month == mon && ser[i].year == yoff) {
+			return ser + i;
+		}
+	}
+	return NULL;
+}
+
+static struct trser_s*
+__find_crea_ser(struct trser_s **ser, size_t *nser, char mon, uint16_t yoff)
+{
+	struct trser_s *res;
+
+	if ((res = __find_ser(*ser, *nser, mon, yoff)) != NULL) {
+		return res;
+	}
+	/* create one, check resize first */
+	if ((*nser % 16) == 0) {
+		size_t new_sz = sizeof(**ser) * (*nser + 16);
+		*ser = realloc(*ser, new_sz);
+	}
+	(*ser)[*nser].month = mon;
+	(*ser)[*nser].year = yoff;
+	(*ser)[*nser].nvals = 0;
+	(*ser)[*nser].vals = NULL;
+	return (*ser) + (*nser)++;
+}
+
+static size_t
+read_series(struct trser_s **ser, FILE *f)
+{
+	size_t res = 0;
+	size_t llen = 0UL;
+	char *line = NULL;
+
+	/* read the series file first */
+	while (getline(&line, &llen, f) > 0) {
+		char *con = line;
+		char *dat;
+		char *val;
+		struct trser_s *this;
+		char mon;
+		uint16_t yoff;
+		struct __dv_s dv;
+
+		if ((dat = strchr(con, '\t')) == NULL) {
+			break;
+		}
+		if (!(dv.d = read_date(dat + 1, &val)) ||
+		    (val == NULL) ||
+		    (dv.v = strtod(val + 1, &val), val) == NULL) {
+			break;
+		}
+
+		mon = con[0];
+		yoff = strtoul(con + 1, NULL, 10);
+		this = __find_crea_ser(ser, &res, mon, yoff);
+		/* check if we need to reallocate */
+		if ((this->nvals % SER_STEP) == 0) {
+			size_t new_sz =
+				(this->nvals + SER_STEP) * sizeof(*this->vals);
+			this->vals = realloc(this->vals, new_sz);
+		}
+		this->vals[this->nvals++] = dv;
+	}
+	if (line) {
+		free(line);
+	}
+	return res;
+}
+
+static struct __dv_s
+find_next_anchor(struct trser_s *ser, size_t nser, struct __dv_s anchor)
+{
+	struct __dv_s res = {.d = 99999999};
+
+	for (size_t i = 0; i < nser; i++) {
+		if (ser[i].nvals == 0) {
+			continue;
+		}
+		for (size_t j = 0; j < ser[i].nvals; j++) {
+			if (ser[i].vals[j].d > anchor.d &&
+			    ser[i].vals[j].d < res.d) {
+				res = ser[i].vals[j];
+			}
+		}
+	}
+	if (UNLIKELY(res.d == 99999999)) {
+		return anchor;
+	}
+	return res;
+}
+
+static size_t
+find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
+{
+	size_t res = 0;
+
+	for (size_t i = 0; i < nser; i++) {
+		if (ser[i].nvals == 0) {
+			continue;
+		}
+		for (size_t j = 0; j < ser[i].nvals; j++) {
+			if (ser[i].vals[j].d == dt) {
+				dv[i] = ser[i].vals[j].v;
+				res++;
+			}
+		}
+	}
+	return res;
+}
+
+static void
+roll_series(trsch_t s, const char *ser_file, FILE *whither)
+{
+	struct trser_s *ser = NULL;
+	size_t nser = 0;
+	FILE *f;
+	struct __dv_s anchor = {0};
+	struct __dv_s old_an = {0};
+	trcut_t c;
+	double *new_dvs;
+	double *old_dvs;
+
+	if ((f = fopen(ser_file, "r")) == NULL) {
+		fprintf(stderr, "could not open file %s\n", ser_file);
+		return;
+	} else if ((nser = read_series(&ser, f)) == 0) {
+		return;
+	}
+
+	/* get us space for nser dvs */
+	new_dvs = calloc(nser, sizeof(*new_dvs));
+	old_dvs = calloc(nser, sizeof(*old_dvs));
+	/* find the earliest date */
+	while ((anchor = find_next_anchor(ser, nser, old_an),
+		anchor.d) > old_an.d) {
+		idate_t dt = anchor.d;
+
+		/* anchor now contains the very first date and value */
+		if ((c = make_cut(s, dt))) {
+			char buf[32];
+			double new_v = old_an.v;
+			uint16_t dt_y = dt / 10000;
+
+			snprint_idate(buf, sizeof(buf), dt);
+			find_dv(new_dvs, ser, nser, dt);
+
+			for (size_t i = 0; i < c->ncomps; i++) {
+				double expo = c->comps[i].y;
+				char mon = c->comps[i].month;
+				uint16_t year = c->comps[i].year_off + dt_y;
+				struct trser_s *this;
+				size_t idx;
+
+				this = __find_ser(ser, nser, mon, year);
+
+				if (this == NULL) {
+					continue;
+				}
+				idx = (this - ser);
+				new_v += expo * (new_dvs[idx] - old_dvs[idx]);
+			}
+			anchor.v = new_v;
+			fprintf(whither, "%s\t%.8g\n", buf, new_v);
+			free_cut(c);
+			memcpy(old_dvs, new_dvs, sizeof(*old_dvs) * nser);
+		}
+		/* copy over values */
+		old_an = anchor;
+	}
+
+	/* free up resources */
+	if (ser) {
+		for (size_t i = 0; i < nser; i++) {
+			if (ser[i].vals) {
+				free(ser[i].vals);
+			}
+		}
+		free(ser);
+	}
+	if (new_dvs) {
+		free(new_dvs);
+	}
+	if (old_dvs) {
+		free(old_dvs);
+	}
+	fclose(f);
+	return;
+}
+
 
 #if defined STANDALONE
 #if defined __INTEL_COMPILER
@@ -514,7 +715,9 @@ main(int argc, char *argv[])
 		goto sch_out;
 	}
 	/* finally call our main routine */
-	if (argi->inputs_num == 0) {
+	if (argi->series_given) {
+		roll_series(sch, argi->series_arg, stdout);
+	} else if (argi->inputs_num == 0) {
 		print_schema(sch, stdout);
 	}
 	for (size_t i = 0; i < argi->inputs_num; i++) {

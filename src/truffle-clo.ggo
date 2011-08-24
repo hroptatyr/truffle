@@ -11,4 +11,4 @@ option "round" r "Round positions to integer values" optional
 option "lever" l "Offset all positions against this lever" double optional
 option "abs" a "Use absolute contract years" optional
 option "schema" s "Schema file, read from stdin if omitted" string optional
-
+option "series" - "Series file, CSYM DATE VALUE, to be rolled" string optional
