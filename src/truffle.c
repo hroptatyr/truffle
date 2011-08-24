@@ -345,8 +345,9 @@ read_schema(const char *file)
 
 	if (file[0] == '-' && file[1] == '\0') {
 		f = stdin;
-	} else {
-		f = fopen(file, "r");
+	} else if ((f = fopen(file, "r")) == NULL) {
+		fprintf(stderr, "unable to open file %s\n", file);
+		return NULL;
 	}
 	while ((nrd = getline(&line, &llen, f)) > 0) {
 		cline_t cl;
@@ -397,7 +398,7 @@ print_cline(cline_t cl, FILE *whither)
 	}
 	for (size_t i = 0; i < cl->nn; i++) {
 		fputc(' ', whither);
-		fprintf(whither, " %04u %.6f", cl->n[i].x, cl->n[i].y);
+		fprintf(whither, " %04u %.8g", cl->n[i].x, cl->n[i].y);
 	}
 	fputc('\n', whither);
 	return;
@@ -470,7 +471,7 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rndp, FILE *whither)
 		if (rndp) {
 			expo = round(expo);
 		}
-		fprintf(whither, "%s\t%c%d\t%.4f\n",
+		fprintf(whither, "%s\t%c%d\t%.8g\n",
 			buf,
 			c->comps[i].month,
 			c->comps[i].year_off + c->year_off,
