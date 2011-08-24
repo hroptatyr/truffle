@@ -41,7 +41,7 @@ typedef struct trtsc_s *trtsc_t;
 struct cnode_s {
 	idate_t x;
 	daysi_t l;
-	double y;
+	double y __attribute__((aligned(sizeof(double))));
 };
 
 /* a single line */
@@ -54,7 +54,7 @@ struct cline_s {
 	int8_t year_off;
 	size_t nn;
 	struct cnode_s n[];
-};
+} __attribute__((aligned(sizeof(void*))));
 
 /* schema */
 struct trsch_s {
@@ -235,12 +235,15 @@ idate_to_daysi(idate_t dt)
 static trsch_t
 sch_add_cl(trsch_t s, struct cline_s *cl)
 {
+#define CL_STEP		(16)
 	if (s == NULL) {
-		size_t new = sizeof(*s) + 16 * sizeof(*s->p);
+		size_t new = sizeof(*s) + CL_STEP * sizeof(*s->p);
 		s = malloc(new);
-	} else if ((s->np % 16) == 0) {
-		size_t new = sizeof(*s) + (s->np + 16) * sizeof(*s->p);
+		s->np = 0;
+	} else if ((s->np % CL_STEP) == 0) {
+		size_t new = sizeof(*s) + (s->np + CL_STEP) * sizeof(*s->p);
 		s = realloc(s, new);
+		memset(s->p + s->np, 0, CL_STEP * sizeof(*s->p));
 	}
 	s->p[s->np++] = cl;
 	return s;
@@ -262,23 +265,24 @@ cut_add_cc(trcut_t c, struct trcc_s cc)
 }
 
 static cline_t
-make_cline(char month, int8_t yoff, size_t nnodes)
+make_cline(char month, int8_t yoff)
 {
-	cline_t res = malloc(sizeof(*res) + nnodes * (sizeof(*res->n)));
+	cline_t res = malloc(sizeof(*res));
 
 	res->month = month;
 	res->year_off = yoff;
-	res->nn = nnodes;
+	res->nn = 0;
 	return res;
 }
 
 static cline_t
 cline_add_sugar(cline_t cl, idate_t x, double y)
 {
+#define CN_STEP		(4)
 	size_t idx;
 
-	if ((cl->nn % 4) == 0) {
-		size_t new = sizeof(*cl) + (cl->nn + 4) * sizeof(*cl->n);
+	if ((cl->nn % CN_STEP) == 0) {
+		size_t new = sizeof(*cl) + (cl->nn + CN_STEP) * sizeof(*cl->n);
 		cl = realloc(cl, new);
 	}
 	idx = cl->nn++;
@@ -365,8 +369,17 @@ free_schema(trsch_t sch)
 	return;
 }
 
+static void
+__err_not_asc(const char *line, size_t llen)
+{
+	fputs("error: ", stderr);
+	fwrite(line, llen, 1, stderr);
+	fputs("error: dates are not in ascending order\n", stderr);
+	return;
+}
+
 static cline_t
-read_schema_line(const char *line, size_t llen __attribute__((unused)))
+__read_schema_line(const char *line, size_t llen)
 {
 	cline_t cl = NULL;
 	static const char skip[] = " \t";
@@ -396,7 +409,7 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 			p = line + strspn(line + 1, skip) + 1;
 			yoff = 0;
 		}
-		cl = make_cline(line[0], yoff, 0);
+		cl = make_cline(line[0], yoff);
 
 		do {
 			dt = read_date(p, &tmp) % 10000;
@@ -404,6 +417,11 @@ read_schema_line(const char *line, size_t llen __attribute__((unused)))
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
 			/* add this line */
+			if (cl->nn && dt <= cl->n[cl->nn - 1].x) {
+				__err_not_asc(line, llen);
+				free(cl);
+				return NULL;
+			}
 			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
 	default:
@@ -572,9 +590,9 @@ make_cut(trsch_t sch, idate_t dt)
 			/* cline isn't applicable */
 			continue;
 		}
-		for (size_t j = 0; j < p->nn; j++) {
+		for (size_t j = 0; j < p->nn - 1; j++) {
 			struct cnode_s *n1 = p->n + j;
-			struct cnode_s *n2 = j < p->nn ? n1 + 1 : p->n;
+			struct cnode_s *n2 = n1 + 1;
 			idate_t x1 = n1->x;
 			idate_t x2 = n2->x;
 
@@ -584,10 +602,11 @@ make_cut(trsch_t sch, idate_t dt)
 				struct trcc_s cc;
 				double xsub = n2->l - n1->l;
 				double tsub = ddt_sans - n1->l;
+				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
 				cc.year_off = p->year_off;
-				cc.y = n1->y + tsub * (n2->y - n1->y) / xsub;
+				cc.y = n1->y + tsub * ysub / xsub;
 				res = cut_add_cc(res, cc);
 				break;
 			}
@@ -751,6 +770,9 @@ tsc_add_dv(trtsc_t s, char mon, uint16_t yoff, struct __dv_s dv)
 		/* prepend, FUCK */
 		tsc_move(s, idx, 1);
 		this = tsc_init_dvv(s, idx, dv.d);
+		if (UNLIKELY(dv.d < s->first)) {
+			s->first = dv.d;
+		}
 		fputs("\
 warning: unsorted input data will result in poor performance\n", stderr);
 	} else {
@@ -855,8 +877,8 @@ cut_flow(trcut_t c, idate_t dt, trtsc_t tsc, double tick_val, double base)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
-	double *new_v;
-	double *old_v;
+	double *new_v = NULL;
+	double *old_v = NULL;
 
 	for (size_t i = 0; i < tsc->ndvvs; i++) {
 		if (tsc->dvvs[i].d == dt) {
