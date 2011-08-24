@@ -22,6 +22,8 @@ modeoption "lever" l "Offset all positions against this lever"
 	double optional mode="contracts"
 modeoption "abs" a "Use absolute contract years"
 	optional mode="contracts"
+modeoption "oco" - "Output year first, then contract month as two digit number"
+	optional mode="contracts"
 
 modeoption "series" - "Series file, CSYM DATE VALUE, to be rolled"
 	string optional mode="tseries"

@@ -466,8 +466,41 @@ make_cut(trsch_t sch, idate_t dt)
 	return res;
 }
 
+static int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'F':
+		return 1;
+	case 'G':
+		return 2;
+	case 'H':
+		return 3;
+	case 'J':
+		return 4;
+	case 'K':
+		return 5;
+	case 'M':
+		return 6;
+	case 'N':
+		return 7;
+	case 'Q':
+		return 8;
+	case 'U':
+		return 9;
+	case 'V':
+		return 10;
+	case 'X':
+		return 11;
+	case 'Z':
+		return 12;
+	default:
+		return 0;
+	}
+}
+
 static void
-print_cut(trcut_t c, idate_t dt, double lever, bool rndp, FILE *whither)
+print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 {
 	char buf[32];
 
@@ -475,14 +508,22 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rndp, FILE *whither)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		double expo = c->comps[i].y * lever;
 
-		if (rndp) {
+		if (rnd) {
 			expo = round(expo);
 		}
-		fprintf(whither, "%s\t%c%d\t%.8g\n",
-			buf,
-			c->comps[i].month,
-			c->comps[i].year_off + c->year_off,
-			expo);
+		if (!oco) {
+			fprintf(out, "%s\t%c%d\t%.8g\n",
+				buf,
+				c->comps[i].month,
+				c->comps[i].year_off + c->year_off,
+				expo);
+		} else {
+			fprintf(out, "%s\t%d%02d\t%.8g\n",
+				buf,
+				c->comps[i].year_off + c->year_off,
+				m_to_i(c->comps[i].month),
+				expo);
+		}
 	}
 	return;
 }
@@ -589,14 +630,16 @@ find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
 	size_t res = 0;
 
 	for (size_t i = 0; i < nser; i++) {
+		size_t j;
+
 		if (ser[i].nvals == 0) {
 			continue;
 		}
-		for (size_t j = 0; j < ser[i].nvals; j++) {
-			if (ser[i].vals[j].d == dt) {
-				dv[i] = ser[i].vals[j].v;
-				res++;
-			}
+		for (j = 0; j < ser[i].nvals && ser[i].vals[j].d < dt; j++);
+
+		if (ser[i].vals[j].d == dt) {
+			dv[i] = ser[i].vals[j].v;
+			res++;
 		}
 	}
 	return res;
@@ -605,7 +648,7 @@ find_dv(double *dv, struct trser_s *ser, size_t nser, idate_t dt)
 static double
 cut_flow(
 	trcut_t c, idate_t dt, struct trser_s *ser, size_t nser,
-	double *new_dvs, double *old_dvs, double tick_val)
+	double *new_dvs, const double *old_dvs, double tick_val)
 {
 	uint16_t dt_y = dt / 10000;
 	double res = 0;
@@ -640,6 +683,7 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 	trcut_t c;
 	double *new_dvs;
 	double *old_dvs;
+	bool initp = false;
 
 	if ((f = fopen(ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_file);
@@ -662,7 +706,14 @@ roll_series(trsch_t s, const char *ser_file, double tv, bool cum, FILE *whither)
 			double cf;
 
 			cf = cut_flow(c, dt, ser, nser, new_dvs, old_dvs, tv);
-			anchor.v = cum ? old_an.v + cf : cf;
+			if (LIKELY(cum)) {
+				anchor.v = old_an.v + cf;
+			} else if (LIKELY(initp)) {
+				anchor.v = cf;
+			} else {
+				anchor.v = 0;
+				initp = true;
+			}				
 			snprint_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, anchor.v);
 			free_cut(c);
@@ -732,18 +783,20 @@ main(int argc, char *argv[])
 		roll_series(sch, argi->series_arg, tv, cump, stdout);
 	} else if (argi->inputs_num == 0) {
 		print_schema(sch, stdout);
-	}
-	for (size_t i = 0; i < argi->inputs_num; i++) {
-		idate_t dt = read_date(argi->inputs[i], NULL);
-		if ((c = make_cut(sch, dt))) {
-			double lev = argi->lever_given ? argi->lever_arg : 1.0;
-			bool rndp = argi->round_given;
+	} else {
+		double lev = argi->lever_given ? argi->lever_arg : 1.0;
+		bool rndp = argi->round_given;
+		bool ocop = argi->oco_given;
 
-			if (argi->abs_given) {
-				c->year_off = dt / 10000;
+		for (size_t i = 0; i < argi->inputs_num; i++) {
+			idate_t dt = read_date(argi->inputs[i], NULL);
+			if ((c = make_cut(sch, dt))) {
+				if (argi->abs_given) {
+					c->year_off = dt / 10000;
+				}
+				print_cut(c, dt, lev, rndp, ocop, stdout);
+				free_cut(c);
 			}
-			print_cut(c, dt, lev, rndp, stdout);
-			free_cut(c);
 		}
 	}
 	free_schema(sch);
