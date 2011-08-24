@@ -780,6 +780,12 @@ static void
 __tsc_fixup(trtsc_t s)
 {
 /* go through the series again and fix up holes */
+	/* check first guy first */
+	for (size_t j = 0; j < s->ncons; j++) {
+		if (isnan(s->dvvs[0].v[j])) {
+			s->dvvs[0].v[j] = 0.0;
+		}
+	}
 	for (size_t i = 1; i < s->ndvvs; i++) {
 		double *old = s->dvvs[i - 1].v;
 		double *this = s->dvvs[i].v;
