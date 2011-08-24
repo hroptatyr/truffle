@@ -39,3 +39,8 @@ modeoption "abs-dimen" -
 use absolute dimensions, i.e. act as if the flow today is the quote \
 today minus BASIS (specified by -b)."
 	optional mode="tseries"
+modeoption "sparse" -
+	"Only output quotes or flows on the dates of transitions. \
+This simulates forward contracts in a way because no intermediate \
+flows occur."
+	optional mode="tseries"
