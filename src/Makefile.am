@@ -9,6 +9,11 @@ noinst_HEADERS =
 BUILT_SOURCES =
 CLEANFILES = $(BUILT_SOURCES)
 
+bin_PROGRAMS += truffle
+truffle_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
+truffle_LDFLAGS = $(AM_LDFLAGS)
+BUILT_SOURCES += truffle-clo.c
+
 ## ggo rule
 %.c: %.ggo
 	gengetopt -l -i $< -F $*
