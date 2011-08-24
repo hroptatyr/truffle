@@ -1,0 +1,22 @@
+truffle is a command line tool to roll over futures contracts according
+to some specified roll-over schema.  The focus is clearly on batch
+processing and speed.
+
+As features we can state:
++ gravitational roll-over, i.e. stateless mode of operation, no
+  initial portfolio has to be specified
++ support to apply a roll-over schema to time series
++ support to roll over volume and open interest data
++ support for forward contracts and their cash flows
+
+Schema files state roll-over dates relative to a calendric year and are
+given in a sparse form that resembles polygon definitions, as pairs of
+dates and exposure values.  Each line in the schema file looks like:
+
+MY  DATE VALUE  DATE VALUE  [...]
+
+where MY is the contract specifier and a year offset, e.g. F0 is this
+year's January contract.  F1 is next year's January contract, etc.
+
+For example schema files take a look at the test/ directory.
+
