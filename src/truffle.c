@@ -935,29 +935,6 @@ warning: unsorted input data will result in poor performance\n", stderr);
 	return;
 }
 
-static void
-__tsc_fixup(trtsc_t s)
-{
-/* go through the series again and fix up holes */
-	/* check first guy first */
-	for (size_t j = 0; j < s->ncons; j++) {
-		if (isnan(s->dvvs[0].v[j])) {
-			s->dvvs[0].v[j] = 0.0;
-		}
-	}
-	for (size_t i = 1; i < s->ndvvs; i++) {
-		double *old = s->dvvs[i - 1].v;
-		double *this = s->dvvs[i].v;
-
-		for (size_t j = 0; j < s->ncons; j++) {
-			if (isnan(this[j])) {
-				this[j] = old[j];
-			}
-		}
-	}
-	return;
-}
-
 static trtsc_t
 read_series(FILE *f)
 {
@@ -992,7 +969,6 @@ read_series(FILE *f)
 	if (line) {
 		free(line);
 	}
-	__tsc_fixup(res);
 	return res;
 }
 
@@ -1086,21 +1062,20 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		ssize_t idx;
 		double flo;
 
-		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0) {
-#if 1
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
+		    isnan(new_v[idx])) {
+			char dts[32];
+			snprint_idate(dts, sizeof(dts), dt);
 			fprintf(stderr, "\
-cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
-#endif	/* 0 */
+cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
+				dts, mon, year, expo);
 			continue;
 		}
 		/* check for transition changes */
 		if (st->expos[idx] != expo) {
-			double trans;
-
-			trans = expo - st->expos[idx];
 			if (st->expos[idx] != 0.0) {
-				double tot_flo = st->bases[idx] - new_v[idx];
-				flo = tot_flo * trans;
+				double tot_flo = new_v[idx] - st->bases[idx];
+				flo = tot_flo * st->expos[idx];
 			} else {
 				flo = 0.0;
 				/* guess a basis if the user asked us to */
@@ -1110,26 +1085,26 @@ cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
 			}
 
 			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
-				   trans, new_v[idx],
+				   expo - st->expos[idx], new_v[idx],
 				   expo, st->bases[idx], flo);
 
 			/* record bases */
 			st->bases[idx] = new_v[idx];
 			st->expos[idx] = expo;
 			is_non_nil = 1;
-		} else if (expo != 0.0) {
+		} else if (st->expos[idx] != 0.0) {
 			double tot_flo = new_v[idx] - st->bases[idx];
 
-			flo = tot_flo * expo;
+			flo = tot_flo * st->expos[idx];
 			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
 				   expo, new_v[idx], st->bases[idx],
 				   flo, flo + st->bases[idx]);
 			st->bases[idx] = new_v[idx];
 			is_non_nil = 1;
 		} else {
-			/* expo == 0.0 || st->expos[idx] == expo */
+			/* st->expos[idx] == 0.0 && st->expos[idx] == expo */
 			flo = 0.0;
-			is_non_nil |= expo != 0.0;
+			is_non_nil |= st->expos[idx] != 0.0;
 		}
 		/* munch it all together */
 		res += flo;
@@ -1162,11 +1137,13 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		ssize_t idx;
 		double flo;
 
-		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0) {
-#if 1
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
+		    isnan(new_v[idx])) {
+			char dts[32];
+			snprint_idate(dts, sizeof(dts), dt);
 			fprintf(stderr, "\
-cut contained %c%u %.8g but no quotes have been found\n", mon, year, expo);
-#endif	/* 0 */
+cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
+				dts, mon, year, expo);
 			continue;
 		}
 		/* check for transition changes */
