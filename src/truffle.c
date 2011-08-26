@@ -1054,12 +1054,14 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	double res = 0.0;
 	const double *new_v = NULL;
 	int is_non_nil = 0;
-	size_t dvv_idx = st->tsc->dvvs[st->dvv_idx].d <= dt ? st->dvv_idx : 0;
 
-	for (size_t i = dvv_idx; i < st->tsc->ndvvs; i++) {
-		if (st->tsc->dvvs[i].d == dt) {
+	for (size_t i = st->dvv_idx; i < st->tsc->ndvvs; i++) {
+		/* assume sortedness */
+		if (st->tsc->dvvs[i].d > dt) {
+			break;
+		} else if (st->tsc->dvvs[i].d == dt) {
 			new_v = st->tsc->dvvs[i].v;
-			dvv_idx = i + 1;
+			st->dvv_idx = i + 1;
 			break;
 		}
 	}
@@ -1122,7 +1124,6 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 	st->is_non_nil = is_non_nil;
 	st->inc_flo = res;
 	st->cum_flo += res;
-	st->dvv_idx = dvv_idx;
 	return st->e;
 }
 
@@ -1132,12 +1133,11 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	double res = 0.0;
 	const double *new_v = NULL;
 	int is_non_nil = 0;
-	size_t dvv_idx = st->tsc->dvvs[st->dvv_idx].d <= dt ? st->dvv_idx : 0;
 
-	for (size_t i = dvv_idx; i < st->tsc->ndvvs; i++) {
+	for (size_t i = st->dvv_idx; i < st->tsc->ndvvs; i++) {
 		if (st->tsc->dvvs[i].d == dt) {
 			new_v = st->tsc->dvvs[i].v;
-			dvv_idx = i + 1;
+			st->dvv_idx = i + 1;
 			break;
 		}
 	}
@@ -1184,7 +1184,6 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 	st->is_non_nil = is_non_nil;
 	st->inc_flo = res;
 	st->cum_flo += res;
-	st->dvv_idx = dvv_idx;
 	return st->e;
 }
 
@@ -1195,12 +1194,11 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	const double *new_v = NULL;
 	int is_non_nil = 0;
 	int has_trans;
-	size_t dvv_idx = st->tsc->dvvs[st->dvv_idx].d <= dt ? st->dvv_idx : 0;
 
-	for (size_t i = dvv_idx; i < st->tsc->ndvvs; i++) {
+	for (size_t i = st->dvv_idx; i < st->tsc->ndvvs; i++) {
 		if (st->tsc->dvvs[i].d == dt) {
 			new_v = st->tsc->dvvs[i].v;
-			dvv_idx = i + 1;
+			st->dvv_idx = i + 1;
 			break;
 		}
 	}
@@ -1260,7 +1258,6 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 	st->is_non_nil = is_non_nil;
 	st->inc_flo = res;
 	st->cum_flo += res;
-	st->dvv_idx = dvv_idx;
 	return st->e;
 }
 
