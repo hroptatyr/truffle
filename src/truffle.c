@@ -276,6 +276,7 @@ daysi_to_idate(daysi_t ddt)
 		ddt &= ~DAYSI_DIY_BIT;
 	}
 	y = daysi_to_year(ddt);
+	ddt -= ds_sum[TO_BASE(y)] - 1;
 
 	for (m = 1; m < 12 && ddt > dm[m + 1]; m++);
 	d = ddt - dm[m];
