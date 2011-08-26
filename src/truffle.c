@@ -1065,27 +1065,17 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 			break;
 		}
 	}
-	for (size_t idx = 0; idx < st->tsc->ncons; idx++) {
-		double expo = 0.0;
+	for (size_t i = 0; i < c->ncomps; i++) {
+		double expo = c->comps[i].y * st->tick_val;
+		char mon = c->comps[i].month;
+		uint16_t year = c->comps[i].year;
+		uint32_t ym = cym_to_ym(mon, year);
+		ssize_t idx;
 		double flo;
 
-		/* find the guy in the cut */
-		for (size_t i = 0; i < c->ncomps; i++) {
-			char mon = c->comps[i].month;
-			uint16_t year = c->comps[i].year;
-			uint32_t ym = cym_to_ym(mon, year);
-
-			if (st->tsc->cons[idx] == ym) {
-				expo = c->comps[i].y * st->tick_val;
-				break;
-			}
-		}
-
-		if (new_v == NULL || isnan(new_v[idx])) {
+		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
+		    isnan(new_v[idx])) {
 			char dts[32];
-			char mon = st->tsc->cons[idx] & 0xff;
-			uint16_t year = st->tsc->cons[idx] >> 8;
-
 			snprint_idate(dts, sizeof(dts), dt);
 			fprintf(stderr, "\
 cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
