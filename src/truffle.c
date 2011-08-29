@@ -1135,6 +1135,8 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		    isnan(new_v[idx])) {
 			if (expo != 0.0) {
 				warn_noquo(dt, mon, year, expo);
+			} else {
+				cut_rem_cc(c, c->comps + i);
 			}
 			continue;
 		}
@@ -1214,6 +1216,8 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		    isnan(new_v[idx])) {
 			if (expo != 0.0) {
 				warn_noquo(dt, mon, year, expo);
+			} else {
+				cut_rem_cc(c, c->comps + i);
 			}
 			continue;
 		}
@@ -1277,6 +1281,8 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		    isnan(new_v[idx])) {
 			if (expo != 0.0) {
 				warn_noquo(dt, mon, year, expo);
+			} else {
+				cut_rem_cc(c, c->comps + i);
 			}
 			continue;
 		}
