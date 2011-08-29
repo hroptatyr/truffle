@@ -1090,6 +1090,17 @@ free_cutflo_st(struct __cutflo_st_s *st)
 	return;
 }
 
+static void
+warn_noquo(idate_t dt, char mon, uint16_t year, double expo)
+{
+	char dts[32];
+	snprint_idate(dts, sizeof(dts), dt);
+	fprintf(stderr, "\
+cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
+		dts, mon, year, expo);
+	return;
+}
+
 static cutflo_trans_t
 cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 {
@@ -1122,11 +1133,9 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-			char dts[32];
-			snprint_idate(dts, sizeof(dts), dt);
-			fprintf(stderr, "\
-cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-				dts, mon, year, expo);
+			if (expo != 0.0) {
+				warn_noquo(dt, mon, year, expo);
+			}
 			continue;
 		}
 		/* check for transition changes */
@@ -1203,11 +1212,9 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-			char dts[32];
-			snprint_idate(dts, sizeof(dts), dt);
-			fprintf(stderr, "\
-cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-				dts, mon, year, expo);
+			if (expo != 0.0) {
+				warn_noquo(dt, mon, year, expo);
+			}
 			continue;
 		}
 		/* check for transition changes */
@@ -1268,11 +1275,9 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-			char dts[32];
-			snprint_idate(dts, sizeof(dts), dt);
-			fprintf(stderr, "\
-cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-				dts, mon, year, expo);
+			if (expo != 0.0) {
+				warn_noquo(dt, mon, year, expo);
+			}
 			continue;
 		}
 		/* check for transition changes */
