@@ -11,8 +11,10 @@ CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
 
 bin_PROGRAMS += truffle
+truffle_SOURCES = truffle.c truffle-clo.ggo
 truffle_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
 truffle_LDFLAGS = $(AM_LDFLAGS)
+truffle_LDADD = -lm
 BUILT_SOURCES += truffle-clo.c truffle-clo.h
 
 ## ggo rule

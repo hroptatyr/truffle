@@ -68,7 +68,7 @@ struct trsch_s {
 
 /* result structure, for cuts etc. */
 struct trcc_s {
-	char month;
+	uint8_t month;
 	uint16_t year;
 	double y __attribute__((aligned(16)));
 };
@@ -102,7 +102,7 @@ struct trtsc_s {
 #define TSC_STEP	(4096)
 #define CYM_STEP	(256)
 
-DECLF trcut_t make_cut(trsch_t schema, daysi_t when);
+DECLF trcut_t make_cut(trcut_t, trsch_t schema, daysi_t when);
 DECLF void free_cut(trcut_t);
 
 DECLF trsch_t read_schema(const char *file);
@@ -276,6 +276,7 @@ daysi_to_idate(daysi_t ddt)
 		ddt &= ~DAYSI_DIY_BIT;
 	}
 	y = daysi_to_year(ddt);
+	ddt -= ds_sum[TO_BASE(y)] - 1;
 
 	for (m = 1; m < 12 && ddt > dm[m + 1]; m++);
 	d = ddt - dm[m];
@@ -356,12 +357,31 @@ sch_add_cl(trsch_t s, struct cline_s *cl)
 	return s;
 }
 
+static struct trcc_s*
+__cut_find_cc(trcut_t c, uint8_t mon, uint16_t year)
+{
+	for (size_t i = 0; i < c->ncomps; i++) {
+		if (c->comps[i].month == mon && c->comps[i].year == year) {
+			return c->comps + i;
+		}
+	}
+	return NULL;
+}
+
 static trcut_t
 cut_add_cc(trcut_t c, struct trcc_s cc)
 {
+	struct trcc_s *prev;
+
 	if (c == NULL) {
 		size_t new = sizeof(*c) + 16 * sizeof(*c->comps);
 		c = calloc(new, 1);
+	} else if ((prev = __cut_find_cc(c, cc.month, cc.year))) {
+		prev->y = cc.y;
+		return c;
+	} else if ((prev = __cut_find_cc(c, 0, 0))) {
+		*prev = cc;
+		return c;
 	} else if ((c->ncomps % 16) == 0) {
 		size_t new = sizeof(*c) + (c->ncomps + 16) * sizeof(*c->comps);
 		c = realloc(c, new);
@@ -369,6 +389,14 @@ cut_add_cc(trcut_t c, struct trcc_s cc)
 	}
 	c->comps[c->ncomps++] = cc;
 	return c;
+}
+
+static void
+cut_rem_cc(trcut_t UNUSED(c), struct trcc_s *cc)
+{
+	cc->month = 0;
+	cc->year = 0;
+	return;
 }
 
 static cline_t
@@ -698,11 +726,17 @@ free_cut(trcut_t cut)
 }
 
 DEFUN trcut_t
-make_cut(trsch_t sch, daysi_t when)
+make_cut(trcut_t old, trsch_t sch, daysi_t when)
 {
-	trcut_t res = NULL;
+	trcut_t res = old;
 	int y = daysi_to_year(when);
 
+	if (old) {
+		/* quickly rinse the old cut */
+		for (size_t i = 0; i < old->ncomps; i++) {
+			old->comps[i].y = 0.0;
+		}
+	}
 	for (size_t i = 0; i < sch->np; i++) {
 		struct cline_s *p = sch->p[i];
 
@@ -727,6 +761,8 @@ make_cut(trsch_t sch, daysi_t when)
 				cc.month = p->month;
 				cc.year = y + p->year_off;
 				cc.y = n1->y + tsub * ysub / xsub;
+
+				/* try and find that guy in the old cut */
 				res = cut_add_cc(res, cc);
 				break;
 			}
@@ -792,7 +828,13 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 
 	snprint_idate(buf, sizeof(buf), dt);
 	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo = c->comps[i].y * lever;
+		double expo;
+
+		if (c->comps[i].month == 0) {
+			continue;
+		}
+
+		expo = c->comps[i].y * lever;
 
 		if (rnd) {
 			expo = round(expo);
@@ -810,6 +852,7 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 				m_to_i(c->comps[i].month),
 				expo);
 		}
+		cut_rem_cc(c, c->comps + i);
 	}
 	return;
 }
@@ -1047,36 +1090,54 @@ free_cutflo_st(struct __cutflo_st_s *st)
 	return;
 }
 
+static void
+warn_noquo(idate_t dt, char mon, uint16_t year, double expo)
+{
+	char dts[32];
+	snprint_idate(dts, sizeof(dts), dt);
+	fprintf(stderr, "\
+cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
+		dts, mon, year, expo);
+	return;
+}
+
 static cutflo_trans_t
 cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 {
 	double res = 0.0;
 	const double *new_v = NULL;
 	int is_non_nil = 0;
-	size_t dvv_idx = st->tsc->dvvs[st->dvv_idx].d <= dt ? st->dvv_idx : 0;
 
-	for (size_t i = dvv_idx; i < st->tsc->ndvvs; i++) {
-		if (st->tsc->dvvs[i].d == dt) {
+	for (size_t i = st->dvv_idx; i < st->tsc->ndvvs; i++) {
+		/* assume sortedness */
+		if (st->tsc->dvvs[i].d > dt) {
+			break;
+		} else if (st->tsc->dvvs[i].d == dt) {
 			new_v = st->tsc->dvvs[i].v;
-			dvv_idx = i + 1;
+			st->dvv_idx = i + 1;
 			break;
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
+		double expo;
 		ssize_t idx;
 		double flo;
 
+		if (ym == 0) {
+			continue;
+		}
+		expo = c->comps[i].y * st->tick_val;
+
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-			char dts[32];
-			snprint_idate(dts, sizeof(dts), dt);
-			fprintf(stderr, "\
-cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-				dts, mon, year, expo);
+			if (expo != 0.0) {
+				warn_noquo(dt, mon, year, expo);
+			} else {
+				cut_rem_cc(c, c->comps + i);
+			}
 			continue;
 		}
 		/* check for transition changes */
@@ -1112,7 +1173,7 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 		} else {
 			/* st->expos[idx] == 0.0 && st->expos[idx] == expo */
 			flo = 0.0;
-			is_non_nil |= st->expos[idx] != 0.0;
+			cut_rem_cc(c, c->comps + i);
 		}
 		/* munch it all together */
 		res += flo;
@@ -1121,7 +1182,6 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 	st->is_non_nil = is_non_nil;
 	st->inc_flo = res;
 	st->cum_flo += res;
-	st->dvv_idx = dvv_idx;
 	return st->e;
 }
 
@@ -1131,30 +1191,34 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	double res = 0.0;
 	const double *new_v = NULL;
 	int is_non_nil = 0;
-	size_t dvv_idx = st->tsc->dvvs[st->dvv_idx].d <= dt ? st->dvv_idx : 0;
 
-	for (size_t i = dvv_idx; i < st->tsc->ndvvs; i++) {
+	for (size_t i = st->dvv_idx; i < st->tsc->ndvvs; i++) {
 		if (st->tsc->dvvs[i].d == dt) {
 			new_v = st->tsc->dvvs[i].v;
-			dvv_idx = i + 1;
+			st->dvv_idx = i + 1;
 			break;
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
+		double expo;
 		ssize_t idx;
 		double flo;
 
+		if (ym == 0) {
+			continue;
+		}
+		expo = c->comps[i].y * st->tick_val;
+
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-			char dts[32];
-			snprint_idate(dts, sizeof(dts), dt);
-			fprintf(stderr, "\
-cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-				dts, mon, year, expo);
+			if (expo != 0.0) {
+				warn_noquo(dt, mon, year, expo);
+			} else {
+				cut_rem_cc(c, c->comps + i);
+			}
 			continue;
 		}
 		/* check for transition changes */
@@ -1172,9 +1236,8 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 				   expo, tot_flo, flo);
 			is_non_nil = 1;
 		} else {
-			/* expo == 0.0 || st->expos[idx] == expo */
 			flo = 0.0;
-			is_non_nil |= expo != 0.0;
+			cut_rem_cc(c, c->comps + i);
 		}
 		/* munch it all together */
 		res += flo;
@@ -1183,7 +1246,6 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 	st->is_non_nil = is_non_nil;
 	st->inc_flo = res;
 	st->cum_flo += res;
-	st->dvv_idx = dvv_idx;
 	return st->e;
 }
 
@@ -1194,30 +1256,34 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	const double *new_v = NULL;
 	int is_non_nil = 0;
 	int has_trans;
-	size_t dvv_idx = st->tsc->dvvs[st->dvv_idx].d <= dt ? st->dvv_idx : 0;
 
-	for (size_t i = dvv_idx; i < st->tsc->ndvvs; i++) {
+	for (size_t i = st->dvv_idx; i < st->tsc->ndvvs; i++) {
 		if (st->tsc->dvvs[i].d == dt) {
 			new_v = st->tsc->dvvs[i].v;
-			dvv_idx = i + 1;
+			st->dvv_idx = i + 1;
 			break;
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo = c->comps[i].y * st->tick_val;
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
 		uint32_t ym = cym_to_ym(mon, year);
+		double expo;
 		ssize_t idx;
 		double flo;
 
+		if (ym == 0) {
+			continue;
+		}
+		expo = c->comps[i].y * st->tick_val;
+
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
-			char dts[32];
-			snprint_idate(dts, sizeof(dts), dt);
-			fprintf(stderr, "\
-cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-				dts, mon, year, expo);
+			if (expo != 0.0) {
+				warn_noquo(dt, mon, year, expo);
+			} else {
+				cut_rem_cc(c, c->comps + i);
+			}
 			continue;
 		}
 		/* check for transition changes */
@@ -1248,8 +1314,8 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 		} else {
 			/* st->expos[idx] == 0.0 && st->expos[idx] == expo */
 			flo = 0.0;
-			is_non_nil = 0;
 			has_trans = 0;
+			cut_rem_cc(c, c->comps + i);
 		}
 		/* munch it all together */
 		res += flo;
@@ -1259,7 +1325,6 @@ cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 	st->is_non_nil = is_non_nil;
 	st->inc_flo = res;
 	st->cum_flo += res;
-	st->dvv_idx = dvv_idx;
 	return st->e;
 }
 
@@ -1290,7 +1355,7 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 {
 	trtsc_t ser;
 	FILE *f;
-	trcut_t c;
+	trcut_t c = NULL;
 	struct __cutflo_st_s cfst;
 	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
 		pick_cf_fun(ser_sp);
@@ -1313,7 +1378,7 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 		daysi_t mc_ds = idate_to_daysi(dt);
 
 		/* anchor now contains the very first date and value */
-		if ((c = make_cut(s, mc_ds)) == NULL) {
+		if ((c = make_cut(c, s, mc_ds)) == NULL) {
 			continue;
 		}
 
@@ -1333,10 +1398,12 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 			snprint_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, val);
 		}
-		/* free resources */
-		free_cut(c);
 	}
 
+	/* free resources */
+	if (c) {
+		free_cut(c);
+	}
 	/* free up resources */
 	free_cutflo_st(&cfst);
 	if (ser) {
@@ -1362,7 +1429,6 @@ main(int argc, char *argv[])
 {
 	struct gengetopt_args_info argi[1];
 	trsch_t sch = NULL;
-	trcut_t c;
 	int res = 0;
 
 	if (cmdline_parser(argc, argv, argi)) {
@@ -1403,18 +1469,21 @@ main(int argc, char *argv[])
 		double lev = argi->lever_given ? argi->lever_arg : 1.0;
 		bool rndp = argi->round_given;
 		bool ocop = argi->oco_given;
+		trcut_t c = NULL;
 
 		for (size_t i = 0; i < argi->inputs_num; i++) {
 			idate_t dt = read_date(argi->inputs[i], NULL);
 			daysi_t ds = idate_to_daysi(dt);
 
-			if ((c = make_cut(sch, ds))) {
+			if ((c = make_cut(c, sch, ds))) {
 				if (argi->abs_given) {
 					c->year_off = dt / 10000;
 				}
 				print_cut(c, dt, lev, rndp, ocop, stdout);
-				free_cut(c);
 			}
+		}
+		if (c) {
+			free_cut(c);
 		}
 	}
 	free_schema(sch);
