@@ -1487,6 +1487,8 @@ main(int argc, char *argv[])
 		}
 	}
 	free_schema(sch);
+	/* just to make sure */
+	fflush(stdout);
 sch_out:
 	cmdline_parser_free(argi);
 	return res;
