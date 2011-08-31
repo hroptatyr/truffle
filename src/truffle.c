@@ -140,7 +140,7 @@ unsize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
 		return;
 	}
 
-	sz = (cnt / inc + 1) * inc * blksz;
+	sz = ((cnt - 1) / inc + 1) * inc * blksz;
 	munmap(*ptr, sz);
 	*ptr = NULL;
 	return;
