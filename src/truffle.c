@@ -1255,7 +1255,7 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	double res = 0.0;
 	const double *new_v = NULL;
 	int is_non_nil = 0;
-	int has_trans;
+	int has_trans = 0;
 
 	for (size_t i = st->dvv_idx; i < st->tsc->ndvvs; i++) {
 		if (st->tsc->dvvs[i].d == dt) {
