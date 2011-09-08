@@ -7,7 +7,7 @@ LC_ALL=C
 EXTRA_DIST = $(TESTS)
 EXTRA_DIST += $(TRUFTEST_LOG_COMPILER)
 
-TESTS = toy1.truftest toy2.truftest toy3.truftest toy4.truftest toy5.truftest
+TESTS = toy1.truftest toy2.truftest toy3.truftest toy5.truftest
 TEST_EXTENSIONS = .truftest
 TRUFTEST_LOG_COMPILER = $(srcdir)/check-truffle.sh
 AM_TRUFTEST_LOG_FLAGS =
