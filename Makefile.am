@@ -6,6 +6,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = src test
 
 EXTRA_DIST = .version git-version-gen
+EXTRA_DIST += m4/.dir
 
 # Version string management.  There are two files to be aware of:
 # .tarball-version - present only in a distribution tarball, and not in
