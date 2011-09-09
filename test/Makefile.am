@@ -4,9 +4,12 @@
 LANG=C
 LC_ALL=C
 
-TESTS =
-TEST_EXTENSIONS = .truffle
-TRUFFLE_LOG_COMPILER = $(top_builddir)/src/truffle
-AM_TRUFFLE_LOG_FLAGS = <
+EXTRA_DIST = $(TESTS)
+EXTRA_DIST += $(TRUFTEST_LOG_COMPILER)
+
+TESTS = toy1.truftest toy2.truftest toy3.truftest toy5.truftest
+TEST_EXTENSIONS = .truftest
+TRUFTEST_LOG_COMPILER = $(srcdir)/check-truffle.sh
+AM_TRUFTEST_LOG_FLAGS =
 LOG_COMPILER = echo
 
