@@ -32,7 +32,7 @@ AC_COPYRIGHT(
 AM_INIT_AUTOMAKE([foreign parallel-tests])
 
 if test -z "${CFLAGS}"; then
-	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function"
+	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function -Wuninitialized"
 fi
 
 ## the build chain
