@@ -10,7 +10,7 @@ md5()
 	cat "${1}" | md5sum
 }
 
-"${TRUFFLE}" --series "${TEST}.series" --schema "${TEST}.schema" >& "${new}"
+"${TRUFFLE}" --series "${TEST}.series" --schema "${TEST}.schema" >"${new}" 2>&1
 
 if test "$(md5 ${new})" = "$(md5 ${TEST}.result)"; then
 	i=0
@@ -23,7 +23,7 @@ else
 fi
 
 ## -f tests
-"${TRUFFLE}" -f --series "${TEST}.series" --schema "${TEST}.schema" >& "${new}"
+"${TRUFFLE}" -f --series "${TEST}.series" --schema "${TEST}.schema" >"${new}" 2>&1
 
 if test "$(md5 ${new})" = "$(md5 ${TEST}.-f.result)"; then
 	i=0
