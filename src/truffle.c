@@ -49,6 +49,9 @@
 # define DECLF	static
 # define DEFUN	static
 #endif	/* STANDALONE */
+#if !defined __GNUC__ && !defined __INTEL_COMPILER
+# define __builtin_expect(x, y)	x
+#endif	/* !GCC && !ICC */
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
 #endif
