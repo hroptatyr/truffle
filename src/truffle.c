@@ -49,6 +49,9 @@
 # define DECLF	static
 # define DEFUN	static
 #endif	/* STANDALONE */
+#if !defined __GNUC__ && !defined __INTEL_COMPILER
+# define __builtin_expect(x, y)	x
+#endif	/* !GCC && !ICC */
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
 #endif
@@ -1397,7 +1400,7 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
 		pick_cf_fun(ser_sp);
 	const unsigned int trbit = UNLIKELY(ser_sp.sparsep)
-		? CUTFLO_HAS_TRANS_BIT : CUTFLO_TRANS_NIL_NIL;
+		? CUTFLO_HAS_TRANS_BIT : CUTFLO_TRANS_NON_NIL;
 
 	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
 		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
