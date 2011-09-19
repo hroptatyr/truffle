@@ -257,7 +257,7 @@ static uint32_t ds_sum[256];
 #define TO_BASE(x)	((x) - BASE_YEAR)
 #define TO_YEAR(x)	((x) + BASE_YEAR)
 
-#if 0
+#if 1
 /* standalone version and adapted to what make_cut() needs */
 static int
 daysi_to_year(daysi_t ddt)
