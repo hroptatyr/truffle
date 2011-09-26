@@ -89,7 +89,7 @@ struct cnode_s {
 };
 
 /* a single line */
-#define DFLT_FROM	(0)
+#define DFLT_FROM	(101)
 #define DFLT_TILL	(1048576)
 struct cline_s {
 	daysi_t valid_from;
