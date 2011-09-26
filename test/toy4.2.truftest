@@ -1,0 +1,24 @@
+## -*- shell-script -*-
+
+TOOL=truffle
+CMDLINE="--series toy4.series --schema toy4.schema --sparse -f"
+
+## STDIN
+ 
+## STDOUT
+stdout=$(mktemp)
+cat > "${stdout}" <<EOF
+2011-01-04	0
+2011-01-11	7
+2011-01-12	8
+2011-01-13	9
+2011-01-14	10
+2011-01-15	11
+2011-01-16	12
+2011-01-17	13
+2011-01-18	14
+2011-01-19	15
+2011-01-20	16
+EOF
+
+## toy4.2.truftest ends here
