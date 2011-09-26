@@ -1,0 +1,25 @@
+## -*- shell-script -*-
+
+TOOL=truffle
+CMDLINE="--series toy5.series --schema toy5.schema"
+
+## STDIN
+ 
+## STDOUT
+stdout=$(mktemp)
+cat > "${stdout}" <<EOF
+2010-12-21	7
+2010-12-22	7.3333333
+2010-12-23	8
+2011-01-01	9
+2011-01-02	10
+2011-01-06	11
+2011-01-09	16.5
+2011-01-10	26.5
+2011-01-11	36.5
+2011-01-12	45.5
+2011-01-13	53.5
+2011-01-14	60.5
+EOF
+
+## toy5.1.truftest ends here
