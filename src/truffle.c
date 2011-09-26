@@ -589,6 +589,8 @@ __read_schema_line(const char *line, size_t llen)
 		cl = make_cline(line[0], yoff);
 
 		do {
+			daysi_t ddt;
+
 			dt = read_date(p, &tmp) % 10000;
 			p = tmp + strspn(tmp, skip);
 			v = strtod(p, &tmp);
@@ -600,7 +602,7 @@ __read_schema_line(const char *line, size_t llen)
 				}
 			}
 			/* add this line */
-			daysi_t ddt = idate_to_daysi(dt);
+			ddt = idate_to_daysi(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				free(cl);
@@ -1089,11 +1091,11 @@ struct __cutflo_st_s {
 	/* our stuff */
 	union {
 		cutflo_trans_t e;
-		int st:3;
+		unsigned int st:3;
 		struct {
-			int was_non_nil:1;
-			int is_non_nil:1;
-			int has_trans:1;
+			unsigned int was_non_nil:1;
+			unsigned int is_non_nil:1;
+			unsigned int has_trans:1;
 		};
 	};
 	/* should align neatly with the previous on 64b systems */
