@@ -25,6 +25,7 @@ config.h
 stamp-h1
 .deps
 .libs
+test-driver
 
 ##binaries and shite
 truffle
