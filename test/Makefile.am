@@ -35,3 +35,6 @@ EXTRA_DIST += toy5.schema toy5.series
 
 TESTS += toy6.1.truftest
 EXTRA_DIST += toy6.schema
+
+TESTS += toy7.1.truftest
+EXTRA_DIST += toy7.schema
