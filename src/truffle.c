@@ -1375,9 +1375,9 @@ struct __series_spec_s {
 	const char *ser_file;
 	double tick_val;
 	double basis;
-	bool cump:1;
-	bool abs_dimen_p:1;
-	bool sparsep:1;
+	unsigned int cump:1;
+	unsigned int abs_dimen_p:1;
+	unsigned int sparsep:1;
 };
 
 static cutflo_trans_t(*pick_cf_fun(struct __series_spec_s ser_sp))
