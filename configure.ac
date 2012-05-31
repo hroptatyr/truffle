@@ -29,7 +29,7 @@ AC_COPYRIGHT(
 ###     autoreconf
 ])
 
-AM_INIT_AUTOMAKE([foreign parallel-tests])
+AM_INIT_AUTOMAKE([foreign parallel-tests dist-xz])
 
 if test -z "${CFLAGS}"; then
 	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function -Wuninitialized"
