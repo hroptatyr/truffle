@@ -29,7 +29,7 @@ AC_COPYRIGHT(
 ###     autoreconf
 ])
 
-AM_INIT_AUTOMAKE([foreign parallel-tests dist-xz])
+AM_INIT_AUTOMAKE([foreign parallel-tests dist-xz color-tests])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 if test -z "${CFLAGS}"; then
@@ -39,6 +39,7 @@ fi
 ## the build chain
 AC_PROG_CC([icc tcc gcc cc])
 AC_PROG_CC_C99
+AC_C_BIGENDIAN
 
 ## trivial, no special stuff needed
 apps=" truffle"
