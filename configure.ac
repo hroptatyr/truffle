@@ -39,6 +39,7 @@ fi
 ## the build chain
 AC_PROG_CC([icc tcc gcc cc])
 AC_PROG_CC_C99
+AC_C_BIGENDIAN
 
 ## trivial, no special stuff needed
 apps=" truffle"
