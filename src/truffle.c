@@ -35,6 +35,9 @@
  *
  ***/
 
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -43,6 +46,9 @@
 #include <ctype.h>
 #include <math.h>
 #include <sys/mman.h>
+#if defined WORDS_BIGENDIAN
+# include <limits.h>
+#endif	/* WORDS_BIGENDIAN */
 
 #if defined STANDALONE
 # include <stdio.h>
@@ -1091,11 +1097,17 @@ struct __cutflo_st_s {
 	/* our stuff */
 	union {
 		cutflo_trans_t e;
-		unsigned int st:3;
 		struct {
+#if defined WORDS_BIGENDIAN
+			unsigned int:sizeof(unsigned int) * CHAR_BIT - 3;
+			unsigned int has_trans:1;
+			unsigned int is_non_nil:1;
+			unsigned int was_non_nil:1;
+#else  /* !WORDS_BIGENDIAN */
 			unsigned int was_non_nil:1;
 			unsigned int is_non_nil:1;
 			unsigned int has_trans:1;
+#endif	/* WORDS_BIGENDIAN */
 		};
 	};
 	/* should align neatly with the previous on 64b systems */
