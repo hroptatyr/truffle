@@ -27,6 +27,24 @@ while true; do
 	esac
 done
 
+## some helper funs
+xrealpath()
+{
+	readlink -f "${1}" 2>/dev/null || \
+	realpath "${1}" 2>/dev/null || \
+	(
+		cd "$(dirname "${1}")" || exit 1
+		tmp_target="$(basename "${1}")"
+		# Iterate down a (possible) chain of symlinks
+		while test -L "${tmp_target}"; do
+			tmp_target="$(readlink "${tmp_target}")"
+			cd "$(dirname "${tmp_target}")" || exit 1
+			tmp_target="$(basename "${tmp_target}")"
+		done
+		echo "$(pwd -P || pwd)/${tmp_target}"
+	) 2>/dev/null
+}
+
 ## setup
 fail=0
 tool_stdout=$(mktemp)
@@ -54,7 +72,7 @@ if test -z "${srcdir}"; then
 	srcdir=$(dirname "${0}")
 fi
 if test -x "${builddir}/${TOOL}"; then
-	TOOL=$(readlink -e "${builddir}/${TOOL}")
+	TOOL="$(xrealpath "${builddir}/${TOOL}")"
 fi
 
 cd "${srcdir}"
