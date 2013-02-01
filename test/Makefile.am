@@ -54,4 +54,7 @@ EXTRA_DIST += toy7.schema
 %.c %.h: %.ggo
 	$(AM_V_GEN) gengetopt -F $* -i $<
 
+clean-local:
+	-rm -rf *.tmpd
+
 ## Makefile.am ends here
