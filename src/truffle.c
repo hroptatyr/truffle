@@ -1,6 +1,6 @@
 /*** truffle.c -- tool to roll-over futures contracts
  *
- * Copyright (C) 2011 Sebastian Freundt
+ * Copyright (C) 2011-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
