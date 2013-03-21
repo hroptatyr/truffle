@@ -601,6 +601,10 @@ read_schema(const char *file)
 	return res;
 }
 
+
+static unsigned int from = 2000U;
+static unsigned int till = 2037U;
+
 static void
 print_cline(cline_t cl, FILE *whither)
 {
@@ -643,11 +647,55 @@ print_cline(cline_t cl, FILE *whither)
 	return;
 }
 
+static daysi_t
+next_cline(cline_t cl, daysi_t y)
+{
+	size_t i = 0;
+
+	if (cl->valid_from == DFLT_FROM && cl->valid_till == DFLT_TILL) {
+		/* print nothing */
+	} else {
+		if (cl->valid_from != DFLT_FROM && cl->valid_from > y) {
+			/* no good */
+			return -1U;
+		} else if (cl->valid_till != DFLT_TILL && cl->valid_till < y) {
+			/* still no good */
+			return -1U;
+		}
+	}
+
+	//fputc(cl->month, whither);
+	if (cl->year_off) {
+		//fprintf(whither, "%d", cl->year_off);
+	}
+	for (i = 0; i < cl->nn && cl->n[i].y == 0.0; i++);
+	if (i < cl->nn) {
+		idate_t doy = idate_to_daysi(cl->n[i].x);
+		return daysi_in_year(doy | DAYSI_DIY_BIT, y);
+	}
+	return -1U;
+}
+
 DEFUN void __attribute__((unused))
 print_schema(trsch_t sch, FILE *whither)
 {
-	for (size_t i = 0; i < sch->np; i++) {
-		print_cline(sch->p[i], whither);
+	for (unsigned int y = from; y < till; y++) {
+		size_t bsti = -1UL;
+		daysi_t best = -1U;
+		daysi_t y00 = daysi_in_year(DAYSI_DIY_BIT, y);
+
+		for (size_t i = 0; i < sch->np; i++) {
+			daysi_t this = next_cline(sch->p[i], y00);
+
+			if (this < best) {
+				best = this;
+				bsti = i;
+			}
+		}
+
+		if (bsti < sch->np) {
+			print_cline(sch->p[bsti], stdout);
+		}
 	}
 	return;
 }
