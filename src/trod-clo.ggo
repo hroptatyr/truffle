@@ -1,0 +1,15 @@
+args "--unamed-opts --no-handle-error --long-help -a tr_args_info -f tr_parser"
+package "trod"
+description "Convert roll-over schema files to echse format."
+
+option "from" -
+	"Start event states at DT."
+	string typestr="DT" optional
+
+option "till" -
+	"Finish event streams by DT."
+	string typestr="DT" optional
+
+option "filter" f
+	"Use filter script FILE."
+	string typestr="FILE" optional
