@@ -18,6 +18,13 @@ truffle_LDFLAGS = $(AM_LDFLAGS)
 truffle_LDADD = -lm
 BUILT_SOURCES += truffle-clo.c truffle-clo.h
 
+noinst_PROGRAMS += trod
+trod_SOURCES = trod.c trod-clo.ggo
+trod_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
+trod_LDFLAGS = $(AM_LDFLAGS)
+trod_LDADD = -lm
+BUILT_SOURCES += trod-clo.c trod-clo.h
+
 ## ggo rule
 %.c %.h: %.ggo
 	gengetopt -l -i $< -F $*
