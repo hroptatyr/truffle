@@ -50,6 +50,8 @@
 # include <limits.h>
 #endif	/* WORDS_BIGENDIAN */
 
+#include "yd.h"
+
 #if defined STANDALONE
 # include <stdio.h>
 # define DECLF	static
@@ -251,139 +253,114 @@ upsize_mall(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc, int f)
 }
 
 
-/* idate helpers */
-static uint16_t dm[] = {
-/* this is \sum ml, first element is a bit set of leap days to add */
-	0xfff8, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
-};
-
-static uint32_t ds_sum[256];
-
-#define BASE_YEAR	(1917)
+#define BASE_YEAR	(1917U)
 #define TO_BASE(x)	((x) - BASE_YEAR)
 #define TO_YEAR(x)	((x) + BASE_YEAR)
 
-#if 1
 /* standalone version and adapted to what make_cut() needs */
 static int
-daysi_to_year(daysi_t ddt)
+daysi_to_year(daysi_t dd)
 {
-/* given days since 1917-01-01 (Mon), compute a year */
 	int y;
+	int j00;
 
-	if (UNLIKELY(ddt & DAYSI_DIY_BIT)) {
-		return 0;
+	/* get year first (estimate) */
+	y = dd / 365U;
+	/* get jan-00 of (est.) Y */
+	j00 = y * 365U + y / 4U;
+	/* y correct? */
+	if (UNLIKELY(j00 >= dd)) {
+		/* correct y */
+		y--;
 	}
-
-	for (y = ddt / 365; (y * 365 + y / 4) >= ddt; y--);
+	/* ass */
 	return TO_YEAR(y);
 }
-#elif 1
-static int
-daysi_to_year(daysi_t ddt)
-{
-/* given days since 1917-01-01 (Mon), compute a year */
-	if (UNLIKELY(ddt & DAYSI_DIY_BIT)) {
-		return 0;
-	}
-
-	/* scan target */
-	for (int y = TO_BASE(1980); y < TO_BASE(2020); y++) {
-		if (ds_sum[y] > ddt) {
-			return TO_YEAR(y - 1);
-		}
-	}
-	for (int y = 0; y < TO_BASE(1980); y++) {
-		if (ds_sum[y] > ddt) {
-			return TO_YEAR(y - 1);
-		}
-	}
-	for (int y = TO_BASE(2020); y < countof(ds_sum); y++) {
-		if (ds_sum[y] > ddt) {
-			return TO_YEAR(y - 1);
-		}
-	}
-	return 0;
-}
-#endif
 
 /* standalone version, we could use ds_sum but this is most likely
  * causing more cache misses */
 static idate_t
-daysi_to_idate(daysi_t ddt)
+daysi_to_idate(daysi_t dd)
 {
-/* given days since 1917-01-01 (Mon),
+/* given days since 2000-01-00 (Mon),
  * compute the idate_t representation X so that idate_to_daysi(X) == DDT */
+/* stolen from dateutils' daisy.c */
+	int y;
 	int m;
 	int d;
-	int y;
+	int j00;
+	unsigned int doy;
 
-	if (LIKELY(ddt & DAYSI_DIY_BIT)) {
-		ddt &= ~DAYSI_DIY_BIT;
+	/* get year first (estimate) */
+	y = dd / 365U;
+	/* get jan-00 of (est.) Y */
+	j00 = y * 365U + y / 4U;
+	/* y correct? */
+	if (UNLIKELY(j00 >= dd)) {
+		/* correct y */
+		y--;
+		/* and also recompute the j00 of y */
+		j00 = y * 365U + y / 4U;
 	}
-	y = daysi_to_year(ddt);
-	ddt -= ds_sum[TO_BASE(y)] - 1;
+	/* ass */
+	y = TO_YEAR(y);
+	/* this one must be positive now */
+	doy = dd - j00;
 
-	for (m = 1; m < 12 && ddt > dm[m + 1]; m++);
-	d = ddt - dm[m];
-
-	if (UNLIKELY(y > 0 && y % 4 == 0)) {
-		if ((dm[0] >> (m)) & 1) {
-			if (UNLIKELY(ddt == 60)) {
-				m = 2;
-				d = 29;
-			} else if (UNLIKELY(ddt == dm[m] + 1)) {
-				m--;
-				d = ddt - dm[m] - 1;
-			} else {
-				d--;
-			}
-		}
+	/* get month and day from doy */
+	{
+		struct md_s md = __yd_to_md((struct yd_s){y, doy});
+		m = md.m;
+		d = md.d;
 	}
-	return y * 10000 + m * 100 + d;
+	return (y * 100U + m) * 100U + d;
 }
 
 static daysi_t
 idate_to_daysi(idate_t dt)
 {
-/* compute days since 1917-01-01 (Mon),
+/* compute days since BASE-01-00 (Mon),
  * if year slot is absent in D compute the day in the year of D instead. */
-	int y = dt / 10000;
-	int m = (dt / 100) % 100;
-	int d = dt % 100;
-	daysi_t res = dm[m] + d;
+	int d = dt % 100U;
+	int m = (dt / 100U) % 100U;
+	int y = (dt / 100U) / 100U;
+	struct yd_s yd = __md_to_yd(y, (struct md_s){.m = m, .d = d});
+	int by = TO_BASE(y);
 
-	if (LIKELY(y == 0)) {
-		res |= DAYSI_DIY_BIT;
-	} else {
-		int dy = (y - BASE_YEAR);
-
-		res += dy * 365 + dy / 4;
-		if (UNLIKELY(dy % 4 == 3)) {
-			res += (dm[0] >> (m)) & 1;
-		}
-	}
-	return res;
+	return by * 365U + by / 4U + yd.d;
 }
 
 static daysi_t
 daysi_in_year(daysi_t ds, int y)
 {
-	int off = y - BASE_YEAR;
+	int j00;
+	int by = TO_BASE(y);
 
 	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
 		/* we could technically do something here */
-		;
-	} else if (UNLIKELY(off < 0 || off > countof(ds_sum))) {
-		return 0U;
-	} else {
-		ds &= ~DAYSI_DIY_BIT;
-		if (UNLIKELY(y % 4 == 0) && ds >= 60) {
-			ds++;
-		}
-		ds += ds_sum[off] - 1;
+		return ds;
 	}
-	return ds;
+
+	ds &= ~DAYSI_DIY_BIT;
+
+	/* get jan-00 of (est.) Y */
+	j00 = by * 365U + by / 4U;
+
+	if (UNLIKELY(y % 4U == 0) && ds >= 60) {
+		ds++;
+	}
+	return ds + j00;
+}
+
+static daysi_t
+daysi_sans_year(idate_t id)
+{
+	int d = (id % 100U);
+	int m = (id / 100U) % 100U;
+	struct yd_s yd = __md_to_yd(BASE_YEAR, (struct md_s){.m = m, .d = d});
+	daysi_t doy = yd.d | DAYSI_DIY_BIT;
+
+	return doy;
 }
 
 static trsch_t
@@ -469,7 +446,7 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	idx = cl->nn++;
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
-	cl->n[idx].l = idate_to_daysi(x);
+	cl->n[idx].l = daysi_sans_year(x);
 	return cl;
 }
 
@@ -608,7 +585,7 @@ __read_schema_line(const char *line, size_t llen)
 				}
 			}
 			/* add this line */
-			ddt = idate_to_daysi(dt);
+			ddt = daysi_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				free(cl);
@@ -1487,11 +1464,6 @@ main(int argc, char *argv[])
 
 	if (cmdline_parser(argc, argv, argi)) {
 		exit(1);
-	}
-
-	/* initialise the daysi sums */
-	for (size_t i = 0; i < countof(ds_sum); i++) {
-		ds_sum[i] = idate_to_daysi((i + BASE_YEAR) * 10000 + 101);
 	}
 
 	if (argi->schema_given) {
