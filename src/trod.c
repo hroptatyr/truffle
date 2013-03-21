@@ -218,8 +218,8 @@ upsize_mall(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc, int f)
 static int
 daysi_to_year(daysi_t dd)
 {
-	int y;
-	int j00;
+	unsigned int y;
+	unsigned int j00;
 
 	/* get year first (estimate) */
 	y = dd / 365U;
@@ -242,10 +242,10 @@ daysi_to_idate(daysi_t dd)
 /* given days since 2000-01-00 (Mon),
  * compute the idate_t representation X so that idate_to_daysi(X) == DDT */
 /* stolen from dateutils' daisy.c */
-	int y;
-	int m;
-	int d;
-	int j00;
+	unsigned int y;
+	unsigned int m;
+	unsigned int d;
+	unsigned int j00;
 	unsigned int doy;
 
 	/* get year first (estimate) */
@@ -278,20 +278,20 @@ idate_to_daysi(idate_t dt)
 {
 /* compute days since BASE-01-00 (Mon),
  * if year slot is absent in D compute the day in the year of D instead. */
-	int d = dt % 100U;
-	int m = (dt / 100U) % 100U;
-	int y = (dt / 100U) / 100U;
+	unsigned int d = dt % 100U;
+	unsigned int m = (dt / 100U) % 100U;
+	unsigned int y = (dt / 100U) / 100U;
 	struct yd_s yd = __md_to_yd(y, (struct md_s){.m = m, .d = d});
-	int by = TO_BASE(y);
+	unsigned int by = TO_BASE(y);
 
 	return by * 365U + by / 4U + yd.d;
 }
 
 static daysi_t
-daysi_in_year(daysi_t ds, int y)
+daysi_in_year(daysi_t ds, unsigned int y)
 {
-	int j00;
-	int by = TO_BASE(y);
+	unsigned int j00;
+	unsigned int by = TO_BASE(y);
 
 	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
 		/* we could technically do something here */
@@ -312,8 +312,8 @@ daysi_in_year(daysi_t ds, int y)
 static daysi_t
 daysi_sans_year(idate_t id)
 {
-	int d = (id % 100U);
-	int m = (id / 100U) % 100U;
+	unsigned int d = (id % 100U);
+	unsigned int m = (id / 100U) % 100U;
 	struct yd_s yd = __md_to_yd(BASE_YEAR, (struct md_s){.m = m, .d = d});
 	daysi_t doy = yd.d | DAYSI_DIY_BIT;
 
