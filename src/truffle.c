@@ -345,6 +345,10 @@ daysi_in_year(daysi_t ds, int y)
 
 	/* get jan-00 of (est.) Y */
 	j00 = by * 365U + by / 4U;
+
+	if (UNLIKELY(y % 4U == 0) && ds >= 60) {
+		ds++;
+	}
 	return ds + j00;
 }
 
