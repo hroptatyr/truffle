@@ -348,6 +348,17 @@ daysi_in_year(daysi_t ds, int y)
 	return ds + j00;
 }
 
+static daysi_t
+daysi_sans_year(idate_t id)
+{
+	int d = (id % 100U);
+	int m = (id / 100U) % 100U;
+	struct yd_s yd = __md_to_yd(BASE_YEAR, (struct md_s){.m = m, .d = d});
+	daysi_t doy = yd.d | DAYSI_DIY_BIT;
+
+	return doy;
+}
+
 static trsch_t
 sch_add_cl(trsch_t s, struct cline_s *cl)
 {
@@ -431,14 +442,7 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	idx = cl->nn++;
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
-	{
-		int d = x % 100U;
-		int m = (x / 100U) % 100U;
-		struct yd_s yd = __md_to_yd(
-			BASE_YEAR, (struct md_s){.m = m, .d = d});
-		daysi_t doy = yd.d | DAYSI_DIY_BIT;
-		cl->n[idx].l = doy;
-	}
+	cl->n[idx].l = daysi_sans_year(x);
 	return cl;
 }
 
@@ -577,7 +581,7 @@ __read_schema_line(const char *line, size_t llen)
 				}
 			}
 			/* add this line */
-			ddt = idate_to_daysi(dt);
+			ddt = daysi_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				free(cl);
