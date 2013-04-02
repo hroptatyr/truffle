@@ -83,7 +83,7 @@ typedef uint32_t daysi_t;
 typedef struct trsch_s *trsch_t;
 typedef struct cline_s *cline_t;
 
-#define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
+#define DAYSI_DIY_BIT	(1U << (sizeof(daysi_t) * 8 - 1))
 
 /* a node */
 struct cnode_s {
@@ -102,7 +102,7 @@ struct cline_s {
 	int8_t year_off;
 	size_t nn;
 	struct cnode_s n[];
-} __attribute__((aligned(sizeof(void*))));
+};
 
 /* schema */
 struct trsch_s {
@@ -212,7 +212,7 @@ daysi_in_year(daysi_t ds, unsigned int y)
 	/* get jan-00 of (est.) Y */
 	j00 = by * 365U + by / 4U;
 
-	if (UNLIKELY(y % 4U == 0) && ds >= 60) {
+	if (UNLIKELY(y % 4U == 0) && ds >= 60U) {
 		ds++;
 	}
 	return ds + j00;
