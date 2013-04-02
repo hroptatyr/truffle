@@ -271,7 +271,7 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	idx = cl->nn++;
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
-	cl->n[idx].l = idate_to_daysi(x);
+	cl->n[idx].l = daysi_sans_year(x);
 	return cl;
 }
 
@@ -403,7 +403,7 @@ __read_schema_line(const char *line, size_t llen)
 				}
 			}
 			/* add this line */
-			ddt = idate_to_daysi(dt);
+			ddt = daysi_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				free(cl);
