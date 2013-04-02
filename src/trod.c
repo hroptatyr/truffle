@@ -248,12 +248,12 @@ sch_add_cl(trsch_t s, struct cline_s *cl)
 }
 
 static cline_t
-make_cline(char month, int8_t yoff)
+make_cline(char month, int yoff)
 {
 	cline_t res = malloc(sizeof(*res));
 
 	res->month = month;
-	res->year_off = yoff;
+	res->year_off = (int8_t)yoff;
 	res->nn = 0;
 	return res;
 }
