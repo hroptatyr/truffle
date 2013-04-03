@@ -60,6 +60,9 @@
 #if !defined __GNUC__ && !defined __INTEL_COMPILER
 # define __builtin_expect(x, y)	x
 #endif	/* !GCC && !ICC */
+#if defined __INTEL_COMPILER
+# pragma warning (disable:1572)
+#endif	/* __INTEL_COMPILER */
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
 #endif
@@ -113,9 +116,9 @@ struct trsch_s {
 
 /* result structure, for cuts etc. */
 struct trcc_s {
+	uint8_t val;
 	uint8_t month;
 	uint16_t year;
-	double y __attribute__((aligned(16)));
 };
 
 struct trcut_s {
@@ -547,7 +550,7 @@ cut_add_cc(trcut_t c, struct trcc_s cc)
 		size_t new = sizeof(*c) + 16 * sizeof(*c->comps);
 		c = calloc(new, 1);
 	} else if ((prev = __cut_find_cc(c, cc.month, cc.year))) {
-		prev->y = cc.y;
+		prev->val = cc.val;
 		return c;
 	} else if ((prev = __cut_find_cc(c, 0, 0))) {
 		*prev = cc;
@@ -585,7 +588,7 @@ make_cut(trcut_t old, trsch_t sch, daysi_t when)
 	if (old) {
 		/* quickly rinse the old cut */
 		for (size_t i = 0; i < old->ncomps; i++) {
-			old->comps[i].y = 0.0;
+			old->comps[i].val = 0;
 		}
 	}
 	for (size_t i = 0; i < sch->np; i++) {
@@ -603,15 +606,20 @@ make_cut(trcut_t old, trsch_t sch, daysi_t when)
 			daysi_t l2 = daysi_in_year(n2->l, y);
 
 			if (when >= l1 && when <= l2) {
-				/* something happened between n1 and n2 */
+				/* something happened between l1 and l2 */
 				struct trcc_s cc;
-				double xsub = l2 - l1;
-				double tsub = when - l1;
-				double ysub = n2->y - n1->y;
 
+				if (when == l2 && n2->y == 0.0) {
+					cc.val = 0U;
+				} else if (when == l1 && n1->y != 0.0) {
+					cc.val = 1U;
+				} else if (when == l1 + 1 && n1->y == 0.0) {
+					cc.val = 1U;
+				} else {
+					cc.val = 2U;
+				}
 				cc.month = p->month;
-				cc.year = y + p->year_off;
-				cc.y = n1->y + tsub * ysub / xsub;
+				cc.year = (uint16_t)(y + p->year_off);
 
 				/* try and find that guy in the old cut */
 				res = cut_add_cc(res, cc);
@@ -677,9 +685,11 @@ print_cut(trcut_t c, idate_t dt, bool oco, FILE *out)
 	for (size_t i = 0; i < c->ncomps; i++, p = var) {
 		if (c->comps[i].month == 0) {
 			continue;
+		} else if (c->comps[i].val == 2U) {
+			continue;
 		}
 
-		if (c->comps[i].y == 0.0) {
+		if (!c->comps[i].val) {
 			*p++ = '~';
 		}
 
