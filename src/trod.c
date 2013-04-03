@@ -631,6 +631,9 @@ make_cut(trcut_t old, trsch_t sch, daysi_t when)
 }
 
 
+static int opt_oco = 0;
+static int opt_abs = 0;
+
 static size_t
 snprint_idate(char *restrict buf, size_t bsz, idate_t dt)
 {
@@ -672,7 +675,7 @@ m_to_i(char month)
 }
 
 static void
-print_cut(trcut_t c, idate_t dt, bool oco, FILE *out)
+print_cut(trcut_t c, idate_t dt, FILE *out)
 {
 	char buf[64];
 	int y = dt / 10000;
@@ -693,7 +696,10 @@ print_cut(trcut_t c, idate_t dt, bool oco, FILE *out)
 			*p++ = '~';
 		}
 
-		if (!oco) {
+		if (opt_abs) {
+			c->year_off = (uint16_t)(dt / 10000U);
+		}
+		if (!opt_oco) {
 			p += snprintf(
 				p, sizeof(buf) - (p - buf),
 				"%c%d\n",
@@ -725,7 +731,7 @@ print_schema(trsch_t sch, daysi_t from, daysi_t till, FILE *whither)
 		}
 
 		/* otherwise just print what we've got in the cut */
-		print_cut(c, daysi_to_idate(now), false, whither);
+		print_cut(c, daysi_to_idate(now), whither);
 	}
 
 	/* free resources */
@@ -779,6 +785,12 @@ main(int argc, char *argv[])
 		till = read_date(argi->till_arg, NULL);
 	} else {
 		till = 20371231U;
+	}
+	if (argi->oco_given) {
+		opt_oco = 1;
+		opt_abs = 1;
+	} else if (argi->abs_given) {
+		opt_abs = 1;
 	}
 
 	/* and print it again */

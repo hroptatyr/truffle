@@ -10,6 +10,14 @@ option "till" -
 	"Finish event streams by DT."
 	string typestr="DT" optional
 
+option "abs" a
+	"Use absolute contract years"
+	optional
+
+option "oco" -
+	"Output year first, then contract month as two digit number"
+	optional
+
 option "filter" f
 	"Use filter script FILE."
 	string typestr="FILE" optional
