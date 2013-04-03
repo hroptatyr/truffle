@@ -60,6 +60,9 @@
 #if !defined __GNUC__ && !defined __INTEL_COMPILER
 # define __builtin_expect(x, y)	x
 #endif	/* !GCC && !ICC */
+#if defined __INTEL_COMPILER
+# pragma warning (disable:1572)
+#endif	/* __INTEL_COMPILER */
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
 #endif
@@ -80,10 +83,11 @@
 
 typedef uint32_t idate_t;
 typedef uint32_t daysi_t;
+typedef struct trcut_s *trcut_t;
 typedef struct trsch_s *trsch_t;
 typedef struct cline_s *cline_t;
 
-#define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
+#define DAYSI_DIY_BIT	(1U << (sizeof(daysi_t) * 8 - 1))
 
 /* a node */
 struct cnode_s {
@@ -102,12 +106,26 @@ struct cline_s {
 	int8_t year_off;
 	size_t nn;
 	struct cnode_s n[];
-} __attribute__((aligned(sizeof(void*))));
+};
 
 /* schema */
 struct trsch_s {
 	size_t np;
 	struct cline_s *p[];
+};
+
+/* result structure, for cuts etc. */
+struct trcc_s {
+	uint8_t val;
+	uint8_t month;
+	uint16_t year;
+};
+
+struct trcut_s {
+	uint16_t year_off;
+
+	size_t ncomps;
+	struct trcc_s comps[];
 };
 
 DECLF trsch_t read_schema(const char *file);
@@ -117,97 +135,6 @@ DECLF void free_schema(trsch_t);
 /* alloc helpers */
 #define PROT_MEM		(PROT_READ | PROT_WRITE)
 #define MAP_MEM			(MAP_PRIVATE | MAP_ANONYMOUS)
-
-static inline int
-resize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
-{
-	if (cnt == 0) {
-		size_t new = inc * blksz;
-		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
-		return 1;
-
-	} else if (cnt % inc == 0) {
-		/* resize */
-		size_t old = cnt * blksz;
-		size_t new = (cnt + inc) * blksz;
-		*ptr = mremap(*ptr, old, new, MREMAP_MAYMOVE);
-		return 1;
-	}
-	return 0;
-}
-
-static inline void
-unsize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
-{
-	size_t sz;
-
-	if (*ptr == NULL || cnt == 0) {
-		return;
-	}
-
-	sz = ((cnt - 1) / inc + 1) * inc * blksz;
-	munmap(*ptr, sz);
-	*ptr = NULL;
-	return;
-}
-
-static inline void
-upsize_mmap(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc)
-{
-/* like resize, but definitely provide space for cnt + inc objects */
-	size_t old = (cnt / inc + 1) * inc * blksz;
-	size_t new = (cnn / inc + 1) * inc * blksz;
-
-	if (*ptr == NULL) {
-		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
-	} else if (old < new) {
-		*ptr = mremap(*ptr, old, new, MREMAP_MAYMOVE);
-	}
-	return;
-}
-
-static inline int
-resize_mall(void **ptr, size_t cnt, size_t blksz, size_t inc)
-{
-	if (cnt == 0) {
-		*ptr = calloc(inc, blksz);
-		return 1;
-	} else if (cnt % inc == 0) {
-		/* resize */
-		size_t new = (cnt + inc) * blksz;
-		*ptr = realloc(*ptr, new);
-		return 1;
-	}
-	return 0;
-}
-
-static inline void
-unsize_mall(void **ptr, size_t cnt, size_t UNUSED(blksz), size_t UNUSED(inc))
-{
-	if (*ptr == NULL || cnt == 0) {
-		return;
-	}
-
-	free(*ptr);
-	*ptr = NULL;
-	return;
-}
-
-static inline void
-upsize_mall(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc, int f)
-{
-/* like resize, but definitely provide space for cnt + inc objects */
-	size_t old = (cnt / inc + 1) * inc * blksz;
-	size_t new = (cnn / inc + 1) * inc * blksz;
-	if (*ptr == NULL) {
-		*ptr = malloc(new);
-		memset(*ptr, f, new);
-	} else if (old < new) {
-		*ptr = realloc(*ptr, new);
-		memset((char*)*ptr + old, f, new - old);
-	}
-	return;
-}
 
 
 #define BASE_YEAR	(1917U)
@@ -303,7 +230,7 @@ daysi_in_year(daysi_t ds, unsigned int y)
 	/* get jan-00 of (est.) Y */
 	j00 = by * 365U + by / 4U;
 
-	if (UNLIKELY(y % 4U == 0) && ds >= 60) {
+	if (UNLIKELY(y % 4U == 0) && ds >= 60U) {
 		ds++;
 	}
 	return ds + j00;
@@ -339,12 +266,12 @@ sch_add_cl(trsch_t s, struct cline_s *cl)
 }
 
 static cline_t
-make_cline(char month, int8_t yoff)
+make_cline(char month, int yoff)
 {
 	cline_t res = malloc(sizeof(*res));
 
 	res->month = month;
-	res->year_off = yoff;
+	res->year_off = (int8_t)yoff;
 	res->nn = 0;
 	return res;
 }
@@ -362,7 +289,7 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	idx = cl->nn++;
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
-	cl->n[idx].l = idate_to_daysi(x);
+	cl->n[idx].l = daysi_sans_year(x);
 	return cl;
 }
 
@@ -494,7 +421,7 @@ __read_schema_line(const char *line, size_t llen)
 				}
 			}
 			/* add this line */
-			ddt = idate_to_daysi(dt);
+			ddt = daysi_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				free(cl);
@@ -602,100 +529,214 @@ read_schema(const char *file)
 }
 
 
-static unsigned int from = 2000U;
-static unsigned int till = 2037U;
+/* cuts */
+static struct trcc_s*
+__cut_find_cc(trcut_t c, uint8_t mon, uint16_t year)
+{
+	for (size_t i = 0; i < c->ncomps; i++) {
+		if (c->comps[i].month == mon && c->comps[i].year == year) {
+			return c->comps + i;
+		}
+	}
+	return NULL;
+}
+
+static trcut_t
+cut_add_cc(trcut_t c, struct trcc_s cc)
+{
+	struct trcc_s *prev;
+
+	if (c == NULL) {
+		size_t new = sizeof(*c) + 16 * sizeof(*c->comps);
+		c = calloc(new, 1);
+	} else if ((prev = __cut_find_cc(c, cc.month, cc.year))) {
+		prev->val = cc.val;
+		return c;
+	} else if ((prev = __cut_find_cc(c, 0, 0))) {
+		*prev = cc;
+		return c;
+	} else if ((c->ncomps % 16) == 0) {
+		size_t new = sizeof(*c) + (c->ncomps + 16) * sizeof(*c->comps);
+		c = realloc(c, new);
+		memset(c->comps + c->ncomps, 0, 16 * sizeof(*c->comps));
+	}
+	c->comps[c->ncomps++] = cc;
+	return c;
+}
 
 static void
-print_cline(cline_t cl, FILE *whither)
+cut_rem_cc(trcut_t UNUSED(c), struct trcc_s *cc)
 {
-	if (cl->valid_from == DFLT_FROM && cl->valid_till == DFLT_TILL) {
-		/* print nothing */
-	} else {
-		if (cl->valid_from == DFLT_FROM) {
-			fputc('*', whither);
-		} else if (cl->valid_from > DFLT_FROM) {
-			fprintf(whither, "%u", daysi_to_idate(cl->valid_from));
-		} else {
-			/* we were meant to fill this bugger */
-			abort();
-		}
-		if (cl->valid_from < cl->valid_till) {
-			fputc('-', whither);
-			if (cl->valid_till >= DFLT_TILL) {
-				fputc('*', whither);
-			} else if (cl->valid_from > 0) {
-				fprintf(whither, "%u",
-					daysi_to_idate(cl->valid_till));
-			} else {
-				/* invalid value in here */
-				abort();
-			}
-		}
-		fputc(' ', whither);
-	}
-
-	fputc(cl->month, whither);
-	if (cl->year_off) {
-		fprintf(whither, "%d", cl->year_off);
-	}
-	for (size_t i = 0; i < cl->nn; i++) {
-		idate_t dt = cl->n[i].x;
-		fputc(' ', whither);
-		fprintf(whither, " %04u %.8g", dt, cl->n[i].y);
-	}
-	fputc('\n', whither);
+	cc->month = 0;
+	cc->year = 0;
 	return;
 }
 
-static daysi_t
-next_cline(cline_t cl, daysi_t y)
+DEFUN void
+free_cut(trcut_t cut)
 {
-	size_t i = 0;
-
-	if (cl->valid_from == DFLT_FROM && cl->valid_till == DFLT_TILL) {
-		/* print nothing */
-	} else {
-		if (cl->valid_from != DFLT_FROM && cl->valid_from > y) {
-			/* no good */
-			return -1U;
-		} else if (cl->valid_till != DFLT_TILL && cl->valid_till < y) {
-			/* still no good */
-			return -1U;
-		}
-	}
-
-	//fputc(cl->month, whither);
-	if (cl->year_off) {
-		//fprintf(whither, "%d", cl->year_off);
-	}
-	for (i = 0; i < cl->nn && cl->n[i].y == 0.0; i++);
-	if (i < cl->nn) {
-		idate_t doy = idate_to_daysi(cl->n[i].x);
-		return daysi_in_year(doy | DAYSI_DIY_BIT, y);
-	}
-	return -1U;
+	free(cut);
+	return;
 }
 
-DEFUN void __attribute__((unused))
-print_schema(trsch_t sch, FILE *whither)
+DEFUN trcut_t
+make_cut(trcut_t old, trsch_t sch, daysi_t when)
 {
-	for (unsigned int y = from; y < till; y++) {
-		size_t bsti = -1UL;
-		daysi_t best = -1U;
-		daysi_t y00 = daysi_in_year(DAYSI_DIY_BIT, y);
+	trcut_t res = old;
+	int y = daysi_to_year(when);
 
-		for (size_t i = 0; i < sch->np; i++) {
-			daysi_t this = next_cline(sch->p[i], y00);
+	if (old) {
+		/* quickly rinse the old cut */
+		for (size_t i = 0; i < old->ncomps; i++) {
+			old->comps[i].val = 0;
+		}
+	}
+	for (size_t i = 0; i < sch->np; i++) {
+		struct cline_s *p = sch->p[i];
 
-			if (this < best) {
-				best = this;
-				bsti = i;
+		/* check year validity */
+		if (when < p->valid_from || when > p->valid_till) {
+			/* cline isn't applicable */
+			continue;
+		}
+		for (size_t j = 0; j < p->nn - 1; j++) {
+			struct cnode_s *n1 = p->n + j;
+			struct cnode_s *n2 = n1 + 1;
+			daysi_t l1 = daysi_in_year(n1->l, y);
+			daysi_t l2 = daysi_in_year(n2->l, y);
+
+			if (when >= l1 && when <= l2) {
+				/* something happened between l1 and l2 */
+				struct trcc_s cc;
+
+				if (when == l2 && n2->y == 0.0) {
+					cc.val = 0U;
+				} else if (when == l1 && n1->y != 0.0) {
+					cc.val = 1U;
+				} else if (when == l1 + 1 && n1->y == 0.0) {
+					cc.val = 1U;
+				} else {
+					cc.val = 2U;
+				}
+				cc.month = p->month;
+				cc.year = (uint16_t)(y + p->year_off);
+
+				/* try and find that guy in the old cut */
+				res = cut_add_cc(res, cc);
+				break;
 			}
 		}
+	}
+	return res;
+}
 
-		if (bsti < sch->np) {
-			print_cline(sch->p[bsti], stdout);
+
+static int opt_oco = 0;
+static int opt_abs = 0;
+
+static size_t
+snprint_idate(char *restrict buf, size_t bsz, idate_t dt)
+{
+	return snprintf(buf, bsz, "%u-%02u-%02u",
+			dt / 10000, (dt % 10000) / 100, (dt % 100));
+}
+
+static int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'F':
+		return 1;
+	case 'G':
+		return 2;
+	case 'H':
+		return 3;
+	case 'J':
+		return 4;
+	case 'K':
+		return 5;
+	case 'M':
+		return 6;
+	case 'N':
+		return 7;
+	case 'Q':
+		return 8;
+	case 'U':
+		return 9;
+	case 'V':
+		return 10;
+	case 'X':
+		return 11;
+	case 'Z':
+		return 12;
+	default:
+		return 0;
+	}
+}
+
+static void
+print_cut(trcut_t c, idate_t dt, FILE *out)
+{
+	char buf[64];
+	int y = dt / 10000;
+	char *p = buf;
+	char *var;
+
+	p += snprint_idate(buf, sizeof(buf), dt);
+	*p++ = '\t';
+	var = p;
+	for (size_t i = 0; i < c->ncomps; i++, p = var) {
+		if (c->comps[i].month == 0) {
+			continue;
+		} else if (c->comps[i].val == 2U) {
+			continue;
 		}
+
+		if (!c->comps[i].val) {
+			*p++ = '~';
+		}
+
+		if (opt_abs) {
+			c->year_off = (uint16_t)(dt / 10000U);
+		}
+		if (!opt_oco) {
+			p += snprintf(
+				p, sizeof(buf) - (p - buf),
+				"%c%d\n",
+				c->comps[i].month,
+				c->comps[i].year - y + c->year_off);
+		} else {
+			p += snprintf(
+				p, sizeof(buf) - (p - buf),
+				"%d%02d\n",
+				c->comps[i].year - y + c->year_off,
+				m_to_i(c->comps[i].month));
+		}
+		cut_rem_cc(c, c->comps + i);
+
+		*p = '\0';
+		fputs(buf, out);
+	}
+	return;
+}
+
+DEFUN void
+print_schema(trsch_t sch, daysi_t from, daysi_t till, FILE *whither)
+{
+	trcut_t c = NULL;
+
+	for (daysi_t now = from; now < till; now++) {
+		if ((c = make_cut(c, sch, now)) == NULL) {
+			continue;
+		}
+
+		/* otherwise just print what we've got in the cut */
+		print_cut(c, daysi_to_idate(now), whither);
+	}
+
+	/* free resources */
+	if (c) {
+		free_cut(c);
 	}
 	return;
 }
@@ -716,6 +757,8 @@ main(int argc, char *argv[])
 {
 	struct tr_args_info argi[1];
 	trsch_t sch = NULL;
+	idate_t from;
+	idate_t till;
 	int res = 0;
 
 	if (tr_parser(argc, argv, argi)) {
@@ -733,9 +776,30 @@ main(int argc, char *argv[])
 		res = 1;
 		goto out;
 	}
+	if (argi->from_given) {
+		from = read_date(argi->from_arg, NULL);
+	} else {
+		from = 20000101U;
+	}
+	if (argi->till_given) {
+		till = read_date(argi->till_arg, NULL);
+	} else {
+		till = 20371231U;
+	}
+	if (argi->oco_given) {
+		opt_oco = 1;
+		opt_abs = 1;
+	} else if (argi->abs_given) {
+		opt_abs = 1;
+	}
 
 	/* and print it again */
-	print_schema(sch, stdout);
+	{
+		daysi_t fsi = idate_to_daysi(from);
+		daysi_t tsi = idate_to_daysi(till);
+
+		print_schema(sch, fsi, tsi, stdout);
+	}
 
 	free_schema(sch);
 out:
