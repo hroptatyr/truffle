@@ -426,12 +426,12 @@ cut_rem_cc(trcut_t UNUSED(c), struct trcc_s *cc)
 }
 
 static cline_t
-make_cline(char month, int8_t yoff)
+make_cline(char month, int yoff)
 {
 	cline_t res = malloc(sizeof(*res));
 
 	res->month = month;
-	res->year_off = yoff;
+	res->year_off = (int8_t)yoff;
 	res->nn = 0;
 	return res;
 }
@@ -787,7 +787,7 @@ make_cut(trcut_t old, trsch_t sch, daysi_t when)
 				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
-				cc.year = y + p->year_off;
+				cc.year = (uint16_t)(y + p->year_off);
 				cc.y = n1->y + tsub * ysub / xsub;
 
 				/* try and find that guy in the old cut */
@@ -888,9 +888,9 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 
 /* series handling */
 static uint32_t
-cym_to_ym(char month, uint16_t year)
+cym_to_ym(char month, unsigned int year)
 {
-	return (year << 8) + (uint8_t)month;
+	return ((uint16_t)year << 8U) + (uint8_t)month;
 }
 
 static ssize_t
@@ -954,7 +954,7 @@ tsc_init_dvv(trtsc_t s, size_t idx, idate_t dt)
 }
 
 static void
-tsc_add_dv(trtsc_t s, char mon, uint16_t yoff, struct __dv_s dv)
+tsc_add_dv(trtsc_t s, char mon, unsigned int yoff, struct __dv_s dv)
 {
 	struct __dvv_s *this = NULL;
 	ssize_t idx = 0;
@@ -1021,7 +1021,7 @@ read_series(FILE *f)
 		char *dat;
 		char *val;
 		char mon;
-		uint16_t yoff;
+		unsigned int yoff;
 		struct __dv_s dv;
 
 		if ((dat = strchr(con, '\t')) == NULL) {
@@ -1125,7 +1125,7 @@ free_cutflo_st(struct __cutflo_st_s *st)
 }
 
 static void
-warn_noquo(idate_t dt, char mon, uint16_t year, double expo)
+warn_noquo(idate_t dt, char mon, unsigned int year, double expo)
 {
 	char dts[32];
 	snprint_idate(dts, sizeof(dts), dt);
@@ -1506,7 +1506,7 @@ main(int argc, char *argv[])
 
 			if ((c = make_cut(c, sch, ds))) {
 				if (argi->abs_given) {
-					c->year_off = dt / 10000;
+					c->year_off = (uint16_t)(dt / 10000U);
 				}
 				print_cut(c, dt, lev, rndp, ocop, stdout);
 			}
