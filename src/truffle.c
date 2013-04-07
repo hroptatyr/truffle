@@ -60,6 +60,9 @@
 #if !defined __GNUC__ && !defined __INTEL_COMPILER
 # define __builtin_expect(x, y)	x
 #endif	/* !GCC && !ICC */
+#if defined __INTEL_COMPILER
+# pragma warning (disable:1572)
+#endif	/* __INTEL_COMPILER */
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
 #endif
@@ -80,12 +83,14 @@
 
 typedef uint32_t idate_t;
 typedef uint32_t daysi_t;
+typedef uint32_t trym_t;
 typedef struct trcut_s *trcut_t;
 typedef struct trsch_s *trsch_t;
 typedef struct cline_s *cline_t;
 typedef struct trser_s *trser_t;
 typedef struct trtsc_s *trtsc_t;
 typedef const struct trtsc_s *const_trtsc_t;
+
 
 #define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
 
@@ -106,7 +111,7 @@ struct cline_s {
 	int8_t year_off;
 	size_t nn;
 	struct cnode_s n[];
-} __attribute__((aligned(sizeof(void*))));
+};
 
 /* schema */
 struct trsch_s {
@@ -269,7 +274,7 @@ daysi_to_year(daysi_t dd)
 	/* get jan-00 of (est.) Y */
 	j00 = y * 365U + y / 4U;
 	/* y correct? */
-	if (UNLIKELY(j00 >= dd)) {
+	if (UNLIKELY(j00 >= (int)dd)) {
 		/* correct y */
 		y--;
 	}
@@ -296,7 +301,7 @@ daysi_to_idate(daysi_t dd)
 	/* get jan-00 of (est.) Y */
 	j00 = y * 365U + y / 4U;
 	/* y correct? */
-	if (UNLIKELY(j00 >= dd)) {
+	if (UNLIKELY(j00 >= (int)dd)) {
 		/* correct y */
 		y--;
 		/* and also recompute the j00 of y */
@@ -423,12 +428,12 @@ cut_rem_cc(trcut_t UNUSED(c), struct trcc_s *cc)
 }
 
 static cline_t
-make_cline(char month, int8_t yoff)
+make_cline(char month, int yoff)
 {
 	cline_t res = malloc(sizeof(*res));
 
 	res->month = month;
-	res->year_off = yoff;
+	res->year_off = (int8_t)yoff;
 	res->nn = 0;
 	return res;
 }
@@ -784,7 +789,7 @@ make_cut(trcut_t old, trsch_t sch, daysi_t when)
 				double ysub = n2->y - n1->y;
 
 				cc.month = p->month;
-				cc.year = y + p->year_off;
+				cc.year = (uint16_t)(y + p->year_off);
 				cc.y = n1->y + tsub * ysub / xsub;
 
 				/* try and find that guy in the old cut */
@@ -884,16 +889,16 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 
 
 /* series handling */
-static uint32_t
-cym_to_ym(char month, uint16_t year)
+static trym_t
+cym_to_ym(char month, unsigned int year)
 {
-	return (year << 8) + (uint8_t)month;
+	return ((uint16_t)year << 8U) + (uint8_t)month;
 }
 
 static ssize_t
-tsc_find_cym_idx(const_trtsc_t s, uint32_t ym)
+tsc_find_cym_idx(const_trtsc_t s, trym_t ym)
 {
-	for (ssize_t i = 0; i < s->ncons; i++) {
+	for (size_t i = 0; i < s->ncons; i++) {
 		if (s->cons[i] == ym) {
 			return i;
 		}
@@ -951,7 +956,7 @@ tsc_init_dvv(trtsc_t s, size_t idx, idate_t dt)
 }
 
 static void
-tsc_add_dv(trtsc_t s, char mon, uint16_t yoff, struct __dv_s dv)
+tsc_add_dv(trtsc_t s, char mon, unsigned int yoff, struct __dv_s dv)
 {
 	struct __dvv_s *this = NULL;
 	ssize_t idx = 0;
@@ -1018,7 +1023,7 @@ read_series(FILE *f)
 		char *dat;
 		char *val;
 		char mon;
-		uint16_t yoff;
+		unsigned int yoff;
 		struct __dv_s dv;
 
 		if ((dat = strchr(con, '\t')) == NULL) {
@@ -1122,7 +1127,7 @@ free_cutflo_st(struct __cutflo_st_s *st)
 }
 
 static void
-warn_noquo(idate_t dt, char mon, uint16_t year, double expo)
+warn_noquo(idate_t dt, char mon, unsigned int year, double expo)
 {
 	char dts[32];
 	snprint_idate(dts, sizeof(dts), dt);
@@ -1152,7 +1157,7 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		uint32_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_ym(mon, year);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -1233,7 +1238,7 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		uint32_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_ym(mon, year);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -1298,7 +1303,7 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		uint32_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_ym(mon, year);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -1503,7 +1508,7 @@ main(int argc, char *argv[])
 
 			if ((c = make_cut(c, sch, ds))) {
 				if (argi->abs_given) {
-					c->year_off = dt / 10000;
+					c->year_off = (uint16_t)(dt / 10000U);
 				}
 				print_cut(c, dt, lev, rndp, ocop, stdout);
 			}
