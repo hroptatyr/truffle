@@ -111,7 +111,7 @@ struct cline_s {
 	int8_t year_off;
 	size_t nn;
 	struct cnode_s n[];
-} __attribute__((aligned(sizeof(void*))));
+};
 
 /* schema */
 struct trsch_s {
