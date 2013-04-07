@@ -60,6 +60,9 @@
 #if !defined __GNUC__ && !defined __INTEL_COMPILER
 # define __builtin_expect(x, y)	x
 #endif	/* !GCC && !ICC */
+#if defined __INTEL_COMPILER
+# pragma warning (disable:1572)
+#endif	/* __INTEL_COMPILER */
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
 #endif
@@ -269,7 +272,7 @@ daysi_to_year(daysi_t dd)
 	/* get jan-00 of (est.) Y */
 	j00 = y * 365U + y / 4U;
 	/* y correct? */
-	if (UNLIKELY(j00 >= dd)) {
+	if (UNLIKELY(j00 >= (int)dd)) {
 		/* correct y */
 		y--;
 	}
@@ -296,7 +299,7 @@ daysi_to_idate(daysi_t dd)
 	/* get jan-00 of (est.) Y */
 	j00 = y * 365U + y / 4U;
 	/* y correct? */
-	if (UNLIKELY(j00 >= dd)) {
+	if (UNLIKELY(j00 >= (int)dd)) {
 		/* correct y */
 		y--;
 		/* and also recompute the j00 of y */
@@ -893,7 +896,7 @@ cym_to_ym(char month, uint16_t year)
 static ssize_t
 tsc_find_cym_idx(const_trtsc_t s, uint32_t ym)
 {
-	for (ssize_t i = 0; i < s->ncons; i++) {
+	for (size_t i = 0; i < s->ncons; i++) {
 		if (s->cons[i] == ym) {
 			return i;
 		}
