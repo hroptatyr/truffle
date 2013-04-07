@@ -83,12 +83,14 @@
 
 typedef uint32_t idate_t;
 typedef uint32_t daysi_t;
+typedef uint32_t trym_t;
 typedef struct trcut_s *trcut_t;
 typedef struct trsch_s *trsch_t;
 typedef struct cline_s *cline_t;
 typedef struct trser_s *trser_t;
 typedef struct trtsc_s *trtsc_t;
 typedef const struct trtsc_s *const_trtsc_t;
+
 
 #define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
 
@@ -887,14 +889,14 @@ print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
 
 
 /* series handling */
-static uint32_t
+static trym_t
 cym_to_ym(char month, unsigned int year)
 {
 	return ((uint16_t)year << 8U) + (uint8_t)month;
 }
 
 static ssize_t
-tsc_find_cym_idx(const_trtsc_t s, uint32_t ym)
+tsc_find_cym_idx(const_trtsc_t s, trym_t ym)
 {
 	for (size_t i = 0; i < s->ncons; i++) {
 		if (s->cons[i] == ym) {
@@ -1155,7 +1157,7 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		uint32_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_ym(mon, year);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -1236,7 +1238,7 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		uint32_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_ym(mon, year);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -1301,7 +1303,7 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		uint32_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_ym(mon, year);
 		double expo;
 		ssize_t idx;
 		double flo;
