@@ -10,12 +10,18 @@ BUILT_SOURCES =
 CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
 
+noinst_LIBRARIES = libtruffle.a
+libtruffle_a_SOURCES = yd.h
+libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
+libtruffle_a_SOURCES += schema.c schema.h
+libtruffle_a_SOURCES += cut.c cut.h
+
 bin_PROGRAMS += truffle
-truffle_SOURCES = truffle.c truffle-clo.ggo
-truffle_SOURCES += yd.h
+truffle_SOURCES = truffle.c truffle.h truffle-clo.ggo
 truffle_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
 truffle_LDFLAGS = $(AM_LDFLAGS)
-truffle_LDADD = -lm
+truffle_LDADD = libtruffle.a
+truffle_LDADD += -lm
 BUILT_SOURCES += truffle-clo.c truffle-clo.h
 
 noinst_PROGRAMS += trod
