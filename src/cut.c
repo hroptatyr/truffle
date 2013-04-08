@@ -194,7 +194,7 @@ print_cut(trcut_t c, idate_t dt, struct trcut_pr_s opt)
 
 			*p++ = '\t';
 			p += snprintf(
-				p, sizeof(buf) - (p - buf), "\t%.8g", expo);
+				p, sizeof(buf) - (p - buf), "%.8g", expo);
 			break;
 		}
 
