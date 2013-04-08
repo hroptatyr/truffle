@@ -50,18 +50,44 @@
 
 typedef struct trcut_s *trcut_t;
 
+#define TRCUT_LEVER	(0U)
+#define TRCUT_EDGE	(1U)
+
 /* result structure, for cuts etc. */
 struct trcc_s {
+	double y __attribute__((aligned(16)));
 	uint8_t month;
 	uint16_t year;
-	double y __attribute__((aligned(16)));
+};
+
+/* same as trcc_s but only for edges */
+struct trcce_s {
+	uint8_t val;
+	uint8_t month;
+	uint16_t year;
 };
 
 struct trcut_s {
 	uint16_t year_off;
+	uint16_t type;
 
 	size_t ncomps;
-	struct trcc_s comps[];
+	union {
+		struct trcc_s comps[];
+		struct trcce_s ecomps[];
+	};
+};
+
+/* printing options */
+struct trcut_pr_s {
+	/* absolute years instead of relative ones */
+	unsigned int abs:1;
+	/* use oco notation */
+	unsigned int oco:1;
+	/* whether to round the output */
+	unsigned int rnd:1;
+	FILE *out;
+	double lever;
 };
 
 
@@ -75,7 +101,6 @@ DECLF trcut_t cut_add_cc(trcut_t c, struct trcc_s cc);
 
 DECLF void cut_rem_cc(trcut_t c, struct trcc_s *cc);
 
-DECLF void
-print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out);
+DECLF void print_cut(trcut_t c, idate_t dt, struct trcut_pr_s);
 
 #endif	/* INCLUDED_cut_h_ */

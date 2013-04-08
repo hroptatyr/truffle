@@ -133,38 +133,83 @@ cut_rem_cc(trcut_t UNUSED(c), struct trcc_s *cc)
 }
 
 DEFUN void
-print_cut(trcut_t c, idate_t dt, double lever, bool rnd, bool oco, FILE *out)
+print_cut(trcut_t c, idate_t dt, struct trcut_pr_s opt)
 {
-	char buf[32];
+	char buf[64U];
 	int y = dt / 10000;
+	char *p = buf;
+	char *var;
 
-	snprint_idate(buf, sizeof(buf), dt);
-	for (size_t i = 0; i < c->ncomps; i++) {
-		double expo;
-
+	if (opt.abs) {
+		c->year_off = (uint16_t)(dt / 10000U);
+	}
+	p += snprint_idate(buf, sizeof(buf), dt);
+	*p++ = '\t';
+	var = p;
+	for (size_t i = 0; i < c->ncomps; i++, p = var) {
 		if (c->comps[i].month == 0) {
 			continue;
 		}
 
-		expo = c->comps[i].y * lever;
+		switch (c->type) {
+		case TRCUT_LEVER:
+			break;
 
-		if (rnd) {
-			expo = round(expo);
+		case TRCUT_EDGE:
+			if (c->ecomps[i].val == 2U) {
+				continue;
+			}
+			if (!c->ecomps[i].val) {
+				*p++ = '~';
+			}
+			break;
+
+		default:
+			break;
 		}
-		if (!oco) {
-			fprintf(out, "%s\t%c%d\t%.8g\n",
-				buf,
+
+		if (!opt.oco) {
+			p += snprintf(
+				p, sizeof(buf) - (p - buf),
+				"%c%d",
 				c->comps[i].month,
-				c->comps[i].year - y + c->year_off,
-				expo);
+				c->comps[i].year - y + c->year_off);
 		} else {
-			fprintf(out, "%s\t%d%02d\t%.8g\n",
-				buf,
+			p += snprintf(
+				p, sizeof(buf) - (p - buf),
+				"%d%02d",
 				c->comps[i].year - y + c->year_off,
-				m_to_i(c->comps[i].month),
-				expo);
+				m_to_i(c->comps[i].month));
 		}
+
+		switch (c->type) {
+			double expo;
+
+		case TRCUT_LEVER: {
+			expo = c->comps[i].y * opt.lever;
+
+			if (opt.rnd) {
+				expo = round(expo);
+			}
+
+			*p++ = '\t';
+			p += snprintf(
+				p, sizeof(buf) - (p - buf), "\t%.8g", expo);
+			break;
+		}
+
+		case TRCUT_EDGE:
+			break;
+
+		default:
+			break;
+		}
+
 		cut_rem_cc(c, c->comps + i);
+
+		*p++ = '\n';
+		*p = '\0';
+		fputs(buf, opt.out);
 	}
 	return;
 }
