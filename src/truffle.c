@@ -831,9 +831,13 @@ main(int argc, char *argv[])
 	} else if (argi->inputs_num == 0) {
 		print_schema(sch, stdout);
 	} else {
-		double lev = argi->lever_given ? argi->lever_arg : 1.0;
-		bool rndp = argi->round_given;
-		bool ocop = argi->oco_given;
+		struct trcut_pr_s opt = {
+			.abs = argi->abs_given,
+			.oco = argi->oco_given,
+			.rnd = argi->round_given,
+			.lever = argi->lever_given ? argi->lever_arg : 1.0,
+			.out = stdout,
+		};
 		trcut_t c = NULL;
 
 		for (size_t i = 0; i < argi->inputs_num; i++) {
@@ -841,10 +845,7 @@ main(int argc, char *argv[])
 			daysi_t ds = idate_to_daysi(dt);
 
 			if ((c = make_cut(c, sch, ds))) {
-				if (argi->abs_given) {
-					c->year_off = (uint16_t)(dt / 10000U);
-				}
-				print_cut(c, dt, lev, rndp, ocop, stdout);
+				print_cut(c, dt, opt);
 			}
 		}
 		if (c) {
