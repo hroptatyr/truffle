@@ -46,6 +46,7 @@
 
 #include "dt-strpf.h"
 #include "schema.h"
+#include "cut.h"
 
 typedef uint32_t trym_t;
 
