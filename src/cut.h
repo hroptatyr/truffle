@@ -55,16 +55,12 @@ typedef struct trcut_s *trcut_t;
 
 /* result structure, for cuts etc. */
 struct trcc_s {
-	double y __attribute__((aligned(16)));
 	uint8_t month;
 	uint16_t year;
-};
-
-/* same as trcc_s but only for edges */
-struct trcce_s {
-	uint8_t val;
-	uint8_t month;
-	uint16_t year;
+	union {
+		double y;
+		uint8_t val;
+	};
 };
 
 struct trcut_s {
@@ -72,10 +68,7 @@ struct trcut_s {
 	uint16_t type;
 
 	size_t ncomps;
-	union {
-		struct trcc_s comps[];
-		struct trcce_s ecomps[];
-	};
+	struct trcc_s comps[];
 };
 
 /* printing options */

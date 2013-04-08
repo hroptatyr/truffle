@@ -156,10 +156,10 @@ print_cut(trcut_t c, idate_t dt, struct trcut_pr_s opt)
 			break;
 
 		case TRCUT_EDGE:
-			if (c->ecomps[i].val == 2U) {
+			if (c->comps[i].val == 2U) {
 				continue;
 			}
-			if (!c->ecomps[i].val) {
+			if (!c->comps[i].val) {
 				*p++ = '~';
 			}
 			break;
