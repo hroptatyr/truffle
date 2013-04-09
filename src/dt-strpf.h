@@ -39,6 +39,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include "yd.h"
 
@@ -49,10 +50,28 @@
 
 typedef uint32_t idate_t;
 typedef uint32_t daysi_t;
+typedef union trod_instant_u trod_instant_t;
+
+union trod_instant_u {
+	struct {
+		uint32_t y:16;
+		uint32_t m:8;
+		uint32_t d:8;
+		uint32_t H:8;
+		uint32_t M:8;
+		uint32_t S:6;
+		uint32_t ms:10;
+	};
+	uint64_t u;
+} __attribute__((transparent_union));
 
 
 /* public api */
 DECLF idate_t read_date(const char *str, char **restrict ptr);
+
+DECLF trod_instant_t dt_strp(const char *str);
+
+DECLF size_t dt_strf(char *restrict buf, size_t bsz, trod_instant_t inst);
 
 
 static inline daysi_t
@@ -74,6 +93,22 @@ snprint_idate(char *restrict buf, size_t bsz, idate_t dt)
 {
 	return snprintf(buf, bsz, "%u-%02u-%02u",
 			dt / 10000, (dt % 10000) / 100, (dt % 100));
+}
+
+
+#define TROD_ALL_DAY	(0xffU)
+#define TROD_ALL_SEC	(0x3ffU)
+
+static inline bool
+trod_instant_all_day_p(trod_instant_t i)
+{
+	return i.H == TROD_ALL_DAY;
+}
+
+static inline bool
+trod_instant_all_sec_p(trod_instant_t i)
+{
+	return i.ms == TROD_ALL_SEC;
 }
 
 #endif	/* INCLUDED_dt_strpf_h_ */
