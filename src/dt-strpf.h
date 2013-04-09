@@ -73,6 +73,10 @@ DECLF trod_instant_t dt_strp(const char *str);
 
 DECLF size_t dt_strf(char *restrict buf, size_t bsz, trod_instant_t inst);
 
+/**
+ * Fix up instants like the 32 Dec to become 01 Jan of the following year. */
+DECLF trod_instant_t trod_instant_fixup(trod_instant_t);
+
 
 static inline daysi_t
 idate_to_daysi(idate_t dt)
@@ -93,6 +97,46 @@ snprint_idate(char *restrict buf, size_t bsz, idate_t dt)
 {
 	return snprintf(buf, bsz, "%u-%02u-%02u",
 			dt / 10000, (dt % 10000) / 100, (dt % 100));
+}
+
+
+/* instant helpers */
+static inline __attribute__((pure)) bool
+trod_inst_0_p(trod_instant_t x)
+{
+	return x.u == 0U;
+}
+
+static inline __attribute__((pure)) bool
+trod_inst_lt_p(trod_instant_t x, trod_instant_t y)
+{
+	return (x.y < y.y || x.y == y.y &&
+		(x.m < y.m || x.m == y.m &&
+		 (x.d < y.d || x.d == y.d &&
+		  (x.H < y.H || x.H == y.H &&
+		   (x.M < y.M || x.M == y.M &&
+		    (x.S < y.S || x.S == y.S &&
+		     (x.ms < y.ms)))))));
+}
+
+static inline __attribute__((pure)) bool
+trod_inst_le_p(trod_instant_t x, trod_instant_t y)
+{
+	return !(x.y > y.y || x.y == y.y &&
+		 (x.m > y.m || x.m == y.m &&
+		  (x.d > y.d || x.d == y.d &&
+		   (x.H > y.H || x.H == y.H &&
+		    (x.M > y.M || x.M == y.M &&
+		     (x.S > y.S || x.S == y.S &&
+		      (x.ms > y.ms)))))));
+}
+
+static inline __attribute__((pure)) bool
+trod_inst_eq_p(trod_instant_t x, trod_instant_t y)
+{
+	return x.y == y.y && x.m == y.m && x.d == y.d &&
+		x.H == y.H && x.M == y.M && x.S == y.S &&
+		x.ms == y.ms;
 }
 
 
