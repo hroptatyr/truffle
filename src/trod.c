@@ -588,24 +588,31 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 			daysi_t l1 = daysi_in_year(n1->l, y);
 			daysi_t l2 = daysi_in_year(n2->l, y);
 
-			if (when >= l1 && when <= l2) {
-				/* something happened between l1 and l2 */
-				if (when == l2 && n2->y == 0.0) {
+			if (when == l2) {
+				/* something happened at l2 */
+				if (n2->y == 0.0 && n1->y != 0.0) {
 					qi.st.val = 0U;
-				} else if (when == l1 && n1->y != 0.0) {
-					qi.st.val = 1U;
-				} else if (when == l1 + 1U && n1->y == 0.0) {
+				} else if (n2->y != 0.0 && n1->y == 0.0) {
 					qi.st.val = 1U;
 				} else {
 					continue;
 				}
-				qi.st.month = m_to_i(p->month);
-				qi.st.year = (uint16_t)(y + p->year_off);
-
-				/* just add the guy */
-				troq_add_event(q, &qi.ev);
-				break;
+			} else if (j == 0 && when == l1) {
+				/* something happened at l1 */
+				if (n1->y != 0.0) {
+					qi.st.val = 1U;
+				} else {
+					continue;
+				}
+			} else {
+				continue;
 			}
+			qi.st.month = m_to_i(p->month);
+			qi.st.year = (uint16_t)(y + p->year_off);
+
+			/* just add the guy */
+			troq_add_event(q, &qi.ev);
+			break;
 		}
 	}
 	return;
