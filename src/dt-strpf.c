@@ -350,4 +350,41 @@ refix_ym:
 	return e;
 }
 
+DEFUN trod_instant_t
+daysi_to_trod_instant(daysi_t dd)
+{
+/* given days since BASE-01-00,
+ * compute the instant_t representation X */
+/* stolen from dateutils' daisy.c */
+	unsigned int y;
+	unsigned int m;
+	unsigned int d;
+	unsigned int j00;
+	unsigned int doy;
+
+	/* get year first (estimate) */
+	y = dd / 365U;
+	/* get jan-00 of (est.) Y */
+	j00 = y * 365U + y / 4U;
+	/* y correct? */
+	if (UNLIKELY(j00 >= dd)) {
+		/* correct y */
+		y--;
+		/* and also recompute the j00 of y */
+		j00 = y * 365U + y / 4U;
+	}
+	/* ass */
+	y = TO_YEAR(y);
+	/* this one must be positive now */
+	doy = dd - j00;
+
+	/* get month and day from doy */
+	{
+		struct md_s md = __yd_to_md((struct yd_s){y, doy});
+		m = md.m;
+		d = md.d;
+	}
+	return (trod_instant_t){y, m, d, TROD_ALL_DAY};
+}
+
 /* dt-strpf.c ends here */

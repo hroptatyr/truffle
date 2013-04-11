@@ -1,4 +1,4 @@
-/*** truffle.h -- tool to roll-over futures contracts
+/*** gq.h -- generic queues, or pools of data elements
  *
  * Copyright (C) 2011-2013 Sebastian Freundt
  *
@@ -34,21 +34,45 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_truffle_h_
-#define INCLUDED_truffle_h_
+#if !defined INCLUDED_gq_h_
+#define INCLUDED_gq_h_
 
 #include <stdint.h>
+#include <stddef.h>
 
-#if !defined DECLF
-# define DECLF		extern
-# define DEFUN
-#endif	/* !DECLF */
+/* generic queues */
+typedef struct gq_s *gq_t;
+typedef struct gq_ll_s *gq_ll_t;
+typedef struct gq_item_s *gq_item_t;
 
-#include "dt-strpf.h"
-#include "schema.h"
-#include "trod.h"
-#include "cut.h"
+struct gq_item_s {
+	gq_item_t next;
 
-typedef uint32_t trym_t;
+	char data[];
+};
 
-#endif	/* INCLUDED_truffle_h_ */
+struct gq_ll_s {
+	gq_item_t i1st;
+	gq_item_t ilst;
+};
+
+struct gq_s {
+	unsigned int nitems;
+	unsigned int itemz;
+
+	/* we keep all the ready-to-go elements here */
+	struct gq_ll_s free[1];
+	/* we chain up all book keeper elements here */
+	struct gq_ll_s book[1];
+};
+
+#define GQ_NULL_ITEM	((gq_item_t)(NULL))
+
+extern void init_gq(gq_t, size_t nnew_members, size_t mbsz);
+extern void fini_gq(gq_t);
+
+extern gq_item_t gq_pop_head(gq_ll_t);
+extern void gq_push_tail(gq_ll_t, gq_item_t);
+extern void gq_push_head(gq_ll_t, gq_item_t);
+
+#endif	/* INCLUDED_gq_h_ */

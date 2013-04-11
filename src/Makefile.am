@@ -13,7 +13,9 @@ EXTRA_DIST = $(BUILT_SOURCES)
 noinst_LIBRARIES = libtruffle.a
 libtruffle_a_SOURCES = yd.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
+libtruffle_a_SOURCES += gq.c gq.h
 libtruffle_a_SOURCES += schema.c schema.h
+libtruffle_a_SOURCES += trod.c trod.h
 libtruffle_a_SOURCES += cut.c cut.h
 
 bin_PROGRAMS += truffle
@@ -28,7 +30,8 @@ noinst_PROGRAMS += trod
 trod_SOURCES = trod.c trod-clo.ggo
 trod_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
 trod_LDFLAGS = $(AM_LDFLAGS)
-trod_LDADD = -lm
+trod_LDADD = libtruffle.a
+trod_LDADD += -lm
 BUILT_SOURCES += trod-clo.c trod-clo.h
 
 ## ggo rule

@@ -1,6 +1,6 @@
-/*** truffle.h -- tool to roll-over futures contracts
+/*** trod.h -- read and write roll-over descriptions in echse format
  *
- * Copyright (C) 2011-2013 Sebastian Freundt
+ * Copyright (C) 2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -34,21 +34,23 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_truffle_h_
-#define INCLUDED_truffle_h_
-
-#include <stdint.h>
+#if !defined INCLUDED_trod_h_
+#define INCLUDED_trod_h_
 
 #if !defined DECLF
 # define DECLF		extern
 # define DEFUN
 #endif	/* !DECLF */
 
-#include "dt-strpf.h"
-#include "schema.h"
-#include "trod.h"
-#include "cut.h"
+typedef struct trod_s *trod_t;
 
-typedef uint32_t trym_t;
+
+/**
+ * Read truffle roll-over schema from FILE. */
+DECLF trod_t read_trod(const char *file);
 
-#endif	/* INCLUDED_truffle_h_ */
+/**
+ * Free resources associated with roll-over schema. */
+DECLF void free_trod(trod_t);
+
+#endif	/* INCLUDED_trod_h_ */

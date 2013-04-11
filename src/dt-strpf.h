@@ -77,6 +77,8 @@ DECLF size_t dt_strf(char *restrict buf, size_t bsz, trod_instant_t inst);
  * Fix up instants like the 32 Dec to become 01 Jan of the following year. */
 DECLF trod_instant_t trod_instant_fixup(trod_instant_t);
 
+DECLF trod_instant_t daysi_to_trod_instant(daysi_t);
+
 
 static inline daysi_t
 idate_to_daysi(idate_t dt)
