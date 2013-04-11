@@ -6,8 +6,7 @@ CMDLINE="--series toy1.series --schema toy1.schema -f"
 ## STDIN
  
 ## STDOUT
-stdout=$(mktemp)
-cat > "${stdout}" <<EOF
+cat > "${TS_EXP_STDOUT}" <<EOF
 2011-01-03	0
 2011-01-04	1
 2011-01-05	11
