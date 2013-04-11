@@ -472,13 +472,18 @@ print_trod_event(trod_event_t ev, FILE *whither)
 		}
 
 		if (!opt_oco) {
+			unsigned int y = s->year;
+
+			if (!opt_abs && ev->when.y <= y) {
+				y -= ev->when.y;
+			}
 			p += snprintf(
 				p, sizeof(buf) - (p - buf),
-				"%c%hu", i_to_m(s->month), s->year);
+				"%c%u", i_to_m(s->month), y);
 		} else {
 			p += snprintf(
 				p, sizeof(buf) - (p - buf),
-				"%hu%02u", s->year, s->month);
+				"%hu%02u", s->year, (unsigned int)s->month);
 		}
 
 		*p++ = '\n';
