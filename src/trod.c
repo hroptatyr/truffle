@@ -74,8 +74,10 @@
 # define UNUSED(_x)	_x __attribute__((unused))
 #endif	/* !UNUSED */
 #if defined DEBUG_FLAG
+# include <assert.h>
 # define TRUF_DEBUG(args...)	fprintf(stderr, args)
 #else  /* !DEBUG_FLAG */
+# define assert(args...)
 # define TRUF_DEBUG(args...)
 #endif	/* DEBUG_FLAG */
 #if !defined countof
@@ -88,7 +90,7 @@
 #endif	/* !PROT_MEM */
 
 typedef struct trod_state_s *trod_state_t;
-typedef struct trod_event_s trod_event_t;
+typedef struct trod_event_s *trod_event_t;
 
 struct trod_state_s {
 	uint8_t val;
@@ -110,16 +112,23 @@ struct trod_event_s {
 struct trod_s {
 	size_t ninst;
 	size_t nev;
-	/* linked list of struct troq_s objects */
-	struct gq_ll_s trev[1];
+	/* 0_event terminated list of events (NINST of them) */
+	trod_event_t ev[];
 };
 
 /* trod event list, in terms of gq.h */
-struct troq_s {
+struct troqi_s {
 	struct gq_item_s i;
 	/* an exploded trod_event_s, we'll use ev.what[0] to access what */
 	struct trod_event_s ev;
 	struct trod_state_s what;
+};
+
+struct troq_s {
+	size_t ninst;
+	size_t nev;
+	/* linked list of struct troq_s objects */
+	struct gq_ll_s trev[1];
 };
 
 
@@ -137,47 +146,6 @@ strtoui(const char *str, const char **ep)
 	}
 	*ep = (const char*)sp;
 	return res;
-}
-
-static char
-i_to_m(uint8_t month)
-{
-	static char months[] = "?FGHJKMNQUVXZ";
-	return months[month];
-}
-
-static uint8_t
-m_to_i(char month)
-{
-	switch (month) {
-	case 'f': case 'F':
-		return 1U;
-	case 'g': case 'G':
-		return 2U;
-	case 'h': case 'H':
-		return 3U;
-	case 'j': case 'J':
-		return 4U;
-	case 'k': case 'K':
-		return 5U;
-	case 'm': case 'M':
-		return 6U;
-	case 'n': case 'N':
-		return 7U;
-	case 'q': case 'Q':
-		return 8U;
-	case 'u': case 'U':
-		return 9;
-	case 'v': case 'V':
-		return 10U;
-	case 'x': case 'X':
-		return 11U;
-	case 'z': case 'Z':
-		return 12U;
-	default:
-		break;
-	}
-	return 0U;
 }
 
 static void*
@@ -202,6 +170,9 @@ free_gq_item(gq_t x, void *i)
 
 
 #if !defined STANDALONE
+static struct trod_event_s nil_ev = {0};
+#define NIL_EVENT	(&nil_ev)
+
 static trod_event_t
 read_trod_event(const char *line, size_t UNUSED(llen))
 {
@@ -304,42 +275,93 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 	default:
 		goto nul;
 	}
-	return res.ev;
+	return &res.ev;
 nul:
-	return (trod_event_t){0};
+	return NIL_EVENT;
 }
 
 /* shared between trod_{add,pop}_event() */
 static struct gq_s pool[1];
 
 static void
-trod_add_event(trod_t tgt, trod_event_t ev)
+troq_add_event(struct troq_s tgt[static 1], trod_event_t ev)
 {
-	struct troq_s *qi = make_gq_item(pool, 64U, sizeof(*qi));
+	struct troqi_s *qi;
+	trod_instant_t last;
 
-	qi->ev = ev;
-	qi->what = ev.what[0];
-	gq_push_tail(tgt->trev, (gq_item_t)qi);
+	if (LIKELY((qi = (struct troqi_s*)tgt->trev->ilst) != NULL)) {
+		last = qi->ev.when;
+	} else {
+		last = (trod_instant_t){0};
+	}
+
+	/* ctor a new troqi and populate */
+	qi = make_gq_item(pool, 64U, sizeof(*qi));
+	qi->ev = *ev;
+	qi->what = ev->what[0];
+	/* update counters */
+	if (trod_inst_lt_p(last, ev->when)) {
+		tgt->ninst++;
+	}
 	tgt->nev++;
+
+	gq_push_tail(tgt->trev, (gq_item_t)qi);
 	return;
 }
 
 static trod_event_t
-trod_pop_event(trod_t tgt)
+troq_pop_event(struct troq_s src[static 1])
 {
-	struct troq_s *qi;
+	struct troqi_s *qi;
 	static struct {
 		struct trod_event_s ev;
 		struct trod_state_s st;
 	} res;
 
-	if (UNLIKELY((qi = (void*)gq_pop_head(tgt->trev)) == NULL)) {
-		return (trod_event_t){0};
+	if (UNLIKELY((qi = (void*)gq_pop_head(src->trev)) == NULL)) {
+		return NIL_EVENT;
 	}
+
 	res.ev = qi->ev;
 	res.st = qi->what;
 	free_gq_item(pool, (gq_item_t)qi);
-	return res.ev;
+	return &res.ev;
+}
+
+static struct troq_s
+read_troq(FILE *f)
+{
+	struct troq_s q = {0UL, 0UL};
+	trod_instant_t last = {0};
+	size_t llen = 0UL;
+	char *line = NULL;
+	ssize_t nrd;
+
+	while ((nrd = getline(&line, &llen, f)) > 0) {
+		trod_event_t ev = read_trod_event(line, nrd);
+
+		if (trod_inst_le_p(last, ev->when)) {
+			troq_add_event(&q, ev);
+			last = ev->when;
+		}
+	}
+
+	if (line) {
+		free(line);
+	}
+	return q;
+}
+
+static inline trod_event_t
+chunk_inc_when(trod_event_t cp)
+{
+	return (void*)((char*)cp + sizeof(*cp));
+}
+
+static inline trod_event_t
+chunk_inc_what(trod_event_t cp)
+{
+	return (void*)((char*)cp + sizeof(*cp->what));
 }
 #endif	/* !STANDALONE */
 
@@ -349,9 +371,6 @@ trod_pop_event(trod_t tgt)
 DEFUN void
 free_trod(trod_t td)
 {
-	/* free the list by popping one event after the other */
-	for (trod_event_t ev;
-	     (ev = trod_pop_event(td), !trod_inst_0_p(ev.when)););
 	free(td);
 	return;
 }
@@ -361,11 +380,11 @@ read_trod(const char *file)
 {
 /* lines look like
  * DATETIME \t [~] MONTH YEAR ... */
-	size_t llen = 0UL;
-	char *line = NULL;
 	trod_t res;
+	trod_event_t chunk;
+	size_t chunz;
 	FILE *f;
-	ssize_t nrd;
+	struct troq_s q;
 
 	if (file[0] == '-' && file[1] == '\0') {
 		f = stdin;
@@ -374,19 +393,53 @@ read_trod(const char *file)
 		return NULL;
 	}
 
-	res = calloc(1, sizeof(*res));
-	while ((nrd = getline(&line, &llen, f)) > 0) {
-		trod_event_t x = read_trod_event(line, nrd);
-
-		if (!trod_inst_0_p(x.when)) {
-			trod_add_event(res, x);
-		}
-	}
-
-	if (line) {
-		free(line);
-	}
+	/* temporary troq queue */
+	q = read_troq(f);
 	fclose(f);
+
+	/* now go over the queue and arrange stuff in arrays and
+	 * array-of-arrays
+	 * first up, the number of (distinct) instants */
+	res = malloc(sizeof(*res) + q.ninst * sizeof(*res->ev));
+	res->ninst = 0UL;
+	res->nev = 0UL;
+
+	/* we also know about the total number of events */
+	chunz = q.ninst * sizeof(*chunk) +
+		(q.nev + q.ninst/*for 0-event*/) * sizeof(*chunk->what);
+	chunk = malloc(chunz);
+	memset(chunk, 0, chunz);
+
+	/* populate RES and CHUNK now */
+	trod_instant_t last = {0};
+	trod_event_t cp = (void*)((char*)chunk - sizeof(*chunk->what));
+	size_t widx;
+
+	for (trod_event_t ev, c;
+	     (ev = troq_pop_event(&q), !trod_inst_0_p(ev->when));) {
+		if (trod_inst_lt_p(last, ev->when)) {
+			/* start a new chamber */
+			size_t iidx = res->ninst++;
+			widx = 0UL;
+
+			cp = chunk_inc_what(cp);
+			res->ev[iidx] = c = cp;
+			c->when = last = ev->when;
+			cp = chunk_inc_when(cp);
+		}
+
+		/* aggregate */
+		c->what[widx++] = *ev->what;
+		cp = chunk_inc_what(cp);
+		res->nev++;
+	}
+
+
+	/* some invariants */
+	cp = chunk_inc_what(cp);
+	assert(res->ninst == q.ninst);
+	assert(res->nev == q.nev);
+	assert(chunz == (char*)cp - (char*)chunk);
 	return res;
 }
 #endif	/* !STANDALONE */
@@ -404,8 +457,45 @@ schema_to_trod(trsch_t sch, idate_t from, idate_t till)
 }
 
 static void
+print_trod_event(trod_event_t ev, FILE *whither)
+{
+	char buf[64];
+	char *p = buf;
+	char *var;
+
+	p += dt_strf(buf, sizeof(buf), ev->when);
+	*p++ = '\t';
+	var = p;
+	for (const struct trod_state_s *s = ev->what; s->month; s++, p = var) {
+		if (!s->val) {
+			*p++ = '~';
+		}
+
+		if (!opt_oco) {
+			p += snprintf(
+				p, sizeof(buf) - (p - buf),
+				"%c%hu", i_to_m(s->month), s->year);
+		} else {
+			p += snprintf(
+				p, sizeof(buf) - (p - buf),
+				"%hu%02u", s->year, s->month);
+		}
+
+		*p++ = '\n';
+		*p = '\0';
+		fputs(buf, whither);
+	}
+	return;
+}
+
+static void
 print_trod(trod_t td, FILE *whither)
 {
+	for (size_t i = 0; i < td->ninst; i++) {
+		trod_event_t x = td->ev[i];
+
+		print_trod_event(x, whither);
+	}
 	return;
 }
 #endif	/* STANDALONE */
