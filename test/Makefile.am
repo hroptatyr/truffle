@@ -4,14 +4,24 @@
 LANG=C
 LC_ALL=C
 
+AM_CPPFLAGS = -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=201001L
+AM_CPPFLAGS += -I$(abs_top_srcdir)/src
+AM_LDFLAGS = -L$(abs_top_builddir)/src
+
 EXTRA_DIST = $(TESTS)
-EXTRA_DIST += $(TRUFTEST_LOG_COMPILER)
+EXTRA_DIST += $(BUILT_SOURCES)
+check_PROGRAMS =
 TESTS =
+BUILT_SOURCES =
 
 TEST_EXTENSIONS = .truftest
-TRUFTEST_LOG_COMPILER = $(srcdir)/truf-test.sh
+TRUFTEST_LOG_COMPILER = $(builddir)/truf-test
 AM_TRUFTEST_LOG_FLAGS = --builddir $(top_builddir)/src --hash sha1sum
 LOG_COMPILER = echo
+
+check_PROGRAMS += truf-test
+BUILT_SOURCES += truf-test-clo.c truf-test-clo.h
+EXTRA_DIST += truf-test.sh
 
 TESTS += toy1.1.truftest
 TESTS += toy1.2.truftest
@@ -38,3 +48,10 @@ EXTRA_DIST += toy6.schema
 
 TESTS += toy7.1.truftest
 EXTRA_DIST += toy7.schema
+
+
+## ggo rule
+%.c %.h: %.ggo
+	$(AM_V_GEN) gengetopt -F $* -i $<
+
+## Makefile.am ends here
