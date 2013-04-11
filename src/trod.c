@@ -249,7 +249,7 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 			goto nul;
 		} else if (ym < 1024U) {
 			/* something like G0 or F4 or so */
-			res.st.year = (uint16_t)ym;
+			res.st.year = (uint16_t)(ym + res.ev.when.y);
 		} else if (ym < 4096U) {
 			/* absolute year, G2032 or H2102*/
 			res.st.year = (uint16_t)ym;
