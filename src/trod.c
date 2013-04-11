@@ -460,10 +460,171 @@ read_trod(const char *file)
 static int opt_oco;
 static int opt_abs;
 
+struct cnode_s {
+	idate_t x;
+	daysi_t l;
+	double y __attribute__((aligned(sizeof(double))));
+};
+
+struct cline_s {
+	daysi_t valid_from;
+	daysi_t valid_till;
+	char month;
+	int8_t year_off;
+	size_t nn;
+	struct cnode_s n[];
+};
+
+struct trsch_s {
+	size_t np;
+	struct cline_s *p[];
+};
+
+static char
+i_to_m(uint8_t month)
+{
+	static char months[] = "?FGHJKMNQUVXZ";
+	return months[month];
+}
+
+static __attribute__((unused)) uint8_t
+m_to_i(char month)
+{
+	switch (month) {
+	case 'f': case 'F':
+		return 1U;
+	case 'g': case 'G':
+		return 2U;
+	case 'h': case 'H':
+		return 3U;
+	case 'j': case 'J':
+		return 4U;
+	case 'k': case 'K':
+		return 5U;
+	case 'm': case 'M':
+		return 6U;
+	case 'n': case 'N':
+		return 7U;
+	case 'q': case 'Q':
+		return 8U;
+	case 'u': case 'U':
+		return 9;
+	case 'v': case 'V':
+		return 10U;
+	case 'x': case 'X':
+		return 11U;
+	case 'z': case 'Z':
+		return 12U;
+	default:
+		break;
+	}
+	return 0U;
+}
+
+static int
+daysi_to_year(daysi_t dd)
+{
+	unsigned int y;
+	unsigned int j00;
+
+	/* get year first (estimate) */
+	y = dd / 365U;
+	/* get jan-00 of (est.) Y */
+	j00 = y * 365U + y / 4U;
+	/* y correct? */
+	if (UNLIKELY(j00 >= dd)) {
+		/* correct y */
+		y--;
+	}
+	/* ass */
+	return TO_YEAR(y);
+}
+
+#define DAYSI_DIY_BIT	(1U << (sizeof(daysi_t) * 8 - 1))
+
+static daysi_t
+daysi_in_year(daysi_t ds, unsigned int y)
+{
+	unsigned int j00;
+	unsigned int by = TO_BASE(y);
+
+	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
+		/* we could technically do something here */
+		return ds;
+	}
+
+	ds &= ~DAYSI_DIY_BIT;
+
+	/* get jan-00 of (est.) Y */
+	j00 = by * 365U + by / 4U;
+
+	if (UNLIKELY(y % 4U == 0) && ds >= 60U) {
+		ds++;
+	}
+	return ds + j00;
+}
+
+static void
+troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
+{
+	static struct {
+		struct trod_event_s ev;
+		struct trod_state_s st;
+	} qi;
+	unsigned int y = daysi_to_year(when);
+
+	qi.ev.when = daysi_to_trod_instant(when);
+	for (size_t i = 0; i < sch->np; i++) {
+		struct cline_s *p = sch->p[i];
+
+		/* check year validity */
+		if (when < p->valid_from || when > p->valid_till) {
+			/* cline isn't applicable */
+			continue;
+		}
+		for (size_t j = 0; j < p->nn - 1; j++) {
+			struct cnode_s *n1 = p->n + j;
+			struct cnode_s *n2 = n1 + 1;
+			daysi_t l1 = daysi_in_year(n1->l, y);
+			daysi_t l2 = daysi_in_year(n2->l, y);
+
+			if (when >= l1 && when <= l2) {
+				/* something happened between l1 and l2 */
+				if (when == l2 && n2->y == 0.0) {
+					qi.st.val = 0U;
+				} else if (when == l1 && n1->y != 0.0) {
+					qi.st.val = 1U;
+				} else if (when == l1 + 1U && n1->y == 0.0) {
+					qi.st.val = 1U;
+				} else {
+					continue;
+				}
+				qi.st.month = m_to_i(p->month);
+				qi.st.year = (uint16_t)(y + p->year_off);
+
+				/* just add the guy */
+				troq_add_event(q, &qi.ev);
+				break;
+			}
+		}
+	}
+	return;
+}
+
 static trod_t
 schema_to_trod(trsch_t sch, idate_t from, idate_t till)
 {
-	return NULL;
+	struct troq_s q = {0UL, 0UL};
+	daysi_t fsi = idate_to_daysi(from);
+	daysi_t tsi = idate_to_daysi(till);
+	trod_t res;
+
+	for (daysi_t now = fsi; now < tsi; now++) {
+		troq_add_clines(&q, sch, now);
+	}
+
+	res = troq_to_trod(q);
+	return res;
 }
 
 static void
