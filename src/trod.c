@@ -366,41 +366,18 @@ chunk_inc_what(trod_event_t cp)
 	return (void*)((char*)cp + sizeof(*cp->what));
 }
 
-
-/* public API */
-#if !defined STANDALONE
-DEFUN void
-free_trod(trod_t td)
+static trod_t
+troq_to_trod(struct troq_s q)
 {
-	free(td);
-	return;
-}
-
-DEFUN trod_t
-read_trod(const char *file)
-{
-/* lines look like
- * DATETIME \t [~] MONTH YEAR ... */
-	trod_t res;
+/* go over the queue Q and arrange stuff in arrays and array-of-arrays */
+	trod_instant_t last = {0};
 	trod_event_t chunk;
+	trod_event_t cp;
 	size_t chunz;
-	FILE *f;
-	struct troq_s q;
+	size_t widx;
+	trod_t res;
 
-	if (file[0] == '-' && file[1] == '\0') {
-		f = stdin;
-	} else if ((f = fopen(file, "r")) == NULL) {
-		fprintf(stderr, "unable to open file %s\n", file);
-		return NULL;
-	}
-
-	/* temporary troq queue */
-	q = read_troq(f);
-	fclose(f);
-
-	/* now go over the queue and arrange stuff in arrays and
-	 * array-of-arrays
-	 * first up, the number of (distinct) instants */
+	/* first up, the number of (distinct) instants */
 	res = malloc(sizeof(*res) + q.ninst * sizeof(*res->ev));
 	res->ninst = 0UL;
 	res->nev = 0UL;
@@ -412,9 +389,7 @@ read_trod(const char *file)
 	memset(chunk, 0, chunz);
 
 	/* populate RES and CHUNK now */
-	trod_instant_t last = {0};
-	trod_event_t cp = (void*)((char*)chunk - sizeof(*chunk->what));
-	size_t widx;
+	cp = (void*)((char*)chunk - sizeof(*chunk->what));
 
 	for (trod_event_t ev, c;
 	     (ev = troq_pop_event(&q), !trod_inst_0_p(ev->when));) {
@@ -441,6 +416,40 @@ read_trod(const char *file)
 	assert(res->ninst == q.ninst);
 	assert(res->nev == q.nev);
 	assert(chunz == (char*)cp - (char*)chunk);
+	return res;
+}
+
+
+/* public API */
+#if !defined STANDALONE
+DEFUN void
+free_trod(trod_t td)
+{
+	free(td);
+	return;
+}
+
+DEFUN trod_t
+read_trod(const char *file)
+{
+/* lines look like
+ * DATETIME \t [~] MONTH YEAR ... */
+	struct troq_s q;
+	FILE *f;
+	trod_t res;
+
+	if (file[0] == '-' && file[1] == '\0') {
+		f = stdin;
+	} else if ((f = fopen(file, "r")) == NULL) {
+		fprintf(stderr, "unable to open file %s\n", file);
+		return NULL;
+	}
+
+	/* temporary troq queue */
+	q = read_troq(f);
+	fclose(f);
+
+	res = troq_to_trod(q);
 	return res;
 }
 #endif	/* !STANDALONE */
