@@ -147,6 +147,7 @@ strtoui(const char *str, const char **ep)
 	*ep = (const char*)sp;
 	return res;
 }
+#endif	/* !STANDALONE */
 
 static void*
 make_gq_item(gq_t x, size_t nmemb, size_t membz)
@@ -166,13 +167,61 @@ free_gq_item(gq_t x, void *i)
 	gq_push_tail(x->free, i);
 	return;
 }
-#endif	/* !STANDALONE */
 
 
-#if !defined STANDALONE
+/* troq and trod guts */
 static struct trod_event_s nil_ev = {0};
 #define NIL_EVENT	(&nil_ev)
 
+/* shared between trod_{add,pop}_event() */
+static struct gq_s pool[1];
+
+static void
+troq_add_event(struct troq_s tgt[static 1], trod_event_t ev)
+{
+	struct troqi_s *qi;
+	trod_instant_t last;
+
+	if (LIKELY((qi = (struct troqi_s*)tgt->trev->ilst) != NULL)) {
+		last = qi->ev.when;
+	} else {
+		last = (trod_instant_t){0};
+	}
+
+	/* ctor a new troqi and populate */
+	qi = make_gq_item(pool, 64U, sizeof(*qi));
+	qi->ev = *ev;
+	qi->what = ev->what[0];
+	/* update counters */
+	if (trod_inst_lt_p(last, ev->when)) {
+		tgt->ninst++;
+	}
+	tgt->nev++;
+
+	gq_push_tail(tgt->trev, (gq_item_t)qi);
+	return;
+}
+
+static trod_event_t
+troq_pop_event(struct troq_s src[static 1])
+{
+	struct troqi_s *qi;
+	static struct {
+		struct trod_event_s ev;
+		struct trod_state_s st;
+	} res;
+
+	if (UNLIKELY((qi = (void*)gq_pop_head(src->trev)) == NULL)) {
+		return NIL_EVENT;
+	}
+
+	res.ev = qi->ev;
+	res.st = qi->what;
+	free_gq_item(pool, (gq_item_t)qi);
+	return &res.ev;
+}
+
+#if !defined STANDALONE
 static trod_event_t
 read_trod_event(const char *line, size_t UNUSED(llen))
 {
@@ -280,54 +329,6 @@ nul:
 	return NIL_EVENT;
 }
 
-/* shared between trod_{add,pop}_event() */
-static struct gq_s pool[1];
-
-static void
-troq_add_event(struct troq_s tgt[static 1], trod_event_t ev)
-{
-	struct troqi_s *qi;
-	trod_instant_t last;
-
-	if (LIKELY((qi = (struct troqi_s*)tgt->trev->ilst) != NULL)) {
-		last = qi->ev.when;
-	} else {
-		last = (trod_instant_t){0};
-	}
-
-	/* ctor a new troqi and populate */
-	qi = make_gq_item(pool, 64U, sizeof(*qi));
-	qi->ev = *ev;
-	qi->what = ev->what[0];
-	/* update counters */
-	if (trod_inst_lt_p(last, ev->when)) {
-		tgt->ninst++;
-	}
-	tgt->nev++;
-
-	gq_push_tail(tgt->trev, (gq_item_t)qi);
-	return;
-}
-
-static trod_event_t
-troq_pop_event(struct troq_s src[static 1])
-{
-	struct troqi_s *qi;
-	static struct {
-		struct trod_event_s ev;
-		struct trod_state_s st;
-	} res;
-
-	if (UNLIKELY((qi = (void*)gq_pop_head(src->trev)) == NULL)) {
-		return NIL_EVENT;
-	}
-
-	res.ev = qi->ev;
-	res.st = qi->what;
-	free_gq_item(pool, (gq_item_t)qi);
-	return &res.ev;
-}
-
 static struct troq_s
 read_troq(FILE *f)
 {
@@ -351,6 +352,7 @@ read_troq(FILE *f)
 	}
 	return q;
 }
+#endif	/* !STANDALONE */
 
 static inline trod_event_t
 chunk_inc_when(trod_event_t cp)
@@ -363,7 +365,6 @@ chunk_inc_what(trod_event_t cp)
 {
 	return (void*)((char*)cp + sizeof(*cp->what));
 }
-#endif	/* !STANDALONE */
 
 
 /* public API */
