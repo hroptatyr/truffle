@@ -176,24 +176,28 @@ static struct trod_event_s nil_ev = {0};
 /* shared between trod_{add,pop}_event() */
 static struct gq_s pool[1];
 
+static inline trod_instant_t
+troq_last_inst(struct troq_s t[static 1])
+{
+	const struct troqi_s *qi;
+
+	if (UNLIKELY((qi = (struct troqi_s*)t->trev->ilst) == NULL)) {
+		return (trod_instant_t){0};
+	}
+	return qi->ev.when;
+}
+
 static void
 troq_add_event(struct troq_s tgt[static 1], trod_event_t ev)
 {
 	struct troqi_s *qi;
-	trod_instant_t last;
-
-	if (LIKELY((qi = (struct troqi_s*)tgt->trev->ilst) != NULL)) {
-		last = qi->ev.when;
-	} else {
-		last = (trod_instant_t){0};
-	}
 
 	/* ctor a new troqi and populate */
 	qi = make_gq_item(pool, 64U, sizeof(*qi));
 	qi->ev = *ev;
 	qi->what = ev->what[0];
 	/* update counters */
-	if (trod_inst_lt_p(last, ev->when)) {
+	if (trod_inst_lt_p(troq_last_inst(tgt), ev->when)) {
 		tgt->ninst++;
 	}
 	tgt->nev++;
