@@ -6,8 +6,7 @@ CMDLINE="--schema toy7.schema 2012-02-27 2012-02-28 2012-02-29 2012-03-01 2012-0
 ## STDIN
 
 ## STDOUT
-stdout=$(mktemp)
-cat > "${stdout}" <<EOF
+cat > "${TS_EXP_STDOUT}" <<EOF
 2012-02-27	H0	1
 2012-02-27	J0	1
 2012-02-27	K0	1
