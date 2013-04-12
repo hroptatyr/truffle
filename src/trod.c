@@ -603,7 +603,10 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 				}
 			} else if (j == 0 && when == l1) {
 				/* something happened at l1 */
-				if (n1->y != 0.0) {
+				if (UNLIKELY(
+					    n1->y != 0.0 &&
+					    /* see if the year flipped over */
+					    trod_inst_0_p(troq_last_inst(q)))) {
 					qi.st.val = 1U;
 				} else {
 					continue;
