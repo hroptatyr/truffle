@@ -631,7 +631,10 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 				int yr = p->year_off;
 
 				if (UNLIKELY(n1->y != 0.0) &&
-				    LIKELY((yr = flip_over_p(sch, mo, yr)))) {
+				    trod_inst_0_p(troq_last_inst(q))) {
+					qi.st.val = 1U;
+				} else if (UNLIKELY(n1->y != 0.0) &&
+					   (yr = flip_over_p(sch, mo, yr))) {
 					/* denote a flip-over */
 					qi.st.val = FLIP_OVER_VAL(yr);
 				} else {
