@@ -57,6 +57,10 @@ TESTS += schema_to_trod.2.deflt.truftest
 TESTS += schema_to_trod.2.abs.truftest
 TESTS += schema_to_trod.2.oco.truftest
 
+TESTS += schema_to_trod.3.deflt.truftest
+TESTS += schema_to_trod.3.abs.truftest
+TESTS += schema_to_trod.3.oco.truftest
+
 
 ## ggo rule
 %.c %.h: %.ggo
