@@ -573,19 +573,23 @@ daysi_in_year(daysi_t ds, unsigned int y)
 static int
 flip_over_p(trsch_t sch, char mo, int y)
 {
+	int least = 0;
+
 	/* we're looking for MO-(Y+n) actually */
 	for (size_t i = 0; i < sch->np; i++) {
 		const struct cline_s *p = sch->p[i];
 
 		if (p->month == mo && p->year_off > y) {
 			const struct cnode_s *nd = p->n + p->nn - 1;
+			int val = p->year_off - y;
 
-			if (LIKELY(nd->y != 0.0)) {
-				return p->year_off - y;
+			if (LIKELY(nd->y != 0.0 &&
+				   (val < least || !least))) {
+				least = val;
 			}
 		}
 	}
-	return 0;
+	return least;
 }
 
 static void
