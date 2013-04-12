@@ -1,0 +1,26 @@
+## -*- shell-script -*-
+
+TOOL=trod
+CMDLINE="--till 2006-12-31 '${srcdir}/toy2.schema'"
+
+## STDIN
+
+## STDOUT
+cat > "${TS_EXP_STDOUT}" <<EOF
+2000-01-04	G0
+2000-01-12	~G0
+2001-01-04	G0
+2001-01-12	~G0
+2002-01-04	G0
+2002-01-12	~G0
+2003-01-04	G0
+2003-01-12	~G0
+2004-01-04	G0
+2004-01-12	~G0
+2005-01-04	G0
+2005-01-12	~G0
+2006-01-04	G0
+2006-01-12	~G0
+EOF
+
+## schema_to_trod.2.deflt.truftest ends here

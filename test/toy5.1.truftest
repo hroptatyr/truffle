@@ -1,13 +1,12 @@
 ## -*- shell-script -*-
 
 TOOL=truffle
-CMDLINE="--series toy5.series --schema toy5.schema"
+CMDLINE="--series '${srcdir}/toy5.series' --schema '${srcdir}/toy5.schema'"
 
 ## STDIN
  
 ## STDOUT
-stdout=$(mktemp)
-cat > "${stdout}" <<EOF
+cat > "${TS_EXP_STDOUT}" <<EOF
 2010-12-21	7
 2010-12-22	7.3333333
 2010-12-23	8

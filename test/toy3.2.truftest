@@ -1,13 +1,12 @@
 ## -*- shell-script -*-
 
 TOOL=truffle
-CMDLINE="--series toy3.series --schema toy3.schema -f"
+CMDLINE="--series '${srcdir}/toy3.series' --schema '${srcdir}/toy3.schema' -f"
 
 ## STDIN
  
 ## STDOUT
-stdout=$(mktemp)
-cat > "${stdout}" <<EOF
+cat > "${TS_EXP_STDOUT}" <<EOF
 1988-04-25	0
 1988-04-26	0
 1988-04-27	0.06
@@ -15,8 +14,7 @@ cat > "${stdout}" <<EOF
 1988-04-29	-0.02
 EOF
 
-stderr=$(mktemp)
-cat > "${stderr}" <<EOF
+cat > "${TS_EXP_STDERR}" <<EOF
 cut as of 1988-04-21 contained U1988 with an exposure of 1 but no quotes
 cut as of 1988-04-22 contained U1988 with an exposure of 1 but no quotes
 EOF
