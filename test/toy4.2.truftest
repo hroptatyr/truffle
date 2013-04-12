@@ -1,7 +1,7 @@
 ## -*- shell-script -*-
 
 TOOL=truffle
-CMDLINE="--series toy4.series --schema toy4.schema --sparse -f"
+CMDLINE="--series '${srcdir}/toy4.series' --schema '${srcdir}/toy4.schema' --sparse -f"
 
 ## STDIN
  
