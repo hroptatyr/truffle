@@ -544,7 +544,9 @@ daysi_to_year(daysi_t dd)
 	return TO_YEAR(y);
 }
 
-#define DAYSI_DIY_BIT	(1U << (sizeof(daysi_t) * 8 - 1))
+#define DAYSI_DIY_BIT		(1U << (sizeof(daysi_t) * 8 - 1))
+#define FLIP_OVER_VAL(y)	(uint8_t)((y) + 1U)
+#define FLIP_OVER_YEAR(y)	((y) - 1U)
 
 static daysi_t
 daysi_in_year(daysi_t ds, unsigned int y)
@@ -568,6 +570,24 @@ daysi_in_year(daysi_t ds, unsigned int y)
 	return ds + j00;
 }
 
+static int
+flip_over_p(trsch_t sch, char mo, int y)
+{
+	/* we're looking for MO-(Y+n) actually */
+	for (size_t i = 0; i < sch->np; i++) {
+		const struct cline_s *p = sch->p[i];
+
+		if (p->month == mo && p->year_off > y) {
+			const struct cnode_s *nd = p->n + p->nn - 1;
+
+			if (LIKELY(nd->y != 0.0)) {
+				return p->year_off - y;
+			}
+		}
+	}
+	return 0;
+}
+
 static void
 troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 {
@@ -579,7 +599,7 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 
 	qi.ev.when = daysi_to_trod_instant(when);
 	for (size_t i = 0; i < sch->np; i++) {
-		struct cline_s *p = sch->p[i];
+		const struct cline_s *p = sch->p[i];
 
 		/* check year validity */
 		if (when < p->valid_from || when > p->valid_till) {
@@ -587,8 +607,8 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 			continue;
 		}
 		for (size_t j = 0; j < p->nn - 1; j++) {
-			struct cnode_s *n1 = p->n + j;
-			struct cnode_s *n2 = n1 + 1;
+			const struct cnode_s *n1 = p->n + j;
+			const struct cnode_s *n2 = n1 + 1;
 			daysi_t l1 = daysi_in_year(n1->l, y);
 			daysi_t l2 = daysi_in_year(n2->l, y);
 
@@ -603,11 +623,13 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 				}
 			} else if (j == 0 && when == l1) {
 				/* something happened at l1 */
-				if (UNLIKELY(
-					    n1->y != 0.0 &&
-					    /* see if the year flipped over */
-					    trod_inst_0_p(troq_last_inst(q)))) {
-					qi.st.val = 1U;
+				char mo = p->month;
+				int yr = p->year_off;
+
+				if (UNLIKELY(n1->y != 0.0) &&
+				    LIKELY((yr = flip_over_p(sch, mo, yr)))) {
+					/* denote a flip-over */
+					qi.st.val = FLIP_OVER_VAL(yr);
 				} else {
 					continue;
 				}
@@ -654,6 +676,10 @@ print_trod_event(trod_event_t ev, FILE *whither)
 	for (const struct trod_state_s *s = ev->what; s->month; s++, p = var) {
 		if (!s->val) {
 			*p++ = '~';
+
+		} else if (s->val > 1U && opt_abs) {
+			/* skip printing this one, it's a flip-over thing */
+			continue;
 		}
 
 		if (!opt_oco) {
@@ -661,6 +687,15 @@ print_trod_event(trod_event_t ev, FILE *whither)
 
 			if (!opt_abs && ev->when.y <= y) {
 				y -= ev->when.y;
+
+				if (s->val > 1U) {
+					/* year flip-over */
+					p += snprintf(
+						p, sizeof(buf) - (p - buf),
+						"%c%u->",
+						i_to_m(s->month),
+						y + FLIP_OVER_YEAR(s->val));
+				}
 			}
 			p += snprintf(
 				p, sizeof(buf) - (p - buf),
