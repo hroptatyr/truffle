@@ -1,13 +1,12 @@
 ## -*- shell-script -*-
 
 TOOL=truffle
-CMDLINE="--series toy4.series --schema toy4.schema --sparse"
+CMDLINE="--series '${srcdir}/toy4.series' --schema '${srcdir}/toy4.schema' --sparse"
 
 ## STDIN
  
 ## STDOUT
-stdout=$(mktemp)
-cat > "${stdout}" <<EOF
+cat > "${TS_EXP_STDOUT}" <<EOF
 2011-01-04	0
 2011-01-11	7
 2011-01-12	15
