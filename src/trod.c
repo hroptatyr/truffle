@@ -727,7 +727,6 @@ print_trod_event(trod_event_t ev, FILE *whither)
 	char buf[64];
 	char *p = buf;
 	char *var;
-	unsigned int last_y = ev->what->year;
 
 	p += dt_strf(buf, sizeof(buf), ev->when);
 	*p++ = '\t';
@@ -736,8 +735,6 @@ print_trod_event(trod_event_t ev, FILE *whither)
 		unsigned int m = s->month;
 		unsigned int y = s->year;
 		int ry = y - ev->when.y;
-
-		for (; last_y < y; flip_over(), last_y++);
 
 		if (!s->val) {
 			*p++ = '~';
@@ -769,11 +766,61 @@ print_trod_event(trod_event_t ev, FILE *whither)
 }
 
 static void
+print_flip_over(trod_event_t ev, FILE *whither)
+{
+	static unsigned int last_y;
+	char buf[64];
+	char *p = buf;
+	char *var;
+	unsigned int y = ev->when.y;
+	unsigned int ry;
+
+	if (UNLIKELY(last_y == 0 || last_y > y)) {
+		last_y = y;
+		return;
+	} else if (LIKELY((ry = (y - last_y)) == 0U)) {
+		return;
+	} else if (opt_abs || opt_oco) {
+		goto flip_over;
+	}
+
+	/* otherwise it's a flip-over, print all active (in the old year) */
+	p += dt_strf(buf, sizeof(buf), (trod_instant_t){y, 1, 1, TROD_ALL_DAY});
+	*p++ = '\t';
+	var = p;
+
+	for (size_t i = 0, m = 0; i < countof(active); i++, p = var, m = 0) {
+		for (uint64_t a = active[i]; a; a >>= 1U, p = var, m++) {
+			if (a & 1ULL) {
+				unsigned int mo = (m % 12U);
+				unsigned int yr = (m / 12U);
+				char cmo = i_to_m(mo + 1U);
+
+				p += snprintf(
+					p, sizeof(buf) - (p - buf),
+					"%c%u->%c%d",
+					cmo, yr, cmo, (int)yr - (int)ry);
+
+				*p++ = '\n';
+				*p = '\0';
+				fputs(buf, whither);
+			}
+		}
+	}
+flip_over:
+	/* now do the flip-over and reprint */
+	for (size_t i = 0; i < ry; flip_over(), i++);
+	last_y = y;
+	return;
+}
+
+static void
 print_trod(trod_t td, FILE *whither)
 {
 	for (size_t i = 0; i < td->ninst; i++) {
 		trod_event_t x = td->ev[i];
 
+		print_flip_over(x, whither);
 		print_trod_event(x, whither);
 	}
 	return;
