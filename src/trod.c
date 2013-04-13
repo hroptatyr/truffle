@@ -545,8 +545,6 @@ daysi_to_year(daysi_t dd)
 }
 
 #define DAYSI_DIY_BIT		(1U << (sizeof(daysi_t) * 8 - 1))
-#define FLIP_OVER_VAL(y)	(uint8_t)((y) + 1U)
-#define FLIP_OVER_YEAR(y)	((y) - 1U)
 
 static daysi_t
 daysi_in_year(daysi_t ds, unsigned int y)
@@ -571,25 +569,43 @@ daysi_in_year(daysi_t ds, unsigned int y)
 }
 
 static int
-flip_over_p(trsch_t sch, char mo, int y)
+troq_add_cline(trod_event_t qi, const struct cline_s *p, daysi_t when)
 {
-	int least = 0;
+	unsigned int y = daysi_to_year(when);
 
-	/* we're looking for MO-(Y+n) actually */
-	for (size_t i = 0; i < sch->np; i++) {
-		const struct cline_s *p = sch->p[i];
+	for (size_t j = 0; j < p->nn - 1; j++) {
+		const struct cnode_s *n1 = p->n + j;
+		const struct cnode_s *n2 = n1 + 1;
+		daysi_t l1 = daysi_in_year(n1->l, y);
+		daysi_t l2 = daysi_in_year(n2->l, y);
 
-		if (p->month == mo && p->year_off > y) {
-			const struct cnode_s *nd = p->n + p->nn - 1;
-			int val = p->year_off - y;
-
-			if (LIKELY(nd->y != 0.0 &&
-				   (val < least || !least))) {
-				least = val;
+		if (when == l2) {
+			/* something happened at l2 */
+			if (n2->y == 0.0 && n1->y != 0.0) {
+				qi->what->val = 0U;
+			} else if (n2->y != 0.0 && n1->y == 0.0) {
+				qi->what->val = 1U;
+			} else {
+				continue;
 			}
+		} else if (j == 0 && when == l1) {
+			/* something happened at l1 */
+			if (UNLIKELY(n1->y != 0.0)) {
+				qi->what->val = 2U;
+			} else {
+				continue;
+			}
+		} else {
+			continue;
 		}
+		qi->what->month = m_to_i(p->month);
+		qi->what->year = (uint16_t)(y + p->year_off);
+
+		/* indicate success (as in clear for adding) */
+		return 0;
 	}
-	return least;
+	/* indicate failure (to add anything) */
+	return -1;
 }
 
 static void
@@ -599,7 +615,6 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 		struct trod_event_s ev;
 		struct trod_state_s st;
 	} qi;
-	unsigned int y = daysi_to_year(when);
 
 	qi.ev.when = daysi_to_trod_instant(when);
 	for (size_t i = 0; i < sch->np; i++) {
@@ -608,47 +623,13 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 		/* check year validity */
 		if (when < p->valid_from || when > p->valid_till) {
 			/* cline isn't applicable */
-			continue;
-		}
-		for (size_t j = 0; j < p->nn - 1; j++) {
-			const struct cnode_s *n1 = p->n + j;
-			const struct cnode_s *n2 = n1 + 1;
-			daysi_t l1 = daysi_in_year(n1->l, y);
-			daysi_t l2 = daysi_in_year(n2->l, y);
-
-			if (when == l2) {
-				/* something happened at l2 */
-				if (n2->y == 0.0 && n1->y != 0.0) {
-					qi.st.val = 0U;
-				} else if (n2->y != 0.0 && n1->y == 0.0) {
-					qi.st.val = 1U;
-				} else {
-					continue;
-				}
-			} else if (j == 0 && when == l1) {
-				/* something happened at l1 */
-				char mo = p->month;
-				int yr = p->year_off;
-
-				if (UNLIKELY(n1->y != 0.0) &&
-				    trod_inst_0_p(troq_last_inst(q))) {
-					qi.st.val = 1U;
-				} else if (UNLIKELY(n1->y != 0.0) &&
-					   (yr = flip_over_p(sch, mo, yr))) {
-					/* denote a flip-over */
-					qi.st.val = FLIP_OVER_VAL(yr);
-				} else {
-					continue;
-				}
-			} else {
-				continue;
-			}
-			qi.st.month = m_to_i(p->month);
-			qi.st.year = (uint16_t)(y + p->year_off);
-
+			;
+		} else if (troq_add_cline(&qi.ev, p, when) < 0) {
+			/* nothing added then */
+			;
+		} else {
 			/* just add the guy */
 			troq_add_event(q, &qi.ev);
-			break;
 		}
 	}
 	return;
@@ -683,10 +664,6 @@ print_trod_event(trod_event_t ev, FILE *whither)
 	for (const struct trod_state_s *s = ev->what; s->month; s++, p = var) {
 		if (!s->val) {
 			*p++ = '~';
-
-		} else if (s->val > 1U && opt_abs) {
-			/* skip printing this one, it's a flip-over thing */
-			continue;
 		}
 
 		if (!opt_oco) {
@@ -694,15 +671,6 @@ print_trod_event(trod_event_t ev, FILE *whither)
 
 			if (!opt_abs && ev->when.y <= y) {
 				y -= ev->when.y;
-
-				if (s->val > 1U) {
-					/* year flip-over */
-					p += snprintf(
-						p, sizeof(buf) - (p - buf),
-						"%c%u->",
-						i_to_m(s->month),
-						y + FLIP_OVER_YEAR(s->val));
-				}
 			}
 			p += snprintf(
 				p, sizeof(buf) - (p - buf),
