@@ -651,34 +651,114 @@ schema_to_trod(trsch_t sch, idate_t from, idate_t till)
 	return res;
 }
 
+/* bitset for active contracts, we store 5 years in a 64b value
+ * and 6 of them makes 30 years of history */
+static uint64_t active[6U];
+
+static void
+activate(int ry, unsigned int m)
+{
+	unsigned int quintal;
+	unsigned int remaind;
+
+	if (UNLIKELY(ry < 0)) {
+		/* don't wanna keep track of expired non-sense */
+		return;
+	} else if (UNLIKELY((quintal = ry / 5U) >= countof(active))) {
+		/* keeping track of futures more than 30y from now? */
+		return;
+	}
+	remaind = ry % 5U;
+	active[quintal] |= 1ULL << (m - 1 + 12U * remaind);
+	return;
+}
+
+static void
+deactivate(int ry, unsigned int m)
+{
+	unsigned int quintal;
+	unsigned int remaind;
+
+	if (UNLIKELY(ry < 0)) {
+		/* don't wanna keep track of expired non-sense */
+		return;
+	} else if (UNLIKELY((quintal = ry / 5U) >= countof(active))) {
+		/* keeping track of futures more than 30y from now? */
+		return;
+	}
+	remaind = ry % 5U;
+	active[quintal] &= ~(1ULL << (m - 1 + 12U * remaind));
+	return;
+}
+
+static int
+activep(int ry, unsigned int m)
+{
+	unsigned int quintal;
+	unsigned int remaind;
+
+	if (UNLIKELY(ry < 0)) {
+		/* don't wanna keep track of expired non-sense */
+		return 0;
+	} else if (UNLIKELY((quintal = ry / 5U) >= countof(active))) {
+		/* keeping track of futures more than 30y from now? */
+		return 0;
+	}
+	remaind = ry % 5U;
+	return (active[quintal] & (1ULL << (m - 1 + 12 * remaind))) != 0ULL;
+}
+
+static void
+flip_over(void)
+{
+/* flip over to a new year in the ACTIVE bitset */
+	for (size_t i = 0; i < countof(active); i++) {
+		active[i] >>= 12;
+		if (LIKELY(i + 1 < countof(active))) {
+			active[i] |= (active[i + 1] & (0x3ffULL)) << 48;
+		}
+	}
+	return;
+}
+
 static void
 print_trod_event(trod_event_t ev, FILE *whither)
 {
 	char buf[64];
 	char *p = buf;
 	char *var;
+	unsigned int last_y = ev->what->year;
 
 	p += dt_strf(buf, sizeof(buf), ev->when);
 	*p++ = '\t';
 	var = p;
 	for (const struct trod_state_s *s = ev->what; s->month; s++, p = var) {
+		unsigned int m = s->month;
+		unsigned int y = s->year;
+		int ry = y - ev->when.y;
+
+		for (; last_y < y; flip_over(), last_y++);
+
 		if (!s->val) {
 			*p++ = '~';
+			deactivate(ry, m);
+		} else if (s->val > 1U && activep(ry, m)) {
+			continue;
+		} else {
+			activate(ry, m);
 		}
 
 		if (!opt_oco) {
-			unsigned int y = s->year;
-
 			if (!opt_abs && ev->when.y <= y) {
 				y -= ev->when.y;
 			}
 			p += snprintf(
 				p, sizeof(buf) - (p - buf),
-				"%c%u", i_to_m(s->month), y);
+				"%c%u", i_to_m(m), y);
 		} else {
 			p += snprintf(
 				p, sizeof(buf) - (p - buf),
-				"%hu%02u", s->year, (unsigned int)s->month);
+				"%u%02u", y, m);
 		}
 
 		*p++ = '\n';
