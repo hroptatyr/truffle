@@ -485,13 +485,13 @@ struct trsch_s {
 };
 
 static char
-i_to_m(uint8_t month)
+i_to_m(unsigned int month)
 {
 	static char months[] = "?FGHJKMNQUVXZ";
 	return months[month];
 }
 
-static __attribute__((unused)) uint8_t
+static __attribute__((unused)) unsigned int
 m_to_i(char month)
 {
 	switch (month) {
@@ -598,7 +598,7 @@ troq_add_cline(trod_event_t qi, const struct cline_s *p, daysi_t when)
 		} else {
 			continue;
 		}
-		qi->what->month = m_to_i(p->month);
+		qi->what->month = (uint8_t)m_to_i(p->month);
 		qi->what->year = (uint16_t)(y + p->year_off);
 
 		/* indicate success (as in clear for adding) */
