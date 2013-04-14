@@ -70,6 +70,9 @@ EXTRA_DIST += toy5.trod
 TESTS += schema_to_trod.6.deflt.truftest
 TESTS += schema_to_trod.6.abs.truftest
 
+TESTS += schema_to_trod.7.deflt.truftest
+TESTS += schema_to_trod.7.abs.truftest
+
 
 ## ggo rule
 %.c %.h: %.ggo
