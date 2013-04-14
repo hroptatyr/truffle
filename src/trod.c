@@ -84,9 +84,19 @@
 # define countof(x)	(sizeof(x) / sizeof(*(x)))
 #endif	/* !countof */
 
+#if !defined MAP_ANON && defined MAP_ANONYMOUS
+# define MAP_ANON	MAP_ANONYMOUS
+#elif defined MAP_ANON
+/* all's good */
+#else  /* !MAP_ANON && !MAP_ANONYMOUS */
+# define MAP_ANON	(0U)
+#endif	/* !MAP_ANON && MAP_ANONYMOUS */
+
+#if !defined MAP_MEM
+# define MAP_MEM	(MAP_ANON | MAP_PRIVATE)
+#endif	/* !MAP_MEM */
 #if !defined PROT_MEM
-# define PROT_MEM		(PROT_READ | PROT_WRITE)
-# define MAP_MEM		(MAP_PRIVATE | MAP_ANONYMOUS)
+# define PROT_MEM	(PROT_READ | PROT_WRITE)
 #endif	/* !PROT_MEM */
 
 typedef struct trod_state_s *trod_state_t;
@@ -651,76 +661,46 @@ schema_to_trod(trsch_t sch, idate_t from, idate_t till)
 	return res;
 }
 
-/* bitset for active contracts, we store 5 years in a 64b value
- * and 6 of them makes 30 years of history */
-static uint64_t active[6U];
+
+#undef DEFUN
+#undef DECLF
+#define DECLF		static
+#define DEFUN		static __attribute__((unused))
+#include "gbs.h"
+#include "gbs.c"
+
+/* bitset for active contracts */
+static struct gbs_s active[1U];
 
 static void
 activate(int ry, unsigned int m)
 {
-	unsigned int quintal;
-	unsigned int remaind;
-
-	if (UNLIKELY(ry < 0)) {
-		/* don't wanna keep track of expired non-sense */
-		return;
-	} else if (UNLIKELY((quintal = ry / 5U) >= countof(active))) {
-		/* keeping track of futures more than 30y from now? */
-		return;
-	}
-	remaind = ry % 5U;
-	active[quintal] |= 1ULL << (m - 1 + 12U * remaind);
+	gbs_set(active, 12 * ry + (m - 1));
 	return;
 }
 
 static void
 deactivate(int ry, unsigned int m)
 {
-	unsigned int quintal;
-	unsigned int remaind;
-
-	if (UNLIKELY(ry < 0)) {
-		/* don't wanna keep track of expired non-sense */
-		return;
-	} else if (UNLIKELY((quintal = ry / 5U) >= countof(active))) {
-		/* keeping track of futures more than 30y from now? */
-		return;
-	}
-	remaind = ry % 5U;
-	active[quintal] &= ~(1ULL << (m - 1 + 12U * remaind));
+	gbs_unset(active, 12 * ry + (m - 1));
 	return;
 }
 
 static int
 activep(int ry, unsigned int m)
 {
-	unsigned int quintal;
-	unsigned int remaind;
-
-	if (UNLIKELY(ry < 0)) {
-		/* don't wanna keep track of expired non-sense */
-		return 0;
-	} else if (UNLIKELY((quintal = ry / 5U) >= countof(active))) {
-		/* keeping track of futures more than 30y from now? */
-		return 0;
-	}
-	remaind = ry % 5U;
-	return (active[quintal] & (1ULL << (m - 1 + 12 * remaind))) != 0ULL;
+	return gbs_set_p(active, 12 * ry + (m - 1));
 }
 
 static void
-flip_over(void)
+flip_over(int ry)
 {
 /* flip over to a new year in the ACTIVE bitset */
-	for (size_t i = 0; i < countof(active); i++) {
-		active[i] >>= 12;
-		if (LIKELY(i + 1 < countof(active))) {
-			active[i] |= (active[i + 1] & (0x3ffULL)) << 48;
-		}
-	}
+	gbs_shift_lsb(active, 12 * ry);
 	return;
 }
 
+
 static void
 print_trod_event(trod_event_t ev, FILE *whither)
 {
@@ -789,27 +769,26 @@ print_flip_over(trod_event_t ev, FILE *whither)
 	*p++ = '\t';
 	var = p;
 
-	for (size_t i = 0, m = 0; i < countof(active); i++, p = var, m = 0) {
-		for (uint64_t a = active[i]; a; a >>= 1U, p = var, m++) {
-			if (a & 1ULL) {
-				unsigned int mo = (m % 12U);
-				unsigned int yr = (m / 12U);
-				char cmo = i_to_m(mo + 1U);
+	for (size_t i = 0; i < active->nbits; i++, p = var) {
+		unsigned int yr = i / 12U;
+		unsigned int mo = i % 12U;
 
-				p += snprintf(
-					p, sizeof(buf) - (p - buf),
-					"%c%u->%c%d",
-					cmo, yr, cmo, (int)yr - (int)ry);
+		if (activep(yr, mo + 1U)) {
+			char cmo = i_to_m(mo + 1U);
 
-				*p++ = '\n';
-				*p = '\0';
-				fputs(buf, whither);
-			}
+			p += snprintf(
+				p, sizeof(buf) - (p - buf),
+				"%c%u->%c%d",
+				cmo, yr, cmo, (int)yr - (int)ry);
+
+			*p++ = '\n';
+			*p = '\0';
+			fputs(buf, whither);
 		}
 	}
 flip_over:
 	/* now do the flip-over and reprint */
-	for (size_t i = 0; i < ry; flip_over(), i++);
+	flip_over(ry);
 	last_y = y;
 	return;
 }
@@ -817,12 +796,17 @@ flip_over:
 static void
 print_trod(trod_t td, FILE *whither)
 {
+	/* initialise the flip-over book-keeper */
+	init_gbs(active, 12U * 30U);
+
 	for (size_t i = 0; i < td->ninst; i++) {
 		trod_event_t x = td->ev[i];
 
 		print_flip_over(x, whither);
 		print_trod_event(x, whither);
 	}
+
+	fini_gbs(active);
 	return;
 }
 #endif	/* STANDALONE */
