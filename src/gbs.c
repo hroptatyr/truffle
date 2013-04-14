@@ -75,17 +75,30 @@ struct __gbs_s {
 };
 
 
+static inline __attribute__((const, pure)) size_t
+nmemb_to_nbytes(size_t nmemb)
+{
+	return (nmemb - 1U) / 8U + 1U;
+}
+
+static inline __attribute__((const, pure)) size_t
+nbytes_to_nmemb(size_t nbytes)
+{
+	return nbytes * 8U;
+}
+
+
 /* public API */
 DEFUN void
 init_gbs(gbs_t bs, size_t ninit_members)
 {
 	struct __gbs_s *p = (void*)bs;
-	size_t mpsz = ninit_members / 8U + 1U;
+	size_t mpsz = nmemb_to_nbytes(ninit_members);
 
 	if (UNLIKELY(bs->bits != NULL)) {
 		fini_gbs(bs);
 	}
-	p->nbits = ninit_members;
+	p->nbits = nbytes_to_nmemb(mpsz);
 	p->bits = mmap(NULL, mpsz, PROT_MEM, MAP_MEM, -1, 0);
 	return;
 }
@@ -95,12 +108,37 @@ fini_gbs(gbs_t bs)
 {
 	if (LIKELY(bs->bits != NULL)) {
 		struct __gbs_s *p = (void*)bs;
+		size_t mpsz = nmemb_to_nbytes(p->nbits);
 
-		munmap(p->bits, p->nbits / 8U + 1);
+		munmap(p->bits, mpsz);
 		/* reset the slots */
 		p->nbits = 0UL;
 		p->bits = NULL;
 	}
+	return;
+}
+
+static void
+resz_gbs(gbs_t bs, size_t nnu_members)
+{
+	struct __gbs_s *p = (void*)bs;
+	size_t olsz = nmemb_to_nbytes(p->nbits);
+	size_t mpsz = nmemb_to_nbytes(nnu_members);
+
+	if (olsz >= mpsz) {
+		return;
+	}
+	/* otherwise there's really work to do */
+
+#if defined MREMAP_MAYMOVE
+	p->bits = mremap(p->bits, olsz, mpsz, MREMAP_MAYMOVE);
+#else  /* !MREMAP_MAYMOVE */
+	{
+		void *nu = mmap(NULL, mpsz, PROT_MEM, MAP_MEM, -1, 0);
+		memcpy(nu, p->bits, olsz);
+	}
+#endif	/* MREMAP_MAYMOVE */
+	p->nbits = nbytes_to_nmemb(mpsz);
 	return;
 }
 
@@ -110,8 +148,10 @@ gbs_set(gbs_t bs, unsigned int bit)
 	unsigned int by = bit / 8U;
 	unsigned int bb = bit % 8U;
 	struct __gbs_s *p = (void*)bs;
-	uint8_t *bits = p->bits;
+	uint8_t *bits;
 
+	resz_gbs(bs, bit + 1U);
+	bits = p->bits;
 	bits[by] |= (uint8_t)(1U << bb);
 	return;
 }
@@ -122,8 +162,10 @@ gbs_unset(gbs_t bs, unsigned int bit)
 	unsigned int by = bit / 8U;
 	unsigned int bb = bit % 8U;
 	struct __gbs_s *p = (void*)bs;
-	uint8_t *bits = p->bits;
+	uint8_t *bits;
 
+	resz_gbs(bs, bit + 1U);
+	bits = p->bits;
 	bits[by] &= (uint8_t)(~(1U << bb));
 	return;
 }
@@ -134,8 +176,10 @@ gbs_set_p(gbs_t bs, unsigned int bit)
 	unsigned int by = bit / 8U;
 	unsigned int bb = bit % 8U;
 	struct __gbs_s *p = (void*)bs;
-	uint8_t *bits = p->bits;
+	uint8_t *bits;
 
+	resz_gbs(bs, bit + 1U);
+	bits = p->bits;
 	return bits[by] & (1U << bb);
 }
 
