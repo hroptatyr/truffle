@@ -1,0 +1,11 @@
+## -*- shell-script -*-
+
+TOOL=trod
+CMDLINE="--from 2006-01-01 --till 2008-06-30 '${srcdir}/toy5.schema'"
+
+## STDIN
+
+## STDOUT
+TS_EXP_STDOUT="${srcdir}/toy5.trod"
+
+## schema_to_trod.5.deflt.truftest ends here
