@@ -14,6 +14,7 @@ noinst_LIBRARIES = libtruffle.a
 libtruffle_a_SOURCES = yd.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
 libtruffle_a_SOURCES += gq.c gq.h
+libtruffle_a_SOURCES += gbs.c gbs.h
 libtruffle_a_SOURCES += schema.c schema.h
 libtruffle_a_SOURCES += trod.c trod.h
 libtruffle_a_SOURCES += cut.c cut.h
