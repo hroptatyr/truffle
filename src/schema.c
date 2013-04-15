@@ -193,12 +193,59 @@ __err_not_asc(const char *line, size_t llen)
 	return;
 }
 
+static char
+i_to_m(unsigned int month)
+{
+	static char months[] = "?FGHJKMNQUVXZ";
+	return months[month];
+}
+
+static unsigned int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'f': case 'F':
+		return 1U;
+	case 'g': case 'G':
+		return 2U;
+	case 'h': case 'H':
+		return 3U;
+	case 'j': case 'J':
+		return 4U;
+	case 'k': case 'K':
+		return 5U;
+	case 'm': case 'M':
+		return 6U;
+	case 'n': case 'N':
+		return 7U;
+	case 'q': case 'Q':
+		return 8U;
+	case 'u': case 'U':
+		return 9;
+	case 'v': case 'V':
+		return 10U;
+	case 'x': case 'X':
+		return 11U;
+	case 'z': case 'Z':
+		return 12U;
+	default:
+		break;
+	}
+	return 0U;
+}
+
 static cline_t
 make_cline(char month, int yoff)
 {
-	cline_t res = malloc(sizeof(*res));
+	cline_t res;
+	unsigned int mo;
 
-	res->month = month;
+	if (!(mo = m_to_i(month))) {
+		return NULL;
+	}
+	/* otherwise alloc and populate RES */
+	res = malloc(sizeof(*res));
+	res->month = i_to_m(mo);
 	res->year_off = (int8_t)yoff;
 	res->nn = 0;
 	return res;
@@ -270,14 +317,10 @@ __read_schema_line(const char *line, size_t llen)
 			yoff = 0;
 		}
 
-		/* check if there's actually dates on the line */
-		if (*p == '\n') {
-			/* probably a trod file then innit? */
+		/* kick off the schema-line process */
+		if ((cl = make_cline(line[0], yoff)) == NULL) {
 			break;
 		}
-
-		/* kick off the schema-line process */
-		cl = make_cline(line[0], yoff);
 
 		do {
 			daysi_t ddt;
