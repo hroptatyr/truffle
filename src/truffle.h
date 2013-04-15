@@ -49,6 +49,4 @@
 #include "trod.h"
 #include "cut.h"
 
-typedef uint32_t trym_t;
-
 #endif	/* INCLUDED_truffle_h_ */
