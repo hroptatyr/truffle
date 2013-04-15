@@ -1,0 +1,11 @@
+## -*- shell-script -*-
+
+TOOL=trod
+CMDLINE="'${srcdir}/toy5.trod'"
+
+## STDIN
+
+## STDOUT
+TS_EXP_STDOUT="${srcdir}/toy5.trod"
+
+## trod_to_trod.5.deflt.truftest ends here

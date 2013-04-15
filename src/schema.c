@@ -46,6 +46,7 @@
 #include "cut.h"
 #include "yd.h"
 #include "dt-strpf.h"
+#include "mmy.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
@@ -196,9 +197,15 @@ __err_not_asc(const char *line, size_t llen)
 static cline_t
 make_cline(char month, int yoff)
 {
-	cline_t res = malloc(sizeof(*res));
+	cline_t res;
+	unsigned int mo;
 
-	res->month = month;
+	if (!(mo = m_to_i(month))) {
+		return NULL;
+	}
+	/* otherwise alloc and populate RES */
+	res = malloc(sizeof(*res));
+	res->month = i_to_m(mo);
 	res->year_off = (int8_t)yoff;
 	res->nn = 0;
 	return res;
@@ -271,12 +278,16 @@ __read_schema_line(const char *line, size_t llen)
 		}
 
 		/* kick off the schema-line process */
-		cl = make_cline(line[0], yoff);
+		if ((cl = make_cline(line[0], yoff)) == NULL) {
+			break;
+		}
 
 		do {
 			daysi_t ddt;
 
-			dt = read_date(p, &tmp) % 10000;
+			if (!(dt = read_date(p, &tmp) % 10000U)) {
+				goto nope;
+			}
 			p = tmp + strspn(tmp, skip);
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
@@ -290,8 +301,7 @@ __read_schema_line(const char *line, size_t llen)
 			ddt = daysi_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
-				free(cl);
-				return NULL;
+				goto nope;
 			}
 			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
@@ -303,6 +313,9 @@ __read_schema_line(const char *line, size_t llen)
 		break;
 	}
 	return cl;
+nope:
+	free(cl);
+	return NULL;
 }
 
 static cline_t

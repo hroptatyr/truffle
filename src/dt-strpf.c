@@ -70,40 +70,38 @@ read_date(const char *str, char **restrict ptr)
 	const char *tmp;
 
 	tmp = str;
+	if (!isdigit(*tmp)) {
+		goto out;
+	}
+
+	/* start off populating res */
 	res = C(tmp[0]) * 10 + C(tmp[1]);
 	tmp = tmp + 2 + (tmp[2] == '-');
 
-	if (*tmp == '\0' || isspace(*tmp)) {
-		if (ptr) {
-			*ptr = __p2c(tmp);
-		}
-		return res;
+	if (!isdigit(*tmp)) {
+		goto out;
 	}
 
 	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
 	tmp = tmp + 2 + (tmp[2] == '-');
 
-	if (*tmp == '\0' || isspace(*tmp)) {
-		if (ptr) {
-			*ptr = __p2c(tmp);
-		}
-		return res;
+	if (!isdigit(*tmp)) {
+		/* already buggered? */
+		goto out;
 	}
 
 	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
 	tmp = tmp + 2 + (tmp[2] == '-');
 
-	if (*tmp == '\0' || isspace(*tmp)) {
+	if (!isdigit(*tmp)) {
 		/* date is fucked? */
-		if (ptr) {
-			*ptr = __p2c(tmp);
-		}
-		return 0;
+		goto out;
 	}
 
 	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
 	tmp = tmp + 2;
 
+out:
 	if (ptr) {
 		*ptr = __p2c(tmp);
 	}
