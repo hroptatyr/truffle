@@ -757,6 +757,22 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	if (argi->from_given) {
+		from = read_date(argi->from_arg, NULL);
+	} else {
+		from = 20000101U;
+	}
+	if (argi->till_given) {
+		till = read_date(argi->till_arg, NULL);
+	} else {
+		till = 20371231U;
+	}
+	if (argi->oco_given) {
+		opt_oco = 1;
+		opt_abs = 1;
+	} else if (argi->abs_given) {
+		opt_abs = 1;
+	}
 	if (argi->inputs_num > 0) {
 		sch = read_schema(argi->inputs[0]);
 	} else {
@@ -773,22 +789,6 @@ main(int argc, char *argv[])
 			/* we're trod already, do fuckall */
 			goto pr;
 		}
-	}
-	if (argi->from_given) {
-		from = read_date(argi->from_arg, NULL);
-	} else {
-		from = 20000101U;
-	}
-	if (argi->till_given) {
-		till = read_date(argi->till_arg, NULL);
-	} else {
-		till = 20371231U;
-	}
-	if (argi->oco_given) {
-		opt_oco = 1;
-		opt_abs = 1;
-	} else if (argi->abs_given) {
-		opt_abs = 1;
 	}
 
 	/* convert that schema goodness */
