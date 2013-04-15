@@ -18,6 +18,7 @@ libtruffle_a_SOURCES += gbs.c gbs.h
 libtruffle_a_SOURCES += schema.c schema.h
 libtruffle_a_SOURCES += trod.c trod.h
 libtruffle_a_SOURCES += cut.c cut.h
+libtruffle_a_SOURCES += mmy.h
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle-clo.ggo
@@ -29,6 +30,7 @@ BUILT_SOURCES += truffle-clo.c truffle-clo.h
 
 noinst_PROGRAMS += trod
 trod_SOURCES = trod.c trod-clo.ggo
+trod_SOURCES += mmy.h
 trod_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
 trod_LDFLAGS = $(AM_LDFLAGS)
 trod_LDADD = libtruffle.a
