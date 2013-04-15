@@ -700,7 +700,6 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 
 
 struct __series_spec_s {
-	const char *ser_file;
 	double tick_val;
 	double basis;
 	unsigned int cump:1;
@@ -721,23 +720,15 @@ static cutflo_trans_t(*pick_cf_fun(struct __series_spec_s ser_sp))
 }
 
 static void
-roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
+roll_over_series(
+	trsch_t s, trtsc_t ser, struct __series_spec_s ser_sp, FILE *whither)
 {
-	trtsc_t ser;
-	FILE *f;
 	trcut_t c = NULL;
 	struct __cutflo_st_s cfst;
 	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
 		pick_cf_fun(ser_sp);
 	const unsigned int trbit = UNLIKELY(ser_sp.sparsep)
 		? CUTFLO_HAS_TRANS_BIT : CUTFLO_TRANS_NON_NIL;
-
-	if ((f = fopen(ser_sp.ser_file, "r")) == NULL) {
-		fprintf(stderr, "could not open file %s\n", ser_sp.ser_file);
-		return;
-	} else if ((ser = read_series(f)) == NULL) {
-		return;
-	}
 
 	/* init out cut flow state structure */
 	init_cutflo_st(&cfst, ser, ser_sp.tick_val, ser_sp.basis);
@@ -776,11 +767,23 @@ roll_series(trsch_t s, struct __series_spec_s ser_sp, FILE *whither)
 	}
 	/* free up resources */
 	free_cutflo_st(&cfst);
-	if (ser) {
-		free_series(ser);
-	}
-	fclose(f);
 	return;
+}
+
+static trtsc_t
+read_series_from_file(const char *file)
+{
+	trtsc_t ser;
+	FILE *f;
+
+	if ((f = fopen(file, "r")) == NULL) {
+		return NULL;
+	} else if ((ser = read_series(f)) == NULL) {
+		return NULL;
+	}
+	/* close this one now */
+	fclose(f);
+	return ser;
 }
 
 
@@ -799,6 +802,7 @@ main(int argc, char *argv[])
 {
 	struct gengetopt_args_info argi[1];
 	trsch_t sch = NULL;
+	trtsc_t ser = NULL;
 	int res = 0;
 
 	if (cmdline_parser(argc, argv, argi)) {
@@ -815,10 +819,20 @@ main(int argc, char *argv[])
 		res = 1;
 		goto sch_out;
 	}
-	/* finally call our main routine */
+	/* check if we're in series mode */
 	if (argi->series_given) {
+		const char *file = argi->series_arg;
+
+		if ((ser = read_series_from_file(file)) == NULL) {
+			fprintf(stderr, "cannot read series file %s\n", file);
+			res = 1;
+			goto ser_out;
+		}
+	}
+
+	/* finally call our main routine */
+	if (ser != NULL && sch != NULL) {
 		struct __series_spec_s sp = {
-			.ser_file = argi->series_arg,
 			.tick_val = argi->tick_value_given
 			? argi->tick_value_arg : 1.0,
 			.basis = argi->basis_given
@@ -827,8 +841,9 @@ main(int argc, char *argv[])
 			.abs_dimen_p = argi->abs_dimen_given,
 			.sparsep = argi->sparse_given,
 		};
-		roll_series(sch, sp, stdout);
-	} else if (argi->inputs_num == 0) {
+		roll_over_series(sch, ser, sp, stdout);
+
+	} else if (sch != NULL && argi->inputs_num == 0) {
 		print_schema(sch, stdout);
 	} else {
 		struct trcut_pr_s opt = {
@@ -852,10 +867,17 @@ main(int argc, char *argv[])
 			free_cut(c);
 		}
 	}
-	free_schema(sch);
+
+	if (ser != NULL) {
+		free_series(ser);
+	}
+ser_out:
+	if (sch != NULL) {
+		free_schema(sch);
+	}
+sch_out:
 	/* just to make sure */
 	fflush(stdout);
-sch_out:
 	cmdline_parser_free(argi);
 	return res;
 }
