@@ -159,6 +159,49 @@ strtoui(const char *str, const char **ep)
 }
 #endif	/* !STANDALONE */
 
+#if defined STANDALONE
+static char
+i_to_m(unsigned int month)
+{
+	static char months[] = "?FGHJKMNQUVXZ";
+	return months[month];
+}
+#endif	/* STANDALONE */
+
+static unsigned int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'f': case 'F':
+		return 1U;
+	case 'g': case 'G':
+		return 2U;
+	case 'h': case 'H':
+		return 3U;
+	case 'j': case 'J':
+		return 4U;
+	case 'k': case 'K':
+		return 5U;
+	case 'm': case 'M':
+		return 6U;
+	case 'n': case 'N':
+		return 7U;
+	case 'q': case 'Q':
+		return 8U;
+	case 'u': case 'U':
+		return 9;
+	case 'v': case 'V':
+		return 10U;
+	case 'x': case 'X':
+		return 11U;
+	case 'z': case 'Z':
+		return 12U;
+	default:
+		break;
+	}
+	return 0U;
+}
+
 static void*
 make_gq_item(gq_t x, size_t nmemb, size_t membz)
 {
@@ -265,46 +308,10 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 
 	/* now it's either YYYY-MM, or M-YYYY or M-dy where DY is relative
 	 * to the year portion of I */
-	switch (*p) {
-	case 'f': case 'F':
-		res.st.month = 1U;
-		goto read_ui;
-	case 'g': case 'G':
-		res.st.month = 2U;
-		goto read_ui;
-	case 'h': case 'H':
-		res.st.month = 3U;
-		goto read_ui;
-	case 'j': case 'J':
-		res.st.month = 4U;
-		goto read_ui;
-	case 'k': case 'K':
-		res.st.month = 5U;
-		goto read_ui;
-	case 'm': case 'M':
-		res.st.month = 6U;
-		goto read_ui;
-	case 'n': case 'N':
-		res.st.month = 7U;
-		goto read_ui;
-	case 'q': case 'Q':
-		res.st.month = 8U;
-		goto read_ui;
-	case 'u': case 'U':
-		res.st.month = 9;
-		goto read_ui;
-	case 'v': case 'V':
-		res.st.month = 10U;
-		goto read_ui;
-	case 'x': case 'X':
-		res.st.month = 11U;
-		goto read_ui;
-	case 'z': case 'Z':
-		res.st.month = 12U;
-		goto read_ui;
-		/* fall through to int parsing */
-	read_ui:
-	case '0' ... '9': {
+	if ((res.st.month = (uint8_t)m_to_i(*p))) {
+		p++;
+	}
+	{
 		const char *q;
 		uint32_t ym = strtoui(p, &q);
 
@@ -333,10 +340,6 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 			res.st.year = (uint16_t)((ym / 100U) / 100U);
 			res.st.month = (uint8_t)((ym / 100U) % 100U);
 		}
-		break;
-	}
-	default:
-		goto nul;
 	}
 	return &res.ev;
 nul:
@@ -493,47 +496,6 @@ struct trsch_s {
 	size_t np;
 	struct cline_s *p[];
 };
-
-static char
-i_to_m(unsigned int month)
-{
-	static char months[] = "?FGHJKMNQUVXZ";
-	return months[month];
-}
-
-static __attribute__((unused)) unsigned int
-m_to_i(char month)
-{
-	switch (month) {
-	case 'f': case 'F':
-		return 1U;
-	case 'g': case 'G':
-		return 2U;
-	case 'h': case 'H':
-		return 3U;
-	case 'j': case 'J':
-		return 4U;
-	case 'k': case 'K':
-		return 5U;
-	case 'm': case 'M':
-		return 6U;
-	case 'n': case 'N':
-		return 7U;
-	case 'q': case 'Q':
-		return 8U;
-	case 'u': case 'U':
-		return 9;
-	case 'v': case 'V':
-		return 10U;
-	case 'x': case 'X':
-		return 11U;
-	case 'z': case 'Z':
-		return 12U;
-	default:
-		break;
-	}
-	return 0U;
-}
 
 static int
 daysi_to_year(daysi_t dd)
