@@ -43,6 +43,11 @@
 #include <stdio.h>
 #include "yd.h"
 
+#if !defined DECLF
+# define DECLF		extern
+# define DEFUN
+#endif	/* !DECLF */
+
 /* date/time goodies */
 #define BASE_YEAR	(1917U)
 #define TO_BASE(x)	((x) - BASE_YEAR)
