@@ -270,6 +270,12 @@ __read_schema_line(const char *line, size_t llen)
 			yoff = 0;
 		}
 
+		/* check if there's actually dates on the line */
+		if (*p == '\n') {
+			/* probably a trod file then innit? */
+			break;
+		}
+
 		/* kick off the schema-line process */
 		cl = make_cline(line[0], yoff);
 
