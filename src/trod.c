@@ -246,6 +246,8 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 		struct trod_state_s st;
 	} res;
 	const char *p;
+	const char *q;
+	uint32_t ym;
 
 	if ((p = strchr(line, '\t')) == NULL) {
 		goto nul;
@@ -264,40 +266,46 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 		break;
 	}
 
+snarf:
 	/* now it's either YYYY-MM, or M-YYYY or M-dy where DY is relative
 	 * to the year portion of I */
 	if ((res.st.month = (uint8_t)m_to_i(*p))) {
 		p++;
 	}
-	{
-		const char *q;
-		uint32_t ym = strtoui(p, &q);
+	/* snarf off the bit after the month */
+	ym = strtoui(p, &q);
 
-		if (UNLIKELY(q == p)) {
-			goto nul;
-		} else if (ym < 1024U) {
-			/* something like G0 or F4 or so */
-			res.st.year = (uint16_t)(ym + res.ev.when.y);
-		} else if (ym < 4096U) {
-			/* absolute year, G2032 or H2102*/
-			res.st.year = (uint16_t)ym;
-			if (!res.st.month && *q == '-') {
-				/* %Y-%m syntax? */
-				p = q + 1;
-				if (LIKELY((ym = strtoui(p, &q)) &&
-					   q > p && ym <= 12U)) {
-					res.st.month = (uint8_t)ym;
-				}
+	if (UNLIKELY(q == p)) {
+		goto nul;
+	} else if (ym < 1024U) {
+		/* something like G0 or F4 or so */
+		res.st.year = (uint16_t)(ym + res.ev.when.y);
+	} else if (ym < 4096U) {
+		/* absolute year, G2032 or H2102*/
+		res.st.year = (uint16_t)ym;
+		if (!res.st.month && *q == '-') {
+			/* %Y-%m syntax? */
+			p = q + 1;
+			if (LIKELY((ym = strtoui(p, &q)) &&
+				   q > p && ym <= 12U)) {
+				res.st.month = (uint8_t)ym;
 			}
-		} else if (ym < 299913U) {
-			/* that's %Y%m syntax innit? */
-			res.st.year = (uint16_t)(ym / 100U);
-			res.st.month = (uint8_t)(ym % 100U);
-		} else if (ym < 29991232U) {
-			/* %Y%m%d syntax but we can't deal with d */
-			res.st.year = (uint16_t)((ym / 100U) / 100U);
-			res.st.month = (uint8_t)((ym / 100U) % 100U);
 		}
+	} else if (ym < 299913U) {
+		/* that's %Y%m syntax innit? */
+		res.st.year = (uint16_t)(ym / 100U);
+		res.st.month = (uint8_t)(ym % 100U);
+	} else if (ym < 29991232U) {
+		/* %Y%m%d syntax but we can't deal with d */
+		res.st.year = (uint16_t)((ym / 100U) / 100U);
+		res.st.month = (uint8_t)((ym / 100U) % 100U);
+	}
+	/* check if it's a A->B state */
+	if (*q++ == '-' && *q++ == '>') {
+		/* ah good, but we need to capture the bit right of the arrow */
+		res.st.val = 2U;
+		p = q;
+		goto snarf;
 	}
 	return &res.ev;
 nul:
