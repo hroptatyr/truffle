@@ -54,6 +54,7 @@
 #include "dt-strpf.h"
 #include "trod.h"
 #include "gq.h"
+#include "mmy.h"
 
 #if defined STANDALONE
 # include <stdio.h>
@@ -158,49 +159,6 @@ strtoui(const char *str, const char **ep)
 	return res;
 }
 #endif	/* !STANDALONE */
-
-#if defined STANDALONE
-static char
-i_to_m(unsigned int month)
-{
-	static char months[] = "?FGHJKMNQUVXZ";
-	return months[month];
-}
-#endif	/* STANDALONE */
-
-static unsigned int
-m_to_i(char month)
-{
-	switch (month) {
-	case 'f': case 'F':
-		return 1U;
-	case 'g': case 'G':
-		return 2U;
-	case 'h': case 'H':
-		return 3U;
-	case 'j': case 'J':
-		return 4U;
-	case 'k': case 'K':
-		return 5U;
-	case 'm': case 'M':
-		return 6U;
-	case 'n': case 'N':
-		return 7U;
-	case 'q': case 'Q':
-		return 8U;
-	case 'u': case 'U':
-		return 9;
-	case 'v': case 'V':
-		return 10U;
-	case 'x': case 'X':
-		return 11U;
-	case 'z': case 'Z':
-		return 12U;
-	default:
-		break;
-	}
-	return 0U;
-}
 
 static void*
 make_gq_item(gq_t x, size_t nmemb, size_t membz)

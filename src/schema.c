@@ -46,6 +46,7 @@
 #include "cut.h"
 #include "yd.h"
 #include "dt-strpf.h"
+#include "mmy.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
@@ -191,47 +192,6 @@ __err_not_asc(const char *line, size_t llen)
 	fwrite(line, llen, 1, stderr);
 	fputs("error: dates are not in ascending order\n", stderr);
 	return;
-}
-
-static char
-i_to_m(unsigned int month)
-{
-	static char months[] = "?FGHJKMNQUVXZ";
-	return months[month];
-}
-
-static unsigned int
-m_to_i(char month)
-{
-	switch (month) {
-	case 'f': case 'F':
-		return 1U;
-	case 'g': case 'G':
-		return 2U;
-	case 'h': case 'H':
-		return 3U;
-	case 'j': case 'J':
-		return 4U;
-	case 'k': case 'K':
-		return 5U;
-	case 'm': case 'M':
-		return 6U;
-	case 'n': case 'N':
-		return 7U;
-	case 'q': case 'Q':
-		return 8U;
-	case 'u': case 'U':
-		return 9;
-	case 'v': case 'V':
-		return 10U;
-	case 'x': case 'X':
-		return 11U;
-	case 'z': case 'Z':
-		return 12U;
-	default:
-		break;
-	}
-	return 0U;
 }
 
 static cline_t
