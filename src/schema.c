@@ -325,7 +325,9 @@ __read_schema_line(const char *line, size_t llen)
 		do {
 			daysi_t ddt;
 
-			dt = read_date(p, &tmp) % 10000;
+			if (!(dt = read_date(p, &tmp) % 10000U)) {
+				goto nope;
+			}
 			p = tmp + strspn(tmp, skip);
 			v = strtod(p, &tmp);
 			p = tmp + strspn(tmp, skip);
@@ -339,8 +341,7 @@ __read_schema_line(const char *line, size_t llen)
 			ddt = daysi_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
-				free(cl);
-				return NULL;
+				goto nope;
 			}
 			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
@@ -352,6 +353,9 @@ __read_schema_line(const char *line, size_t llen)
 		break;
 	}
 	return cl;
+nope:
+	free(cl);
+	return NULL;
 }
 
 static cline_t
