@@ -78,6 +78,11 @@
 #else  /* !DEBUG_FLAG */
 # define TRUF_DEBUG(args...)
 #endif	/* DEBUG_FLAG */
+#if defined DEBUG_TRANSACTIONS_FLAG
+# define TRUF_DEBUG_TR(args...)	fprintf(stderr, args)
+#else  /* !DEBUG_TRANSACTIONS_FLAG */
+# define TRUF_DEBUG_TR(args...)
+#endif	/* DEBUG_TRANSACTIONS_FLAG */
 #if !defined countof
 # define countof(x)	(sizeof(x) / sizeof(*(x)))
 #endif	/* !countof */
@@ -523,9 +528,10 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 				}
 			}
 
-			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
-				   expo - st->expos[idx], new_v[idx],
-				   expo, st->bases[idx], flo);
+			TRUF_DEBUG_TR(
+				"TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
+				expo - st->expos[idx], new_v[idx],
+				expo, st->bases[idx], flo);
 
 			/* record bases */
 			st->bases[idx] = new_v[idx];
@@ -535,9 +541,10 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 			double tot_flo = new_v[idx] - st->bases[idx];
 
 			flo = tot_flo * st->expos[idx];
-			TRUF_DEBUG("NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
-				   expo, new_v[idx], st->bases[idx],
-				   flo, flo + st->bases[idx]);
+			TRUF_DEBUG_TR(
+				"NO %+.8g @ %.8g (- %.8g) -> %.8g => %.8g\n",
+				expo, new_v[idx], st->bases[idx],
+				flo, flo + st->bases[idx]);
 			st->bases[idx] = new_v[idx];
 			is_non_nil = 1;
 		} else {
@@ -602,8 +609,9 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 			tot_flo = (new_v[idx] - st->basis);
 
 			flo = tot_flo * expo;
-			TRUF_DEBUG("NO %+.8g @ %.8g => %.8g\n",
-				   expo, tot_flo, flo);
+			TRUF_DEBUG_TR(
+				"NO %+.8g @ %.8g => %.8g\n",
+				expo, tot_flo, flo);
 			is_non_nil = 1;
 		} else {
 			flo = 0.0;
@@ -670,9 +678,10 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 				}
 			}
 
-			TRUF_DEBUG("TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
-				   expo - st->expos[idx], new_v[idx],
-				   expo, st->bases[idx], flo);
+			TRUF_DEBUG_TR(
+				"TR %+.8g @ %.8g -> %+.8g @ %.8g -> %.8g\n",
+				expo - st->expos[idx], new_v[idx],
+				expo, st->bases[idx], flo);
 
 			/* record bases */
 			if (st->expos[idx] == 0.0 || expo == 0.0) {
