@@ -41,6 +41,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "dt-strpf.h"
+#include "mmy.h"
 
 #if !defined DECLF
 # define DECLF		extern
@@ -81,12 +82,6 @@ DECLF trtsc_t read_series_from_file(const char *file);
 DECLF void free_series(trtsc_t);
 
 
-static inline __attribute__((const, pure)) trym_t
-cym_to_ym(char month, unsigned int year)
-{
-	return ((uint16_t)year << 8U) + (uint8_t)month;
-}
-
 static ssize_t
 tsc_find_cym_idx(const_trtsc_t s, trym_t ym)
 {

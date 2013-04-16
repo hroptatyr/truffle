@@ -41,6 +41,7 @@
 #include <sys/mman.h>
 #include "series.h"
 #include "dt-strpf.h"
+#include "mmy.h"
 
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
@@ -256,7 +257,7 @@ warning: unsorted input data will result in poor performance\n", stderr);
 	}
 
 	/* now find the cmy offset */
-	if ((idx = tsc_find_cym_idx(s, cym_to_ym(mon, yoff))) < 0) {
+	if ((idx = tsc_find_cym_idx(s, cym_to_trym(yoff, mon))) < 0) {
 		/* append symbol */
 		void **tmp = (void**)&s->cons;
 		if (resize_mall(tmp, s->ncons, sizeof(*s->cons), CYM_STEP)) {
@@ -267,7 +268,7 @@ warning: unsorted input data will result in poor performance\n", stderr);
 			}
 		}
 		idx = s->ncons++;
-		s->cons[idx] = cym_to_ym(mon, yoff);
+		s->cons[idx] = cym_to_trym(yoff, mon);
 	}
 	/* resize the double vector maybe */
 	this->v[idx] = dv.v;
