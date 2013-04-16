@@ -100,6 +100,7 @@ read_trym(const char *str, const char **restrict ptr)
 				mo = 0U;
 			}
 		}
+		yr = ym;
 	} else if (ym < 299913U) {
 		/* that's %Y%m syntax innit? */
 		yr = ym / 100U;
