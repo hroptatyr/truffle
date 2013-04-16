@@ -223,7 +223,7 @@ tsc_move(trtsc_t s, ssize_t idx, int num)
 }
 
 static void
-tsc_add_dv(trtsc_t s, char mon, unsigned int yoff, struct __dv_s dv)
+tsc_add_dv(trtsc_t s, trym_t ym, struct __dv_s dv)
 {
 	struct __dvv_s *this = NULL;
 	ssize_t idx = 0;
@@ -257,7 +257,7 @@ warning: unsorted input data will result in poor performance\n", stderr);
 	}
 
 	/* now find the cmy offset */
-	if ((idx = tsc_find_cym_idx(s, cym_to_trym(yoff, mon))) < 0) {
+	if ((idx = tsc_find_cym_idx(s, ym)) < 0) {
 		/* append symbol */
 		void **tmp = (void**)&s->cons;
 		if (resize_mall(tmp, s->ncons, sizeof(*s->cons), CYM_STEP)) {
@@ -268,7 +268,7 @@ warning: unsorted input data will result in poor performance\n", stderr);
 			}
 		}
 		idx = s->ncons++;
-		s->cons[idx] = cym_to_trym(yoff, mon);
+		s->cons[idx] = ym;
 	}
 	/* resize the double vector maybe */
 	this->v[idx] = dv.v;
@@ -288,11 +288,11 @@ read_series(FILE *f)
 	res = calloc(1, sizeof(*res));
 	/* read the series file first */
 	while (getline(&line, &llen, f) > 0) {
+		const char *q;
 		char *con = line;
 		char *dat;
 		char *val;
-		char mon;
-		unsigned int yoff;
+		trym_t ym;
 		struct __dv_s dv;
 
 		if ((dat = strchr(con, '\t')) == NULL) {
@@ -304,9 +304,13 @@ read_series(FILE *f)
 			break;
 		}
 
-		mon = con[0];
-		yoff = strtoul(con + 1, NULL, 10);
-		tsc_add_dv(res, mon, yoff, dv);
+		if (!(ym = read_trym(con, &q)) || q <= con) {
+			break;
+		} else if (ym < TRYM_ABS_CUTOFF) {
+			/* make sure it's an absolute trym */
+			ym = abs_trym(ym, idate_y(dv.d));
+		}
+		tsc_add_dv(res, ym, dv);
 	}
 	if (line) {
 		free(line);
