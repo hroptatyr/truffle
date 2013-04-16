@@ -82,6 +82,9 @@ TESTS += toy1.1.mmy.truftest
 TESTS += toy1.2.mmy.truftest
 EXTRA_DIST += toy1.mmy.series
 
+TESTS += trod.1.truftest
+EXTRA_DIST += toy1.trod
+
 
 ## ggo rule
 %.c %.h: %.ggo
