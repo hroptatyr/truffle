@@ -730,7 +730,6 @@ Use trod tool to display trod description files\n", stdout);
 			.abs = argi->abs_given,
 			.oco = argi->oco_given,
 			.rnd = argi->round_given,
-			.lever = argi->lever_given ? argi->lever_arg : 1.0,
 			.out = stdout,
 		};
 
