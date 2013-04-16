@@ -1,0 +1,19 @@
+## -*- shell-script -*-
+
+TOOL=truffle
+CMDLINE="--schema '${srcdir}/toy1.schema' 2011-01-02 2011-01-03 2011-01-04 2011-01-05"
+
+## STDIN
+
+## STDOUT
+cat > "${TS_EXP_STDOUT}" <<EOF
+2011-01-02	F0	0
+2011-01-03	F0	1
+2011-01-03	G0	0
+2011-01-04	F0	1
+2011-01-04	G0	1
+2011-01-05	F0	0
+2011-01-05	G0	1
+EOF
+
+## truffle_schema_contracts.1.deflt.truftest ends here

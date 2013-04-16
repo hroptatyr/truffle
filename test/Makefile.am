@@ -85,6 +85,14 @@ EXTRA_DIST += toy1.mmy.series
 TESTS += trod.1.truftest
 EXTRA_DIST += toy1.trod
 
+TESTS += truffle_schema_contracts.1.deflt.truftest
+TESTS += truffle_schema_contracts.1.abs.truftest
+TESTS += truffle_schema_contracts.1.oco.truftest
+
+TESTS += truffle_trod_contracts.1.deflt.truftest
+TESTS += truffle_trod_contracts.1.abs.truftest
+TESTS += truffle_trod_contracts.1.oco.truftest
+
 
 ## ggo rule
 %.c %.h: %.ggo
