@@ -268,9 +268,8 @@ snarf:
 	 * to the year portion of I */
 	if (UNLIKELY(!(ym = read_trym(p, &q)) || q <= p)) {
 		goto nul;
-	}
-	/* always use absolute tryms */
-	if (trym_yr(ym) < TRYM_YR_CUTOFF) {
+	} else if (ym < TRYM_ABS_CUTOFF) {
+		/* always use absolute tryms */
 		res.st.ym = abs_trym(ym, res.ev.when.y);
 	}
 	/* check if it's a A->B state */

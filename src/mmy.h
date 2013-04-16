@@ -50,6 +50,8 @@ typedef int32_t trym_t;
 
 /* first year interpreted as absolute */
 #define TRYM_YR_CUTOFF	(1024)
+/* first trym regarded as absolute, values < are rel, values > are abs */
+#define TRYM_ABS_CUTOFF	(cym_to_trym(TRYM_YR_CUTOFF, 0))
 
 
 DECLF trym_t read_trym(const char *str, const char **restrict ptr);
