@@ -43,6 +43,11 @@
 #include <stdio.h>
 #include "yd.h"
 
+#if !defined DECLF
+# define DECLF		extern
+# define DEFUN
+#endif	/* !DECLF */
+
 /* date/time goodies */
 #define BASE_YEAR	(1917U)
 #define TO_BASE(x)	((x) - BASE_YEAR)
@@ -80,6 +85,7 @@ DECLF trod_instant_t trod_instant_fixup(trod_instant_t);
 DECLF trod_instant_t daysi_to_trod_instant(daysi_t);
 
 
+/* idate helpers */
 static inline daysi_t
 idate_to_daysi(idate_t dt)
 {
@@ -94,11 +100,32 @@ idate_to_daysi(idate_t dt)
 	return by * 365U + by / 4U + yd.d;
 }
 
+static inline __attribute__((pure, const)) unsigned int
+idate_y(idate_t dt)
+{
+	return dt / 10000U;
+}
+
+static inline __attribute__((pure, const)) unsigned int
+idate_m(idate_t dt)
+{
+	return (dt % 10000U) / 100U;
+}
+
+static inline __attribute__((pure, const)) unsigned int
+idate_d(idate_t dt)
+{
+	return dt % 100U;
+}
+
 static inline size_t
 snprint_idate(char *restrict buf, size_t bsz, idate_t dt)
 {
-	return snprintf(buf, bsz, "%u-%02u-%02u",
-			dt / 10000, (dt % 10000) / 100, (dt % 100));
+	unsigned int y = idate_y(dt);
+	unsigned int m = idate_m(dt);
+	unsigned int d = idate_d(dt);
+
+	return snprintf(buf, bsz, "%u-%02u-%02u", y, m, d);
 }
 
 

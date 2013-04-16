@@ -37,6 +37,57 @@
 #if !defined INCLUDED_mmy_h_
 #define INCLUDED_mmy_h_
 
+#include <stdint.h>
+
+#if !defined DECLF
+# define DECLF		extern
+# define DEFUN
+#endif	/* !DECLF */
+
+/* our notion of MMY */
+typedef int32_t trym_t;
+#define TRYM_WIDTH	(24U)
+
+/* first year interpreted as absolute */
+#define TRYM_YR_CUTOFF	(1024)
+/* first trym regarded as absolute, values < are rel, values > are abs */
+#define TRYM_ABS_CUTOFF	(cym_to_trym(TRYM_YR_CUTOFF, 0))
+
+
+DECLF trym_t read_trym(const char *str, const char **restrict ptr);
+
+
+static inline __attribute__((pure, const)) trym_t
+cym_to_trym(unsigned int year, unsigned int mon)
+{
+	return (year << 8U) | (mon & 0xffU);
+}
+
+static inline __attribute__((pure, const)) int
+trym_yr(trym_t ym)
+{
+	return ym >> 8U;
+}
+
+static inline __attribute__((pure, const)) unsigned int
+trym_mo(trym_t ym)
+{
+	return ym & 0xffU;
+}
+
+static inline __attribute__((pure, const)) trym_t
+rel_trym(trym_t ym, int year)
+{
+/* return a trym relative to YEAR, i.e. F0 for F2000 for year == 2000 */
+	return cym_to_trym(trym_yr(ym) - year, ym);
+}
+
+static inline __attribute__((pure, const)) trym_t
+abs_trym(trym_t ym, int year)
+{
+	return cym_to_trym(trym_yr(ym) + year, ym);
+}
+
 static inline char
 i_to_m(unsigned int month)
 {

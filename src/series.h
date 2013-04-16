@@ -1,4 +1,4 @@
-/*** truffle.h -- tool to roll-over futures contracts
+/*** series.h -- read time series of quotes or settlement prices
  *
  * Copyright (C) 2011-2013 Sebastian Freundt
  *
@@ -34,19 +34,63 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_truffle_h_
-#define INCLUDED_truffle_h_
+#if !defined INCLUDED_series_h_
+#define INCLUDED_series_h_
 
+#include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include "dt-strpf.h"
+#include "mmy.h"
 
 #if !defined DECLF
 # define DECLF		extern
 # define DEFUN
 #endif	/* !DECLF */
 
-#include "dt-strpf.h"
-#include "schema.h"
-#include "trod.h"
-#include "cut.h"
+/* we distinguish between oad (once-a-day) and intraday series */
+typedef struct trtsc_s *trtsc_t;
+typedef const struct trtsc_s *const_trtsc_t;
 
-#endif	/* INCLUDED_truffle_h_ */
+/* once-a-day series */
+struct trtsc_s {
+	size_t ndvvs;
+	size_t ncons;
+	idate_t first;
+	idate_t last;
+	trym_t *cons;
+	struct __dvv_s *dvvs;
+};
+
+struct __dvv_s {
+	idate_t d;
+	daysi_t dd;
+	double *v;
+};
+
+
+/**
+ * Read series in truffle format from stream FP. */
+DECLF trtsc_t read_series(FILE *fp);
+
+/**
+ * Read series in truffle format from FILE. */
+DECLF trtsc_t read_series_from_file(const char *file);
+
+/**
+ * Free resources associated with series. */
+DECLF void free_series(trtsc_t);
+
+
+static ssize_t
+tsc_find_cym_idx(const_trtsc_t s, trym_t ym)
+{
+	for (size_t i = 0; i < s->ncons; i++) {
+		if (s->cons[i] == ym) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+#endif	/* INCLUDED_series_h_ */
