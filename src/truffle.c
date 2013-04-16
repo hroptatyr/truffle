@@ -179,13 +179,16 @@ free_cutflo_st(struct __cutflo_st_s *st)
 }
 
 static void
-warn_noquo(idate_t dt, char mon, unsigned int year, double expo)
+warn_noquo(idate_t dt, trym_t ym, double expo)
 {
 	char dts[32];
+	unsigned int yr = trym_yr(ym);
+	unsigned int mo = trym_mo(ym);
+
 	snprint_idate(dts, sizeof(dts), dt);
 	fprintf(stderr, "\
 cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-		dts, mon, year, expo);
+		dts, i_to_m(mo), yr, expo);
 	return;
 }
 
@@ -207,9 +210,9 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
-		char mon = c->comps[i].month;
-		uint16_t year = c->comps[i].year;
-		trym_t ym = cym_to_trym(year, mon);
+		unsigned int mo = m_to_i(c->comps[i].month);
+		unsigned int yr = c->comps[i].year;
+		trym_t ym = cym_to_trym(yr, mo);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -222,7 +225,7 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
 			if (expo != 0.0) {
-				warn_noquo(dt, mon, year, expo);
+				warn_noquo(dt, ym, expo);
 			} else {
 				cut_rem_cc(c, c->comps + i);
 			}
@@ -290,9 +293,9 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
-		char mon = c->comps[i].month;
-		uint16_t year = c->comps[i].year;
-		trym_t ym = cym_to_trym(year, mon);
+		unsigned int mo = m_to_i(c->comps[i].month);
+		unsigned int yr = c->comps[i].year;
+		trym_t ym = cym_to_trym(yr, mo);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -305,7 +308,7 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
 			if (expo != 0.0) {
-				warn_noquo(dt, mon, year, expo);
+				warn_noquo(dt, ym, expo);
 			} else {
 				cut_rem_cc(c, c->comps + i);
 			}
@@ -356,9 +359,9 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		}
 	}
 	for (size_t i = 0; i < c->ncomps; i++) {
-		char mon = c->comps[i].month;
-		uint16_t year = c->comps[i].year;
-		trym_t ym = cym_to_trym(year, mon);
+		unsigned int mo = m_to_i(c->comps[i].month);
+		unsigned int yr = c->comps[i].year;
+		trym_t ym = cym_to_trym(yr, mo);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -371,7 +374,7 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 		if ((idx = tsc_find_cym_idx(st->tsc, ym)) < 0 ||
 		    isnan(new_v[idx])) {
 			if (expo != 0.0) {
-				warn_noquo(dt, mon, year, expo);
+				warn_noquo(dt, ym, expo);
 			} else {
 				cut_rem_cc(c, c->comps + i);
 			}
