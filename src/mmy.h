@@ -37,6 +37,19 @@
 #if !defined INCLUDED_mmy_h_
 #define INCLUDED_mmy_h_
 
+#include <stdint.h>
+
+/* our notion of MMY */
+typedef uint32_t trym_t;
+#define TRYM_WIDTH	(24U)
+
+
+static inline __attribute__((pure, const)) trym_t
+cym_to_trym(unsigned int year, unsigned int mon)
+{
+	return (year << 8U) | (mon & 0xffU);
+}
+
 static inline char
 i_to_m(unsigned int month)
 {

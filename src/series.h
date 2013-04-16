@@ -51,9 +51,6 @@
 typedef struct trtsc_s *trtsc_t;
 typedef const struct trtsc_s *const_trtsc_t;
 
-/* just our notion of MMY contracts */
-typedef uint32_t trym_t;
-
 /* once-a-day series */
 struct trtsc_s {
 	size_t ndvvs;
