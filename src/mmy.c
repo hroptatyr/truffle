@@ -66,16 +66,6 @@ strtoui(const char *str, const char *ep[static 1])
 	return res;
 }
 
-static char*
-__p2c(const char *str)
-{
-	union {
-		const char *c;
-		char *p;
-	} this = {.c = str};
-	return this.p;
-}
-
 
 DEFUN trym_t
 read_trym(const char *str, const char **restrict ptr)
