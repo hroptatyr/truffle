@@ -78,6 +78,10 @@ TESTS += trod_to_trod.5.abs.truftest
 TESTS += trod_to_trod.5.oco.truftest
 EXTRA_DIST += toy5.trod
 
+TESTS += toy1.1.mmy.truftest
+TESTS += toy1.2.mmy.truftest
+EXTRA_DIST += toy1.mmy.schema
+
 
 ## ggo rule
 %.c %.h: %.ggo
