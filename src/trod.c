@@ -100,14 +100,28 @@
 # define PROT_MEM	(PROT_READ | PROT_WRITE)
 #endif	/* !PROT_MEM */
 
+#define __static_assert(COND, MSG)				\
+	typedef char static_assertion_##MSG[2 * (!!(COND)) - 1]
+#define __static_assert3(X, L)	__static_assert(X, static_assert_##L)
+#define __static_assert2(X, L)	__static_assert3(X, L)
+#define static_assert(X)	__static_assert2(X, __LINE__)
+
 typedef struct trod_state_s *trod_state_t;
 typedef struct trod_event_s *trod_event_t;
 
-struct trod_state_s {
+struct trod_stat3_s {
 	uint8_t val;
 	uint8_t month;
 	uint16_t year;
 };
+
+struct trod_state_s {
+	uint8_t val;
+	trym_t ym:TRYM_WIDTH;
+};
+
+static_assert(sizeof(struct trod_stat3_s) == 4U);
+static_assert(sizeof(struct trod_stat3_s) == 4U);
 
 /* a single trod event,
  * this coincides with echse's struct echs_event_s only that the state is
@@ -143,23 +157,6 @@ struct troq_s {
 };
 
 
-#if !defined STANDALONE
-/* helpers */
-static uint32_t
-strtoui(const char *str, const char **ep)
-{
-	uint32_t res = 0U;
-	const char *sp;
-
-	for (sp = str; *sp >= '0' && *sp <= '9'; sp++) {
-		res *= 10;
-		res += *sp - '0';
-	}
-	*ep = (const char*)sp;
-	return res;
-}
-#endif	/* !STANDALONE */
-
 static void*
 make_gq_item(gq_t x, size_t nmemb, size_t membz)
 {
@@ -247,7 +244,7 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 	} res;
 	const char *p;
 	const char *q;
-	uint32_t ym;
+	trym_t ym;
 
 	if ((p = strchr(line, '\t')) == NULL) {
 		goto nul;
@@ -269,36 +266,12 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 snarf:
 	/* now it's either YYYY-MM, or M-YYYY or M-dy where DY is relative
 	 * to the year portion of I */
-	if ((res.st.month = (uint8_t)m_to_i(*p))) {
-		p++;
-	}
-	/* snarf off the bit after the month */
-	ym = strtoui(p, &q);
-
-	if (UNLIKELY(q == p)) {
+	if (UNLIKELY(!(ym = read_trym(p, &q)) || q <= p)) {
 		goto nul;
-	} else if (ym < 1024U) {
-		/* something like G0 or F4 or so */
-		res.st.year = (uint16_t)(ym + res.ev.when.y);
-	} else if (ym < 4096U) {
-		/* absolute year, G2032 or H2102*/
-		res.st.year = (uint16_t)ym;
-		if (!res.st.month && *q == '-') {
-			/* %Y-%m syntax? */
-			p = q + 1;
-			if (LIKELY((ym = strtoui(p, &q)) &&
-				   q > p && ym <= 12U)) {
-				res.st.month = (uint8_t)ym;
-			}
-		}
-	} else if (ym < 299913U) {
-		/* that's %Y%m syntax innit? */
-		res.st.year = (uint16_t)(ym / 100U);
-		res.st.month = (uint8_t)(ym % 100U);
-	} else if (ym < 29991232U) {
-		/* %Y%m%d syntax but we can't deal with d */
-		res.st.year = (uint16_t)((ym / 100U) / 100U);
-		res.st.month = (uint8_t)((ym / 100U) % 100U);
+	}
+	/* always use absolute tryms */
+	if (trym_yr(ym) < TRYM_YR_CUTOFF) {
+		res.st.ym = abs_trym(ym, res.ev.when.y);
 	}
 	/* check if it's a A->B state */
 	if (*q++ == '-' && *q++ == '>') {
@@ -536,8 +509,7 @@ troq_add_cline(trod_event_t qi, const struct cline_s *p, daysi_t when)
 		} else {
 			continue;
 		}
-		qi->what->month = (uint8_t)m_to_i(p->month);
-		qi->what->year = (uint16_t)(y + p->year_off);
+		qi->what->ym = cym_to_trym(y + p->year_off, m_to_i(p->month));
 
 		/* indicate success (as in clear for adding) */
 		return 0;
@@ -639,9 +611,9 @@ print_trod_event(trod_event_t ev, FILE *whither)
 	p += dt_strf(buf, sizeof(buf), ev->when);
 	*p++ = '\t';
 	var = p;
-	for (const struct trod_state_s *s = ev->what; s->month; s++, p = var) {
-		unsigned int m = s->month;
-		unsigned int y = s->year;
+	for (const struct trod_state_s *s = ev->what; s->ym; s++, p = var) {
+		unsigned int m = trym_mo(s->ym);
+		unsigned int y = trym_yr(s->ym);
 		int ry = y - ev->when.y;
 
 		if (!s->val) {
