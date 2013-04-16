@@ -49,7 +49,7 @@ typedef int32_t trym_t;
 #define TRYM_WIDTH	(24U)
 
 
-DECLF trym_t read_trym(const char *str, char **restrict ptr);
+DECLF trym_t read_trym(const char *str, const char **restrict ptr);
 
 
 static inline __attribute__((pure, const)) trym_t

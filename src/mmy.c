@@ -78,7 +78,7 @@ __p2c(const char *str)
 
 
 DEFUN trym_t
-read_trym(const char *str, char **restrict ptr)
+read_trym(const char *str, const char **restrict ptr)
 {
 	const char *sp = str;
 	const char *sq;
@@ -122,7 +122,7 @@ read_trym(const char *str, char **restrict ptr)
 	res = cym_to_trym(yr, mo);
 	/* assign end pointer */
 	if (ptr) {
-		*ptr = __p2c(sq);
+		*ptr = (const char*)sq;
 	}
 	return res;
 }
