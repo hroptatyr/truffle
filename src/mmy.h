@@ -40,7 +40,7 @@
 #include <stdint.h>
 
 /* our notion of MMY */
-typedef uint32_t trym_t;
+typedef int32_t trym_t;
 #define TRYM_WIDTH	(24U)
 
 
@@ -48,6 +48,31 @@ static inline __attribute__((pure, const)) trym_t
 cym_to_trym(unsigned int year, unsigned int mon)
 {
 	return (year << 8U) | (mon & 0xffU);
+}
+
+static inline __attribute__((pure, const)) int
+trym_yr(trym_t ym)
+{
+	return ym >> 8U;
+}
+
+static inline __attribute__((pure, const)) unsigned int
+trym_mo(trym_t ym)
+{
+	return ym & 0xffU;
+}
+
+static inline __attribute__((pure, const)) trym_t
+rel_trym(trym_t ym, int year)
+{
+/* return a trym relative to YEAR, i.e. F0 for F2000 for year == 2000 */
+	return cym_to_trym(trym_yr(ym) - year, ym);
+}
+
+static inline __attribute__((pure, const)) trym_t
+abs_trym(trym_t ym, int year)
+{
+	return cym_to_trym(trym_yr(ym) + year, ym);
 }
 
 static inline char
