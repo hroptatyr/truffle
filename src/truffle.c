@@ -55,6 +55,7 @@
 #include "yd.h"
 #include "dt-strpf.h"
 #include "series.h"
+#include "mmy.h"
 
 #if defined STANDALONE
 # include <stdio.h>
@@ -208,7 +209,7 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		trym_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_trym(year, mon);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -291,7 +292,7 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		trym_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_trym(year, mon);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -357,7 +358,7 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		char mon = c->comps[i].month;
 		uint16_t year = c->comps[i].year;
-		trym_t ym = cym_to_ym(mon, year);
+		trym_t ym = cym_to_trym(year, mon);
 		double expo;
 		ssize_t idx;
 		double flo;
