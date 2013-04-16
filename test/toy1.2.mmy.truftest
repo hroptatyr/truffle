@@ -1,0 +1,19 @@
+## -*- shell-script -*-
+
+TOOL=truffle
+CMDLINE="--series '${srcdir}/toy1.mmy.series' --schema '${srcdir}/toy1.schema' -f"
+
+## STDIN
+ 
+## STDOUT
+cat > "${TS_EXP_STDOUT}" <<EOF
+2011-01-03	0
+2011-01-04	1
+2011-01-05	11
+2011-01-06	10
+2011-01-07	10
+2011-01-08	10
+2011-01-09	10
+EOF
+
+## toy1.2.truftest ends here

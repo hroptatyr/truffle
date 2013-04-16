@@ -19,7 +19,7 @@ libtruffle_a_SOURCES += schema.c schema.h
 libtruffle_a_SOURCES += series.c series.h
 libtruffle_a_SOURCES += trod.c trod.h
 libtruffle_a_SOURCES += cut.c cut.h
-libtruffle_a_SOURCES += mmy.h
+libtruffle_a_SOURCES += mmy.c mmy.h
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle-clo.ggo
