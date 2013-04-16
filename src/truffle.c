@@ -622,7 +622,7 @@ print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, struct trcut_pr_s opt)
 			if (opt.oco) {
 				q += snprintf(
 					q, sizeof(buf) - (q - buf),
-					"%02u ", mo + 1U);
+					"%02u", mo + 1U);
 			}
 			*q++ = ' ';
 		}
