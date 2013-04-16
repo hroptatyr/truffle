@@ -51,11 +51,13 @@
 #endif	/* WORDS_BIGENDIAN */
 #include "truffle.h"
 #include "schema.h"
+#include "trod.h"
 #include "cut.h"
 #include "yd.h"
 #include "dt-strpf.h"
 #include "series.h"
 #include "mmy.h"
+#include "gbs.h"
 
 #if defined STANDALONE
 # include <stdio.h>
@@ -496,6 +498,130 @@ roll_over_series(
 }
 
 
+/* trod goodness */
+typedef struct trod_state_s *trod_state_t;
+typedef struct trod_event_s *trod_event_t;
+
+struct trod_state_s {
+	uint8_t val;
+	trym_t ym:TRYM_WIDTH;
+};
+
+struct trod_event_s {
+	trod_instant_t when;
+	struct trod_state_s what[];
+};
+
+/* trod container */
+struct trod_s {
+	size_t ninst;
+	size_t nev;
+	/* 0_event terminated list of events (NINST of them) */
+	trod_event_t ev[];
+};
+
+static void
+activate(gbs_t bs, int ry, unsigned int m)
+{
+	gbs_set(bs, 12 * ry + (m - 1));
+	return;
+}
+
+static inline void
+deactivate(gbs_t bs, int ry, unsigned int m)
+{
+	gbs_unset(bs, 12 * ry + (m - 1));
+	return;
+}
+
+static inline int
+activep(gbs_t bs, int ry, unsigned int m)
+{
+	return gbs_set_p(bs, 12 * ry + (m - 1));
+}
+
+static void
+flip_over(gbs_t bs, int ry)
+{
+/* flip over to a new year in the ACTIVE bitset */
+	gbs_shift_lsb(bs, 12 * ry);
+	return;
+}
+
+static void
+update_gbs_ev(gbs_t bs, trod_event_t ev)
+{
+	for (const struct trod_state_s *s = ev->what; s->ym; s++) {
+		unsigned int m = trym_mo(s->ym);
+		unsigned int y = trym_yr(s->ym);
+		int ry = y - ev->when.y;
+
+		if (!s->val) {
+			deactivate(bs, ry, m);
+		} else if (s->val > 1U && activep(bs, ry, m)) {
+			continue;
+		} else {
+			activate(bs, ry, m);
+		}
+	}
+	return;
+}
+
+static void
+update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
+{
+	static trod_instant_t last;
+	static size_t i;
+
+	if (trod_inst_lt_p(inst, last)) {
+		/* we'll have to build it all up again */
+		last = (trod_instant_t){0};
+		i = 0;
+	}
+	for (; i < td->ninst; i++) {
+		trod_event_t x = td->ev[i];
+
+		if (last.y < x->when.y) {
+			flip_over(bs, x->when.y - last.y);
+		}
+		if (trod_inst_lt_p(inst, x->when)) {
+			/* we went to far, aye? */
+			last = inst;
+			break;
+		}
+		update_gbs_ev(bs, x);
+		last = x->when;
+	}
+	return;
+}
+
+static void
+print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, FILE *whither)
+{
+	static char buf[256];
+	char *q = buf;
+
+	update_gbs(bs, td, inst);
+	q += dt_strf(buf, sizeof(buf), inst);
+	*q++ = '\t';
+	for (size_t k = 0; k < bs->nbits; k++) {
+		unsigned int yr = k / 12U;
+		unsigned int mo = k % 12U;
+
+		if (activep(bs, yr, mo + 1U)) {
+			*q++ = i_to_m(mo + 1U);
+			q += snprintf(
+				q, sizeof(buf) - (q - buf), "%u ", yr);
+		}
+	}
+	q--;
+	*q++ = '\n';
+	*q = '\0';
+	fputs(buf, whither);
+	return;
+}
+
+
 #if defined STANDALONE
 #if defined __INTEL_COMPILER
 # pragma warning (disable:593)
@@ -511,6 +637,7 @@ main(int argc, char *argv[])
 {
 	struct gengetopt_args_info argi[1];
 	trsch_t sch = NULL;
+	trod_t td = NULL;
 	trtsc_t ser = NULL;
 	int res = 0;
 
@@ -523,7 +650,11 @@ main(int argc, char *argv[])
 	} else {
 		sch = read_schema("-");
 	}
-	if (UNLIKELY(sch == NULL)) {
+	if (sch == NULL && argi->schema_given) {
+		/* retry with trod reader */
+		td = read_trod(argi->schema_arg);
+	}
+	if (UNLIKELY(sch == NULL && td == NULL)) {
 		fputs("schema unreadable\n", stderr);
 		res = 1;
 		goto sch_out;
@@ -554,7 +685,12 @@ main(int argc, char *argv[])
 
 	} else if (sch != NULL && argi->inputs_num == 0) {
 		print_schema(sch, stdout);
-	} else {
+
+	} else if (td != NULL && argi->inputs_num == 0) {
+		fputs("\
+Use trod tool to display trod description files\n", stdout);
+
+	} else if (sch != NULL) {
 		struct trcut_pr_s opt = {
 			.abs = argi->abs_given,
 			.oco = argi->oco_given,
@@ -575,6 +711,20 @@ main(int argc, char *argv[])
 		if (c) {
 			free_cut(c);
 		}
+	} else if (td != NULL) {
+		struct gbs_s active[1U] = {{0U}};
+
+		init_gbs(active, 12U * 5U);
+		for (size_t i = 0; i < argi->inputs_num; i++) {
+			trod_instant_t inst = dt_strp(argi->inputs[i]);
+
+			print_contracts(active, td, inst, stdout);
+		}
+		fini_gbs(active);
+
+	} else {
+		/* not reached */
+		;
 	}
 
 	if (ser != NULL) {
