@@ -596,7 +596,7 @@ update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
 }
 
 static void
-print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, FILE *whither)
+print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, struct trcut_pr_s opt)
 {
 	static char buf[256];
 	char *q = buf;
@@ -609,15 +609,28 @@ print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, FILE *whither)
 		unsigned int mo = k % 12U;
 
 		if (activep(bs, yr, mo + 1U)) {
-			*q++ = i_to_m(mo + 1U);
+			if (opt.abs || opt.oco) {
+				yr += inst.y;
+			}
+			if (!opt.oco) {
+				*q++ = i_to_m(mo + 1U);
+			}
+			/* always print the year */
 			q += snprintf(
-				q, sizeof(buf) - (q - buf), "%u ", yr);
+				q, sizeof(buf) - (q - buf),
+				"%u", yr);
+			if (opt.oco) {
+				q += snprintf(
+					q, sizeof(buf) - (q - buf),
+					"%02u ", mo + 1U);
+			}
+			*q++ = ' ';
 		}
 	}
 	q--;
 	*q++ = '\n';
 	*q = '\0';
-	fputs(buf, whither);
+	fputs(buf, opt.out);
 	return;
 }
 
@@ -713,12 +726,19 @@ Use trod tool to display trod description files\n", stdout);
 		}
 	} else if (td != NULL) {
 		struct gbs_s active[1U] = {{0U}};
+		struct trcut_pr_s opt = {
+			.abs = argi->abs_given,
+			.oco = argi->oco_given,
+			.rnd = argi->round_given,
+			.lever = argi->lever_given ? argi->lever_arg : 1.0,
+			.out = stdout,
+		};
 
 		init_gbs(active, 12U * 5U);
 		for (size_t i = 0; i < argi->inputs_num; i++) {
 			trod_instant_t inst = dt_strp(argi->inputs[i]);
 
-			print_contracts(active, td, inst, stdout);
+			print_contracts(active, td, inst, opt);
 		}
 		fini_gbs(active);
 
