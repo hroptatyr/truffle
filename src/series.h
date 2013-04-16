@@ -57,7 +57,7 @@ struct trtsc_s {
 	size_t ncons;
 	idate_t first;
 	idate_t last;
-	uint32_t *cons;
+	trym_t *cons;
 	struct __dvv_s *dvvs;
 };
 
