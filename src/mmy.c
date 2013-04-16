@@ -96,7 +96,7 @@ read_trym(const char *str, const char **restrict ptr)
 	if (UNLIKELY(sq == sp)) {
 		/* completely fucked innit */
 		return 0U;
-	} else if (ym < 1024U) {
+	} else if (ym < TRYM_YR_CUTOFF) {
 		/* something like G0 or F4 or so */
 		yr = ym;
 	} else if (ym < 4096U) {

@@ -48,6 +48,9 @@
 typedef int32_t trym_t;
 #define TRYM_WIDTH	(24U)
 
+/* first year interpreted as absolute */
+#define TRYM_YR_CUTOFF	(1024)
+
 
 DECLF trym_t read_trym(const char *str, const char **restrict ptr);
 
