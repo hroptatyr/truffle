@@ -82,6 +82,30 @@ TESTS += toy1.1.mmy.truftest
 TESTS += toy1.2.mmy.truftest
 EXTRA_DIST += toy1.mmy.series
 
+TESTS += trod.1.truftest
+TESTS += trod.1.f.truftest
+EXTRA_DIST += toy1.trod
+
+TESTS += trod.2.truftest
+TESTS += trod.2.f.truftest
+EXTRA_DIST += toy2.trod
+
+TESTS += trod.2.abs.truftest
+TESTS += trod.2.abs.f.truftest
+EXTRA_DIST += toy2.abs.trod
+
+TESTS += trod.2.oco.truftest
+TESTS += trod.2.oco.f.truftest
+EXTRA_DIST += toy2.oco.trod
+
+TESTS += truffle_schema_contracts.1.deflt.truftest
+TESTS += truffle_schema_contracts.1.abs.truftest
+TESTS += truffle_schema_contracts.1.oco.truftest
+
+TESTS += truffle_trod_contracts.1.deflt.truftest
+TESTS += truffle_trod_contracts.1.abs.truftest
+TESTS += truffle_trod_contracts.1.oco.truftest
+
 
 ## ggo rule
 %.c %.h: %.ggo

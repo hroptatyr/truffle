@@ -270,8 +270,9 @@ snarf:
 		goto nul;
 	} else if (ym < TRYM_ABS_CUTOFF) {
 		/* always use absolute tryms */
-		res.st.ym = abs_trym(ym, res.ev.when.y);
+		ym = abs_trym(ym, res.ev.when.y);
 	}
+	res.st.ym = ym;
 	/* check if it's a A->B state */
 	if (*q++ == '-' && *q++ == '>') {
 		/* ah good, but we need to capture the bit right of the arrow */
