@@ -29,7 +29,7 @@ truffle_LDADD = libtruffle.a
 truffle_LDADD += -lm
 BUILT_SOURCES += truffle-clo.c truffle-clo.h
 
-noinst_PROGRAMS += trod
+bin_PROGRAMS += trod
 trod_SOURCES = trod.c trod-clo.ggo
 trod_SOURCES += mmy.h
 trod_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
