@@ -1,5 +1,6 @@
 args "--unamed-opts --no-handle-error --long-help -a tr_args_info -f tr_parser"
 package "trod"
+usage "trod [OPTIONS...] SCHEMA"
 description "Convert roll-over schema files to echse format."
 
 option "from" -
