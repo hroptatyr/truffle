@@ -548,9 +548,11 @@ flip_over(gbs_t bs, int ry)
 	return;
 }
 
-static void
+static int
 update_gbs_ev(gbs_t bs, trod_event_t ev)
 {
+	int res = 0;
+
 	for (const struct trod_state_s *s = ev->what; s->ym; s++) {
 		unsigned int m = trym_mo(s->ym);
 		unsigned int y = trym_yr(s->ym);
@@ -558,20 +560,23 @@ update_gbs_ev(gbs_t bs, trod_event_t ev)
 
 		if (!s->val) {
 			deactivate(bs, ry, m);
+			res++;
 		} else if (s->val > 1U && activep(bs, ry, m)) {
 			continue;
 		} else {
 			activate(bs, ry, m);
+			res++;
 		}
 	}
-	return;
+	return res;
 }
 
-static void
+static int
 update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
 {
 	static trod_instant_t last;
 	static size_t i;
+	int res = 0;
 
 	if (trod_inst_lt_p(inst, last)) {
 		/* we'll have to build it all up again */
@@ -589,10 +594,10 @@ update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
 			last = inst;
 			break;
 		}
-		update_gbs_ev(bs, x);
+		res += update_gbs_ev(bs, x);
 		last = x->when;
 	}
-	return;
+	return res;
 }
 
 static void
