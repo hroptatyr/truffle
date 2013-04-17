@@ -140,7 +140,7 @@ print_cut(trcut_t c, idate_t dt, struct trcut_pr_s opt)
 	char *p = buf;
 	char *var;
 
-	if (opt.abs) {
+	if (opt.abs || opt.oco) {
 		c->year_off = (uint16_t)(dt / 10000U);
 	}
 	p += snprint_idate(buf, sizeof(buf), dt);

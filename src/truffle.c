@@ -51,11 +51,13 @@
 #endif	/* WORDS_BIGENDIAN */
 #include "truffle.h"
 #include "schema.h"
+#include "trod.h"
 #include "cut.h"
 #include "yd.h"
 #include "dt-strpf.h"
 #include "series.h"
 #include "mmy.h"
+#include "gbs.h"
 
 #if defined STANDALONE
 # include <stdio.h>
@@ -496,6 +498,233 @@ roll_over_series(
 }
 
 
+/* trod goodness */
+typedef struct trod_state_s *trod_state_t;
+typedef struct trod_event_s *trod_event_t;
+
+struct trod_state_s {
+	uint8_t val;
+	trym_t ym:TRYM_WIDTH;
+};
+
+struct trod_event_s {
+	trod_instant_t when;
+	struct trod_state_s what[];
+};
+
+/* trod container */
+struct trod_s {
+	size_t ninst;
+	size_t nev;
+	/* 0_event terminated list of events (NINST of them) */
+	trod_event_t ev[];
+};
+
+static inline void
+activate(gbs_t bs, int ry, unsigned int m)
+{
+	gbs_set(bs, 12 * ry + (m - 1));
+	return;
+}
+
+static inline void
+deactivate(gbs_t bs, int ry, unsigned int m)
+{
+	gbs_unset(bs, 12 * ry + (m - 1));
+	return;
+}
+
+static inline int
+activep(gbs_t bs, int ry, unsigned int m)
+{
+	return gbs_set_p(bs, 12 * ry + (m - 1));
+}
+
+static inline void
+flip_over(gbs_t bs, int ry)
+{
+/* flip over to a new year in the ACTIVE bitset */
+	gbs_shift_lsb(bs, 12 * ry);
+	return;
+}
+
+static int
+update_gbs_ev(gbs_t bs, trod_event_t ev)
+{
+	int res = 0;
+
+	for (const struct trod_state_s *s = ev->what; s->ym; s++) {
+		unsigned int m = trym_mo(s->ym);
+		unsigned int y = trym_yr(s->ym);
+		int ry = y - ev->when.y;
+
+		if (!s->val) {
+			deactivate(bs, ry, m);
+			res++;
+		} else if (s->val > 1U && activep(bs, ry, m)) {
+			continue;
+		} else {
+			activate(bs, ry, m);
+			res++;
+		}
+	}
+	return res;
+}
+
+static int
+update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
+{
+	static trod_instant_t last;
+	static size_t i;
+	int res = 0;
+
+	if (trod_inst_lt_p(inst, last)) {
+		/* we'll have to build it all up again */
+		last = (trod_instant_t){0};
+		i = 0;
+	}
+	for (; i < td->ninst; i++) {
+		trod_event_t x = td->ev[i];
+
+		if (last.y < x->when.y) {
+			flip_over(bs, x->when.y - last.y);
+		}
+		if (trod_inst_lt_p(inst, x->when)) {
+			/* we went to far, aye? */
+			last = inst;
+			break;
+		}
+		res += update_gbs_ev(bs, x);
+		last = x->when;
+	}
+	return res;
+}
+
+static void
+print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, struct trcut_pr_s opt)
+{
+	static char buf[256];
+	char *q = buf;
+
+	update_gbs(bs, td, inst);
+	q += dt_strf(buf, sizeof(buf), inst);
+	*q++ = '\t';
+	for (size_t k = 0; k < bs->nbits; k++) {
+		unsigned int yr = k / 12U;
+		unsigned int mo = k % 12U;
+
+		if (activep(bs, yr, mo + 1U)) {
+			if (opt.abs || opt.oco) {
+				yr += inst.y;
+			}
+			if (!opt.oco) {
+				*q++ = i_to_m(mo + 1U);
+			}
+			/* always print the year */
+			q += snprintf(
+				q, sizeof(buf) - (q - buf),
+				"%u", yr);
+			if (opt.oco) {
+				q += snprintf(
+					q, sizeof(buf) - (q - buf),
+					"%02u", mo + 1U);
+			}
+			*q++ = ' ';
+		}
+	}
+	q--;
+	*q++ = '\n';
+	*q = '\0';
+	fputs(buf, opt.out);
+	return;
+}
+
+static trcut_t
+make_cut_from_gbs(trcut_t cut, struct gbs_s bs[static 1], trod_instant_t inst)
+{
+	if (cut) {
+		/* quickly rinse the old cut */
+		for (size_t i = 0; i < cut->ncomps; i++) {
+			cut->comps[i].y = 0.0;
+		}
+	}
+	for (size_t k = 0; k < bs->nbits; k++) {
+		unsigned int yr = k / 12U;
+		unsigned int mo = k % 12U;
+
+		if (activep(bs, yr, mo + 1U)) {
+			struct trcc_s cc;
+
+			cc.month = (uint8_t)i_to_m(mo + 1U);
+			cc.year = (uint16_t)(yr + inst.y);
+			cc.y = 1.0;
+
+			/* add this cut cell */
+			cut = cut_add_cc(cut, cc);
+		}
+	}
+	return cut;
+}
+
+static void
+trod_roll_over_series(
+	trod_t td, trtsc_t ser, struct __series_spec_s ser_sp, FILE *whither)
+{
+	struct gbs_s active[1] = {{0}};
+	trcut_t c = NULL;
+	struct __cutflo_st_s cfst;
+	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
+		pick_cf_fun(ser_sp);
+	const unsigned int trbit = UNLIKELY(ser_sp.sparsep)
+		? CUTFLO_HAS_TRANS_BIT : CUTFLO_TRANS_NON_NIL;
+
+	/* initialise the activity tracker */
+	init_gbs(active, 12U * 5U);
+	/* init out cut flow state structure */
+	init_cutflo_st(&cfst, ser, ser_sp.tick_val, ser_sp.basis);
+	/* traverse the series, it's chronological */
+	for (size_t i = 0; i < ser->ndvvs; i++) {
+		idate_t dt = ser->dvvs[i].d;
+		trod_instant_t di = {
+			idate_y(dt), idate_m(dt), idate_d(dt), TROD_ALL_DAY,
+		};
+
+		if (update_gbs(active, td, di)) {
+			/* update the cut */
+			c = make_cut_from_gbs(c, active, di);
+		}
+		/* do fuckall if cut is empty */
+		if (c == NULL) {
+			continue;
+		}
+
+		if (cf(&cfst, c, dt) > trbit) {
+			char buf[32];
+			double val;
+
+			if (LIKELY(!ser_sp.abs_dimen_p && ser_sp.cump)) {
+				val = cfst.cum_flo + cfst.basis;
+			} else if (LIKELY(!ser_sp.abs_dimen_p)) {
+				val = cfst.inc_flo;
+			} else if (LIKELY(!ser_sp.cump)) {
+				val = cfst.inc_flo;
+			} else {
+				val = cfst.cum_flo;
+			}
+			snprint_idate(buf, sizeof(buf), dt);
+			fprintf(whither, "%s\t%.8g\n", buf, val);
+		}
+	}
+	/* free up resources */
+	if (c) {
+		free_cut(c);
+	}
+	free_cutflo_st(&cfst);
+	fini_gbs(active);
+	return;
+}
+
+
 #if defined STANDALONE
 #if defined __INTEL_COMPILER
 # pragma warning (disable:593)
@@ -511,6 +740,7 @@ main(int argc, char *argv[])
 {
 	struct gengetopt_args_info argi[1];
 	trsch_t sch = NULL;
+	trod_t td = NULL;
 	trtsc_t ser = NULL;
 	int res = 0;
 
@@ -523,7 +753,11 @@ main(int argc, char *argv[])
 	} else {
 		sch = read_schema("-");
 	}
-	if (UNLIKELY(sch == NULL)) {
+	if (sch == NULL && argi->schema_given) {
+		/* retry with trod reader */
+		td = read_trod(argi->schema_arg);
+	}
+	if (UNLIKELY(sch == NULL && td == NULL)) {
 		fputs("schema unreadable\n", stderr);
 		res = 1;
 		goto sch_out;
@@ -552,9 +786,26 @@ main(int argc, char *argv[])
 		};
 		roll_over_series(sch, ser, sp, stdout);
 
+	} else if (ser != NULL && td != NULL) {
+		struct __series_spec_s sp = {
+			.tick_val = argi->tick_value_given
+			? argi->tick_value_arg : 1.0,
+			.basis = argi->basis_given
+			? argi->basis_arg : NAN,
+			.cump = !argi->flow_given,
+			.abs_dimen_p = argi->abs_dimen_given,
+			.sparsep = argi->sparse_given,
+		};
+		trod_roll_over_series(td, ser, sp, stdout);
+
 	} else if (sch != NULL && argi->inputs_num == 0) {
 		print_schema(sch, stdout);
-	} else {
+
+	} else if (td != NULL && argi->inputs_num == 0) {
+		fputs("\
+Use trod tool to display trod description files\n", stdout);
+
+	} else if (sch != NULL) {
 		struct trcut_pr_s opt = {
 			.abs = argi->abs_given,
 			.oco = argi->oco_given,
@@ -575,6 +826,26 @@ main(int argc, char *argv[])
 		if (c) {
 			free_cut(c);
 		}
+	} else if (td != NULL) {
+		struct gbs_s active[1U] = {{0U}};
+		struct trcut_pr_s opt = {
+			.abs = argi->abs_given,
+			.oco = argi->oco_given,
+			.rnd = argi->round_given,
+			.out = stdout,
+		};
+
+		init_gbs(active, 12U * 5U);
+		for (size_t i = 0; i < argi->inputs_num; i++) {
+			trod_instant_t inst = dt_strp(argi->inputs[i]);
+
+			print_contracts(active, td, inst, opt);
+		}
+		fini_gbs(active);
+
+	} else {
+		/* not reached */
+		;
 	}
 
 	if (ser != NULL) {
