@@ -3,7 +3,9 @@ LC_ALL = C
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src test
+SUBDIRS =
+SUBDIRS += src
+SUBDIRS += test
 
 EXTRA_DIST = .version git-version-gen
 EXTRA_DIST += m4/.dir
