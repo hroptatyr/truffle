@@ -44,6 +44,8 @@ AC_CHECK_TOOLS([AR], [xiar ar], [false])
 AC_C_BIGENDIAN
 AC_PROG_RANLIB
 
+AM_MISSING_PROG([HELP2MAN], [help2man], ["${missing_dir}"])
+
 ## trivial, no special stuff needed
 apps=" truffle"
 
