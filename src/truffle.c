@@ -520,7 +520,7 @@ struct trod_s {
 	trod_event_t ev[];
 };
 
-static void
+static inline void
 activate(gbs_t bs, int ry, unsigned int m)
 {
 	gbs_set(bs, 12 * ry + (m - 1));
@@ -540,7 +540,7 @@ activep(gbs_t bs, int ry, unsigned int m)
 	return gbs_set_p(bs, 12 * ry + (m - 1));
 }
 
-static void
+static inline void
 flip_over(gbs_t bs, int ry)
 {
 /* flip over to a new year in the ACTIVE bitset */
