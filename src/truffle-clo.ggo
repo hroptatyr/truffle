@@ -1,5 +1,7 @@
 args "--unamed-opts=DATE"
 package "truffle"
+usage "truffle [OPTIONS...] DATEs...
+       truffle [OPTIONS...] --series FILE"
 description "Roll-over tool for futures.
 Input is read from stdin and must follow the specs:
   MCODE DATE VALUE DATE VALUE ...
