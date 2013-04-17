@@ -639,6 +639,91 @@ print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, struct trcut_pr_s opt)
 	return;
 }
 
+static trcut_t
+make_cut_from_gbs(trcut_t cut, struct gbs_s bs[static 1], trod_instant_t inst)
+{
+	if (cut) {
+		/* quickly rinse the old cut */
+		for (size_t i = 0; i < cut->ncomps; i++) {
+			cut->comps[i].y = 0.0;
+		}
+	}
+	for (size_t k = 0; k < bs->nbits; k++) {
+		unsigned int yr = k / 12U;
+		unsigned int mo = k % 12U;
+
+		if (activep(bs, yr, mo + 1U)) {
+			struct trcc_s cc;
+
+			cc.month = (uint8_t)i_to_m(mo + 1U);
+			cc.year = (uint16_t)(yr + inst.y);
+			cc.y = 1.0;
+
+			/* add this cut cell */
+			cut = cut_add_cc(cut, cc);
+		}
+	}
+	return cut;
+}
+
+static void
+trod_roll_over_series(
+	trod_t td, trtsc_t ser, struct __series_spec_s ser_sp, FILE *whither)
+{
+	struct gbs_s active[1] = {{0}};
+	trcut_t c = NULL;
+	struct __cutflo_st_s cfst;
+	cutflo_trans_t(*const cf)(struct __cutflo_st_s*, trcut_t, idate_t) =
+		pick_cf_fun(ser_sp);
+	const unsigned int trbit = UNLIKELY(ser_sp.sparsep)
+		? CUTFLO_HAS_TRANS_BIT : CUTFLO_TRANS_NON_NIL;
+
+	/* initialise the activity tracker */
+	init_gbs(active, 12U * 5U);
+	/* init out cut flow state structure */
+	init_cutflo_st(&cfst, ser, ser_sp.tick_val, ser_sp.basis);
+	/* traverse the series, it's chronological */
+	for (size_t i = 0; i < ser->ndvvs; i++) {
+		idate_t dt = ser->dvvs[i].d;
+		trod_instant_t di = {
+			idate_y(dt), idate_m(dt), idate_d(dt), TROD_ALL_DAY,
+		};
+
+		if (update_gbs(active, td, di)) {
+			/* update the cut */
+			c = make_cut_from_gbs(c, active, di);
+		}
+		/* do fuckall if cut is empty */
+		if (c == NULL) {
+			continue;
+		}
+
+		if (cf(&cfst, c, dt) > trbit) {
+			char buf[32];
+			double val;
+
+			if (LIKELY(!ser_sp.abs_dimen_p && ser_sp.cump)) {
+				val = cfst.cum_flo + cfst.basis;
+			} else if (LIKELY(!ser_sp.abs_dimen_p)) {
+				val = cfst.inc_flo;
+			} else if (LIKELY(!ser_sp.cump)) {
+				val = cfst.inc_flo;
+			} else {
+				val = cfst.cum_flo;
+			}
+			snprint_idate(buf, sizeof(buf), dt);
+			fprintf(whither, "%s\t%.8g\n", buf, val);
+		}
+	}
+	/* free up resources */
+	if (c) {
+		free_cut(c);
+	}
+	free_cutflo_st(&cfst);
+	fini_gbs(active);
+	return;
+}
+
 
 #if defined STANDALONE
 #if defined __INTEL_COMPILER
