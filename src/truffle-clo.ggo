@@ -1,7 +1,7 @@
 args "--unamed-opts=DATE"
 package "truffle"
 usage "truffle [OPTIONS...] DATEs...
-       truffle [OPTIONS...] --series FILE"
+   or: truffle [OPTIONS...] --series FILE"
 description "Roll-over tool for futures.
 
 The contracts mode accepts dates as input and outputs active contracts \
