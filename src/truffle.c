@@ -786,6 +786,18 @@ main(int argc, char *argv[])
 		};
 		roll_over_series(sch, ser, sp, stdout);
 
+	} else if (ser != NULL && td != NULL) {
+		struct __series_spec_s sp = {
+			.tick_val = argi->tick_value_given
+			? argi->tick_value_arg : 1.0,
+			.basis = argi->basis_given
+			? argi->basis_arg : NAN,
+			.cump = !argi->flow_given,
+			.abs_dimen_p = argi->abs_dimen_given,
+			.sparsep = argi->sparse_given,
+		};
+		trod_roll_over_series(td, ser, sp, stdout);
+
 	} else if (sch != NULL && argi->inputs_num == 0) {
 		print_schema(sch, stdout);
 
