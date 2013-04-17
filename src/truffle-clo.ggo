@@ -3,10 +3,12 @@ package "truffle"
 usage "truffle [OPTIONS...] DATEs...
        truffle [OPTIONS...] --series FILE"
 description "Roll-over tool for futures.
-Input is read from stdin and must follow the specs:
-  MCODE DATE VALUE DATE VALUE ...
-where DATE is %m%d and value is a non-negative double.
-If no DATEs"
+
+The contracts mode accepts dates as input and outputs active contracts \
+for those dates.
+
+The tseries mode accepts a file of quotes or settlement prices and \
+outputs the time series realised by a portfolio of active contracts."
 
 defmode "tseries" modedesc="Options in this mode apply roll-over schemas \
 to actual time series data."
