@@ -1,7 +1,7 @@
 args "--unamed-opts=DATE"
 package "truffle"
 usage "truffle [OPTIONS...] DATEs...
-       truffle [OPTIONS...] --series FILE"
+   or: truffle [OPTIONS...] --series FILE"
 description "Roll-over tool for futures.
 
 The contracts mode accepts dates as input and outputs active contracts \
@@ -10,11 +10,18 @@ for those dates.
 The tseries mode accepts a file of quotes or settlement prices and \
 outputs the time series realised by a portfolio of active contracts."
 
-defmode "tseries" modedesc="Options in this mode apply roll-over schemas \
-to actual time series data."
+defmode "tseries"
+	modedesc="Options in this mode apply roll-over schemas to \
+actual time series data.  The output will be the time series as \
+tracked by a portfolio of the active contracts, traded directly \
+on the provided prices.
+"
 
-defmode "contracts" modedesc="Options in this mode apply roll-over schemas \
-to dates, yielding absolute contracts."
+defmode "contracts"
+	modedesc="Options in this mode apply roll-over schemas to \
+dates, yielding absolute contracts.  That is, for any given DATE \
+argument the output will list the active contracts on that date.
+"
 
 ## common to all modes
 option "schema" s "Schema file, read from stdin if omitted" string optional
