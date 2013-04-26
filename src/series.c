@@ -78,97 +78,98 @@ struct __dv_s {
 # define PROT_MEM	(PROT_READ | PROT_WRITE)
 #endif	/* !PROT_MEM */
 
-static inline int
-resize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
+static inline void*
+resize_mmap(void *ptr, size_t cnt, size_t blksz, size_t inc)
 {
 	if (cnt == 0) {
 		size_t new = inc * blksz;
-		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
-		return 1;
+		ptr = mmap(ptr, new, PROT_MEM, MAP_MEM, -1, 0);
 
 	} else if (cnt % inc == 0) {
 		/* resize */
 		size_t old = cnt * blksz;
 		size_t new = (cnt + inc) * blksz;
-		*ptr = mremap(*ptr, old, new, MREMAP_MAYMOVE);
-		return 1;
+		ptr = mremap(ptr, old, new, MREMAP_MAYMOVE);
 	}
-	return 0;
+	return ptr;
 }
 
 static inline void
-unsize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
+unsize_mmap(void *ptr, size_t cnt, size_t blksz, size_t inc)
 {
 	size_t sz;
 
-	if (*ptr == NULL || cnt == 0) {
+	if (ptr == NULL || cnt == 0) {
 		return;
 	}
 
 	sz = ((cnt - 1) / inc + 1) * inc * blksz;
-	munmap(*ptr, sz);
-	*ptr = NULL;
+	munmap(ptr, sz);
 	return;
 }
 
-static inline void
-upsize_mmap(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc)
+static inline void*
+upsize_mmap(void *ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc)
 {
 /* like resize, but definitely provide space for cnt + inc objects */
 	size_t old = (cnt / inc + 1) * inc * blksz;
 	size_t new = (cnn / inc + 1) * inc * blksz;
 
-	if (*ptr == NULL) {
-		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
+	if (ptr == NULL) {
+		ptr = mmap(ptr, new, PROT_MEM, MAP_MEM, -1, 0);
 	} else if (old < new) {
-		*ptr = mremap(*ptr, old, new, MREMAP_MAYMOVE);
+		ptr = mremap(ptr, old, new, MREMAP_MAYMOVE);
 	}
-	return;
+	return ptr;
 }
 
 
 /* libc malloc helpers */
 static inline int
-resize_mall(void **ptr, size_t cnt, size_t blksz, size_t inc)
+resize_mall_p(void *UNUSED(ptr), size_t cnt, size_t UNUSED(blksz), size_t inc)
+{
+	return cnt == 0 || cnt % inc == 0;
+}
+
+static inline void*
+resize_mall(void *ptr, size_t cnt, size_t blksz, size_t inc)
 {
 	if (cnt == 0) {
-		*ptr = calloc(inc, blksz);
-		return 1;
+		ptr = calloc(inc, blksz);
 	} else if (cnt % inc == 0) {
 		/* resize */
 		size_t new = (cnt + inc) * blksz;
-		*ptr = realloc(*ptr, new);
-		return 1;
+		ptr = realloc(ptr, new);
 	}
-	return 0;
+	return ptr;
 }
 
 static inline void
-unsize_mall(void **ptr, size_t cnt, size_t UNUSED(blksz), size_t UNUSED(inc))
+unsize_mall(void *ptr, size_t cnt, size_t UNUSED(blksz), size_t UNUSED(inc))
 {
-	if (*ptr == NULL || cnt == 0) {
+	if (ptr == NULL || cnt == 0) {
 		return;
 	}
 
-	free(*ptr);
-	*ptr = NULL;
+	free(ptr);
 	return;
 }
 
-static inline void
-upsize_mall(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc, int f)
+static inline void*
+upsize_mall(void *ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc, int f)
 {
 /* like resize, but definitely provide space for cnt + inc objects */
 	size_t old = (cnt / inc + 1) * inc * blksz;
 	size_t new = (cnn / inc + 1) * inc * blksz;
-	if (*ptr == NULL) {
-		*ptr = malloc(new);
-		memset(*ptr, f, new);
+
+	if (ptr == NULL) {
+		ptr = malloc(new);
+		memset(ptr, f, new);
 	} else if (old < new) {
-		*ptr = realloc(*ptr, new);
-		memset((char*)*ptr + old, f, new - old);
+		ptr = realloc(ptr, new);
+		memset((char*)ptr + old, f, new - old);
 	}
-	return;
+	return ptr;
 }
 
 
@@ -177,9 +178,10 @@ static struct __dvv_s*
 tsc_init_dvv(trtsc_t s, size_t idx, idate_t dt)
 {
 	struct __dvv_s *t = s->dvvs + idx;
+
 	t->d = dt;
 	/* make room for s->ncons doubles and set them to nan */
-	upsize_mall((void**)&t->v, 0, s->ncons, sizeof(*t->v), CYM_STEP, -1);
+	t->v = upsize_mall(t->v, 0, s->ncons, sizeof(*t->v), CYM_STEP, -1);
 	return t;
 }
 
@@ -214,7 +216,7 @@ tsc_move(trtsc_t s, ssize_t idx, int num)
 	size_t nmov;
 	size_t nndvvs = s->ndvvs + num;
 
-	upsize_mmap(tmp, s->ndvvs, nndvvs, sizeof(*s->dvvs), TSC_STEP);
+	tmp = upsize_mmap(tmp, s->ndvvs, nndvvs, sizeof(*s->dvvs), TSC_STEP);
 	nmov = (s->ndvvs - idx) * sizeof(*s->dvvs);
 	memmove(s->dvvs + idx + num, s->dvvs + idx, nmov);
 	memset(s->dvvs + idx, 0, num * sizeof(*s->dvvs));
@@ -231,8 +233,8 @@ tsc_add_dv(trtsc_t s, trym_t ym, struct __dv_s dv)
 	/* find the date in question first */
 	if (dv.d > s->last) {
 		/* append */
-		void **tmp = (void**)&s->dvvs;
-		resize_mmap(tmp, s->ndvvs, sizeof(*s->dvvs), TSC_STEP);
+		s->dvvs = resize_mmap(
+			s->dvvs, s->ndvvs, sizeof(*s->dvvs), TSC_STEP);
 		this = tsc_init_dvv(s, s->ndvvs++, dv.d);
 		/* update stats */
 		s->last = dv.d;
@@ -259,11 +261,15 @@ warning: unsorted input data will result in poor performance\n", stderr);
 	/* now find the cmy offset */
 	if ((idx = tsc_find_cym_idx(s, ym)) < 0) {
 		/* append symbol */
-		void **tmp = (void**)&s->cons;
-		if (resize_mall(tmp, s->ncons, sizeof(*s->cons), CYM_STEP)) {
+
+		if (resize_mall_p(
+			    s->cons, s->ncons, sizeof(*s->cons), CYM_STEP)) {
+			/* need resizing */
+			s->cons = resize_mall(
+				s->cons, s->ncons, sizeof(*s->cons), CYM_STEP);
 			for (size_t i = 0; i < s->ndvvs; i++) {
-				upsize_mall(
-					(void**)&s->dvvs[i].v, 0, s->ncons,
+				s->dvvs[i].v = upsize_mall(
+					s->dvvs[i].v, 0, s->ncons,
 					sizeof(*s->dvvs[i].v), CYM_STEP, -1);
 			}
 		}
@@ -338,11 +344,10 @@ DEFUN void
 free_series(trtsc_t s)
 {
 	for (size_t i = 0; i < s->ndvvs; i++) {
-		void **tmp = (void**)&s->dvvs[i].v;
-		unsize_mall(tmp, s->ncons, sizeof(double), CYM_STEP);
+		unsize_mall(s->dvvs[i].v, s->ncons, sizeof(double), CYM_STEP);
 	}
-	unsize_mall((void**)&s->cons, s->ncons, sizeof(*s->cons), CYM_STEP);
-	unsize_mmap((void**)&s->dvvs, s->ndvvs, sizeof(*s->dvvs), TSC_STEP);
+	unsize_mall(s->cons, s->ncons, sizeof(*s->cons), CYM_STEP);
+	unsize_mmap(s->dvvs, s->ndvvs, sizeof(*s->dvvs), TSC_STEP);
 	free(s);
 	return;
 }
