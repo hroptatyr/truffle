@@ -83,7 +83,7 @@ resize_mmap(void **ptr, size_t cnt, size_t blksz, size_t inc)
 {
 	if (cnt == 0) {
 		size_t new = inc * blksz;
-		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
+		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, -1, 0);
 		return 1;
 
 	} else if (cnt % inc == 0) {
@@ -119,7 +119,7 @@ upsize_mmap(void **ptr, size_t cnt, size_t cnn, size_t blksz, size_t inc)
 	size_t new = (cnn / inc + 1) * inc * blksz;
 
 	if (*ptr == NULL) {
-		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, 0, 0);
+		*ptr = mmap(NULL, new, PROT_MEM, MAP_MEM, -1, 0);
 	} else if (old < new) {
 		*ptr = mremap(*ptr, old, new, MREMAP_MAYMOVE);
 	}
