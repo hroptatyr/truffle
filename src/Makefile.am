@@ -21,6 +21,10 @@ libtruffle_a_SOURCES += series.c series.h
 libtruffle_a_SOURCES += trod.c trod.h
 libtruffle_a_SOURCES += cut.c cut.h
 libtruffle_a_SOURCES += mmy.c mmy.h
+libtruffle_a_SOURCES += version.c
+noinst_HEADERS += version.h
+BUILT_SOURCES += version_defs.h
+CLEANFILES += version_defs.h
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle-clo.ggo
@@ -38,6 +42,9 @@ trod_LDFLAGS = $(AM_LDFLAGS)
 trod_LDADD = libtruffle.a
 trod_LDADD += -lm
 BUILT_SOURCES += trod-clo.c trod-clo.h
+
+version_defs.h: $(top_builddir)/version.mk Makefile
+	echo '#define VERSION "$(VERSION)"' > $@
 
 ## ggo rule
 %.c %.h: %.ggo
