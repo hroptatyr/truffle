@@ -1,4 +1,5 @@
 ### Makefile.am
+include $(top_builddir)/version.mk
 
 AM_CPPFLAGS = -D_GNU_SOURCE -D_POSIX_C_SOURCE=201001L -D__USE_XOPEN2K8
 AM_LDFLAGS =

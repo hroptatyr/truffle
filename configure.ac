@@ -28,6 +28,9 @@ AC_COPYRIGHT(
 AM_INIT_AUTOMAKE([foreign parallel-tests dist-xz color-tests])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
+GIT_VERSION_MAGIC
+AC_CONFIG_LINKS([GNUmakefile:GNUmakefile])
+
 if test -z "${CFLAGS}"; then
 	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function -Wuninitialized"
 fi
