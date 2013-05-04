@@ -1,3 +1,5 @@
+include $(top_builddir)/version.mk
+
 # Help the Developers and yourself. Just use the C locale and settings
 # for the compilation. They can still be overriden by make LANG=<whatever>
 # but that is general a not very good idea
@@ -20,6 +22,7 @@ AM_TRUFTEST_LOG_FLAGS = --builddir $(top_builddir)/src --hash sha1sum
 LOG_COMPILER = echo
 
 check_PROGRAMS += truf-test
+truf_test_LDADD = ../src/libtruffle.a
 BUILT_SOURCES += truf-test-clo.c truf-test-clo.h
 EXTRA_DIST += truf-test.sh
 
@@ -106,10 +109,15 @@ TESTS += truffle_trod_contracts.1.deflt.truftest
 TESTS += truffle_trod_contracts.1.abs.truftest
 TESTS += truffle_trod_contracts.1.oco.truftest
 
-
-## ggo rule
-%.c %.h: %.ggo
-	$(AM_V_GEN) gengetopt -F $* -i $<
+## gengetopt rule with sed hack to avoid using VERSION and config.h
+## depend on Makefile.am to survive a git pull
+%.c %.h: %.ggo Makefile.am
+	gengetopt -l -i $< -F $*  \
+	&& sed \
+	  -e 's,config.h,version.h,g' \
+	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION git_version_string,g' \
+	  $*.h >$*.h-t \
+	&& mv $*.h-t $*.h
 
 clean-local:
 	-rm -rf *.tmpd

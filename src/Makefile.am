@@ -1,4 +1,5 @@
 ### Makefile.am
+include $(top_builddir)/version.mk
 
 AM_CPPFLAGS = -D_GNU_SOURCE -D_POSIX_C_SOURCE=201001L -D__USE_XOPEN2K8
 AM_LDFLAGS =
@@ -20,6 +21,10 @@ libtruffle_a_SOURCES += series.c series.h
 libtruffle_a_SOURCES += trod.c trod.h
 libtruffle_a_SOURCES += cut.c cut.h
 libtruffle_a_SOURCES += mmy.c mmy.h
+libtruffle_a_SOURCES += version.c
+noinst_HEADERS += version.h
+BUILT_SOURCES += version_defs.h
+CLEANFILES += version_defs.h
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle-clo.ggo
@@ -38,9 +43,18 @@ trod_LDADD = libtruffle.a
 trod_LDADD += -lm
 BUILT_SOURCES += trod-clo.c trod-clo.h
 
-## ggo rule
-%.c %.h: %.ggo
-	gengetopt -l -i $< -F $*
+version_defs.h: $(top_builddir)/version.mk Makefile
+	echo '#define VERSION "$(VERSION)"' > $@
+
+## gengetopt rule with sed hack to avoid using VERSION and config.h
+## depend on Makefile.am to survive a git pull
+%.c %.h: %.ggo Makefile.am
+	gengetopt -l -i $< -F $*  \
+	&& sed \
+	  -e 's,config.h,version.h,g' \
+	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION git_version_string,g' \
+	  $*.h >$*.h-t \
+	&& mv $*.h-t $*.h
 
 # 
 # Help the developers get nice post-processed source files
