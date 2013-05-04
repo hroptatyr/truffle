@@ -22,6 +22,7 @@ AM_TRUFTEST_LOG_FLAGS = --builddir $(top_builddir)/src --hash sha1sum
 LOG_COMPILER = echo
 
 check_PROGRAMS += truf-test
+truf_test_LDADD = ../src/libtruffle.a
 BUILT_SOURCES += truf-test-clo.c truf-test-clo.h
 EXTRA_DIST += truf-test.sh
 
