@@ -3,12 +3,8 @@ dnl Autoconf startup.
 dnl -------------------------------------------------------------------------
 
 AC_PREREQ([2.63])
-m4_define([GIT_VERSION_GEN], [dnl
-pushdef([version], [m4_esyscmd([./git-version-gen])])dnl
-ifelse([]version[], [], [0.1.3], []version[])[]dnl
-popdef([version])dnl
-])
-AC_INIT([truffle], [GIT_VERSION_GEN], [https://github.com/hroptatyr/truffle])
+## t.i.n.a.v = this is not a version, never use it!
+AC_INIT([truffle], [t.i.n.a.v], [https://github.com/hroptatyr/truffle])
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_HEADER([src/config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -31,6 +27,9 @@ AC_COPYRIGHT(
 
 AM_INIT_AUTOMAKE([foreign parallel-tests dist-xz color-tests])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+
+GIT_VERSION_MAGIC
+AC_CONFIG_LINKS([GNUmakefile:GNUmakefile])
 
 if test -z "${CFLAGS}"; then
 	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function -Wuninitialized"
