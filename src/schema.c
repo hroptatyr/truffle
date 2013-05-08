@@ -159,7 +159,7 @@ make_cline(char month, int yoff)
 }
 
 static cline_t
-cline_add_sugar(cline_t cl, idate_t x, double y, int yr)
+cline_add_sugar(cline_t cl, idate_t x, double y)
 {
 #define CN_STEP		(4)
 	size_t idx;
@@ -171,7 +171,7 @@ cline_add_sugar(cline_t cl, idate_t x, double y, int yr)
 	idx = cl->nn++;
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
-	cl->n[idx].l = daysi_sans_year(x, yr);
+	cl->n[idx].l = daysi_sans_year(x);
 	return cl;
 }
 
@@ -193,7 +193,7 @@ sch_add_cl(trsch_t s, struct cline_s *cl)
 }
 
 static cline_t
-__read_schema_line(const char *line, size_t llen, int y)
+__read_schema_line(const char *line, size_t llen)
 {
 	cline_t cl = NULL;
 	static const char skip[] = " \t";
@@ -241,20 +241,20 @@ __read_schema_line(const char *line, size_t llen, int y)
 			if (UNLIKELY(cl->nn == 0)) {
 				/* auto-fill to the left */
 				if (UNLIKELY(v != 0.0 && dt != 101)) {
-					cl = cline_add_sugar(cl, 101, v, y);
+					cl = cline_add_sugar(cl, 101, v);
 				}
 			}
 			/* add this line */
-			ddt = daysi_sans_year(dt, y);
+			ddt = daysi_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				goto nope;
 			}
-			cl = cline_add_sugar(cl, dt, v, y);
+			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
 		/* auto-fill 1 polygons to the right */
 		if (UNLIKELY(v != 0.0 && dt != 1231)) {
-			cl = cline_add_sugar(cl, 1231, v, y);
+			cl = cline_add_sugar(cl, 1231, v);
 		}
 	default:
 		break;
@@ -279,8 +279,6 @@ read_schema_line(const char *line, size_t llen)
 	/* validity */
 	daysi_t vfrom = 0;
 	daysi_t vtill = 0;
-	int vfrom_y = 0;
-	int vtill_y = 0;
 	const char *lp = line;
 
 	while (1) {
@@ -291,10 +289,8 @@ read_schema_line(const char *line, size_t llen)
 			tmi = read_date(lp, &tmp);
 
 			if (!vfrom) {
-				vfrom_y = tmi / 10000;
 				vfrom = idate_to_daysi(tmi);
 			} else {
-				vtill_y = tmi / 10000;
 				vtill = idate_to_daysi(tmi);
 			}
 			lp = tmp + strspn(tmp, skip);
@@ -316,13 +312,10 @@ read_schema_line(const char *line, size_t llen)
 	if (vtill > DFLT_FROM && vfrom > vtill) {
 		return NULL;
 	} else if (vtill == 0 && vfrom == 0) {
-		vfrom_y = BASE_YEAR;
 		vfrom = DFLT_FROM;
 		vtill = DFLT_TILL;
-	} else if (vfrom_y != vtill_y) {
-		vfrom_y = BASE_YEAR;
 	}
-	if ((cl = __read_schema_line(lp, llen - (lp - line), vfrom_y))) {
+	if ((cl = __read_schema_line(lp, llen - (lp - line)))) {
 		cl->valid_from = vfrom;
 		cl->valid_till = vtill ?: vfrom;
 	}
