@@ -48,6 +48,8 @@
 #include "dt-strpf.h"
 #include "mmy.h"
 
+#include "daisy.c"
+
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
 #endif	/* __INTEL_COMPILER */
@@ -89,41 +91,6 @@ struct trsch_s {
 };
 
 
-/* date/time goodies */
-#define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
-
-static daysi_t
-daysi_sans_year(idate_t id)
-{
-	int d = (id % 100U);
-	int m = (id / 100U) % 100U;
-	struct yd_s yd = __md_to_yd(BASE_YEAR, (struct md_s){.m = m, .d = d});
-	daysi_t doy = yd.d | DAYSI_DIY_BIT;
-
-	return doy;
-}
-
-static daysi_t
-daysi_in_year(daysi_t ds, int y)
-{
-	int j00;
-	int by = TO_BASE(y);
-
-	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
-		/* we could technically do something here */
-		return ds;
-	}
-
-	ds &= ~DAYSI_DIY_BIT;
-
-	/* get jan-00 of (est.) Y */
-	j00 = by * 365U + by / 4U;
-
-	if (UNLIKELY(y % 4U == 0) && ds >= 60) {
-		ds++;
-	}
-	return ds + j00;
-}
 
 /* standalone version, we could use ds_sum but this is most likely
  * causing more cache misses */
@@ -162,26 +129,6 @@ daysi_to_idate(daysi_t dd)
 		d = md.d;
 	}
 	return (y * 100U + m) * 100U + d;
-}
-
-/* standalone version and adapted to what make_cut() needs */
-static int
-daysi_to_year(daysi_t dd)
-{
-	int y;
-	int j00;
-
-	/* get year first (estimate) */
-	y = dd / 365U;
-	/* get jan-00 of (est.) Y */
-	j00 = y * 365U + y / 4U;
-	/* y correct? */
-	if (UNLIKELY(j00 >= (int)dd)) {
-		/* correct y */
-		y--;
-	}
-	/* ass */
-	return TO_YEAR(y);
 }
 
 
