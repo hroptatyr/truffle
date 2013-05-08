@@ -52,6 +52,10 @@ EXTRA_DIST += toy6.schema
 TESTS += toy7.1.truftest
 EXTRA_DIST += toy7.schema
 
+TESTS += toy8.1.truftest
+TESTS += toy8.2.truftest
+EXTRA_DIST += toy8.schema
+
 TESTS += schema_to_trod.1.deflt.truftest
 TESTS += schema_to_trod.1.abs.truftest
 TESTS += schema_to_trod.1.oco.truftest
