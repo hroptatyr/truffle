@@ -93,11 +93,11 @@ struct trsch_s {
 #define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
 
 static daysi_t
-daysi_sans_year(idate_t id)
+daysi_sans_year(idate_t id, int y)
 {
 	int d = (id % 100U);
 	int m = (id / 100U) % 100U;
-	struct yd_s yd = __md_to_yd(BASE_YEAR, (struct md_s){.m = m, .d = d});
+	struct yd_s yd = __md_to_yd(y, (struct md_s){.m = m, .d = d});
 	daysi_t doy = yd.d | DAYSI_DIY_BIT;
 
 	return doy;
@@ -212,7 +212,7 @@ make_cline(char month, int yoff)
 }
 
 static cline_t
-cline_add_sugar(cline_t cl, idate_t x, double y)
+cline_add_sugar(cline_t cl, idate_t x, double y, int yr)
 {
 #define CN_STEP		(4)
 	size_t idx;
@@ -224,7 +224,7 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 	idx = cl->nn++;
 	cl->n[idx].x = x;
 	cl->n[idx].y = y;
-	cl->n[idx].l = daysi_sans_year(x);
+	cl->n[idx].l = daysi_sans_year(x, yr);
 	return cl;
 }
 
@@ -246,7 +246,7 @@ sch_add_cl(trsch_t s, struct cline_s *cl)
 }
 
 static cline_t
-__read_schema_line(const char *line, size_t llen)
+__read_schema_line(const char *line, size_t llen, int y)
 {
 	cline_t cl = NULL;
 	static const char skip[] = " \t";
@@ -294,20 +294,20 @@ __read_schema_line(const char *line, size_t llen)
 			if (UNLIKELY(cl->nn == 0)) {
 				/* auto-fill to the left */
 				if (UNLIKELY(v != 0.0 && dt != 101)) {
-					cl = cline_add_sugar(cl, 101, v);
+					cl = cline_add_sugar(cl, 101, v, y);
 				}
 			}
 			/* add this line */
-			ddt = daysi_sans_year(dt);
+			ddt = daysi_sans_year(dt, y);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				goto nope;
 			}
-			cl = cline_add_sugar(cl, dt, v);
+			cl = cline_add_sugar(cl, dt, v, y);
 		} while (*p != '\n');
 		/* auto-fill 1 polygons to the right */
 		if (UNLIKELY(v != 0.0 && dt != 1231)) {
-			cl = cline_add_sugar(cl, 1231, v);
+			cl = cline_add_sugar(cl, 1231, v, y);
 		}
 	default:
 		break;
@@ -332,6 +332,8 @@ read_schema_line(const char *line, size_t llen)
 	/* validity */
 	daysi_t vfrom = 0;
 	daysi_t vtill = 0;
+	int vfrom_y = 0;
+	int vtill_y = 0;
 	const char *lp = line;
 
 	while (1) {
@@ -342,8 +344,10 @@ read_schema_line(const char *line, size_t llen)
 			tmi = read_date(lp, &tmp);
 
 			if (!vfrom) {
+				vfrom_y = tmi / 10000;
 				vfrom = idate_to_daysi(tmi);
 			} else {
+				vtill_y = tmi / 10000;
 				vtill = idate_to_daysi(tmi);
 			}
 			lp = tmp + strspn(tmp, skip);
@@ -365,10 +369,13 @@ read_schema_line(const char *line, size_t llen)
 	if (vtill > DFLT_FROM && vfrom > vtill) {
 		return NULL;
 	} else if (vtill == 0 && vfrom == 0) {
+		vfrom_y = BASE_YEAR;
 		vfrom = DFLT_FROM;
 		vtill = DFLT_TILL;
+	} else if (vfrom_y != vtill_y) {
+		vfrom_y = BASE_YEAR;
 	}
-	if ((cl = __read_schema_line(lp, llen - (lp - line)))) {
+	if ((cl = __read_schema_line(lp, llen - (lp - line), vfrom_y))) {
 		cl->valid_from = vfrom;
 		cl->valid_till = vtill ?: vfrom;
 	}
