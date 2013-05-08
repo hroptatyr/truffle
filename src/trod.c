@@ -57,6 +57,10 @@
 #include "mmy.h"
 
 #if defined STANDALONE
+# include "daisy.c"
+#endif	/* STANDALONE */
+
+#if defined STANDALONE
 # include <stdio.h>
 #endif	/* STANDALONE */
 #if !defined __GNUC__ && !defined __INTEL_COMPILER
@@ -435,49 +439,6 @@ struct trsch_s {
 	size_t np;
 	struct cline_s *p[];
 };
-
-static int
-daysi_to_year(daysi_t dd)
-{
-	unsigned int y;
-	unsigned int j00;
-
-	/* get year first (estimate) */
-	y = dd / 365U;
-	/* get jan-00 of (est.) Y */
-	j00 = y * 365U + y / 4U;
-	/* y correct? */
-	if (UNLIKELY(j00 >= dd)) {
-		/* correct y */
-		y--;
-	}
-	/* ass */
-	return TO_YEAR(y);
-}
-
-#define DAYSI_DIY_BIT		(1U << (sizeof(daysi_t) * 8 - 1))
-
-static daysi_t
-daysi_in_year(daysi_t ds, unsigned int y)
-{
-	unsigned int j00;
-	unsigned int by = TO_BASE(y);
-
-	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
-		/* we could technically do something here */
-		return ds;
-	}
-
-	ds &= ~DAYSI_DIY_BIT;
-
-	/* get jan-00 of (est.) Y */
-	j00 = by * 365U + by / 4U;
-
-	if (UNLIKELY(y % 4U == 0) && ds >= 60U) {
-		ds++;
-	}
-	return ds + j00;
-}
 
 static int
 troq_add_cline(trod_event_t qi, const struct cline_s *p, daysi_t when)
