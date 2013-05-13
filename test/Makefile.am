@@ -116,10 +116,10 @@ TESTS += truffle_trod_contracts.1.oco.truftest
 ## gengetopt rule with sed hack to avoid using VERSION and config.h
 ## depend on Makefile.am to survive a git pull
 %.c %.h: %.ggo Makefile.am
-	gengetopt -l -i $< -F $*  \
+	gengetopt -l -i $< -F $* \
 	&& sed \
 	  -e 's,config.h,version.h,g' \
-	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION git_version_string,g' \
+	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION $(PACKAGE)_version_string,g' \
 	  $*.h >$*.h-t \
 	&& mv $*.h-t $*.h
 
