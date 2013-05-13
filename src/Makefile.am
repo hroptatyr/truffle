@@ -21,12 +21,12 @@ libtruffle_a_SOURCES += series.c series.h
 libtruffle_a_SOURCES += trod.c trod.h
 libtruffle_a_SOURCES += cut.c cut.h
 libtruffle_a_SOURCES += mmy.c mmy.h
-libtruffle_a_SOURCES += version.c
+nodist_libtruffle_a_SOURCES = version.c
 EXTRA_libtruffle_a_SOURCES =
 EXTRA_libtruffle_a_SOURCES += daisy.c
 noinst_HEADERS += version.h
-BUILT_SOURCES += version_defs.h
-CLEANFILES += version_defs.h
+CLEANFILES += version.c
+EXTRA_DIST += version.c.in
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle-clo.ggo
@@ -47,16 +47,16 @@ trod_LDADD = libtruffle.a
 trod_LDADD += -lm
 BUILT_SOURCES += trod-clo.c trod-clo.h
 
-version_defs.h: $(top_builddir)/version.mk Makefile
-	echo '#define VERSION "$(VERSION)"' > $@
+version.c: version.c.in $(top_builddir)/version.mk
+	sed -e 's,[@]VERSION[@],$(VERSION),g' <$(srcdir)/$@.in >$@
 
 ## gengetopt rule with sed hack to avoid using VERSION and config.h
 ## depend on Makefile.am to survive a git pull
 %.c %.h: %.ggo Makefile.am
-	gengetopt -l -i $< -F $*  \
+	gengetopt -l -i $< -F $* \
 	&& sed \
 	  -e 's,config.h,version.h,g' \
-	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION git_version_string,g' \
+	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION $(PACKAGE)_version_string,g' \
 	  $*.h >$*.h-t \
 	&& mv $*.h-t $*.h
 
