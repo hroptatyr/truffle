@@ -60,6 +60,9 @@ version.c: version.c.in $(top_builddir)/version.mk
 	  $*.h >$*.h-t \
 	&& mv $*.h-t $*.h
 
+## for dist or dist check we need binaries, so help2man can work
+dist-hook: $(bin_PROGRAMS)
+
 # 
 # Help the developers get nice post-processed source files
 
