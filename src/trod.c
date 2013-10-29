@@ -660,8 +660,8 @@ print_trod(trod_t td, FILE *whither)
 #if defined __INTEL_COMPILER
 # pragma warning (disable:593)
 #endif	/* __INTEL_COMPILER */
-#include "trod-clo.h"
-#include "trod-clo.c"
+#include "trod.xh"
+#include "trod.x"
 #if defined __INTEL_COMPILER
 # pragma warning (default:593)
 #endif	/* __INTEL_COMPILER */

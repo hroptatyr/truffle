@@ -35,15 +35,15 @@ CLEANFILES += version.c
 EXTRA_DIST += version.c.in
 
 bin_PROGRAMS += truffle
-truffle_SOURCES = truffle.c truffle.h truffle-clo.ggo
+truffle_SOURCES = truffle.c truffle.h truffle.ggo
 truffle_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
 truffle_LDFLAGS = $(AM_LDFLAGS)
 truffle_LDADD = libtruffle.a
 truffle_LDADD += -lm
-BUILT_SOURCES += truffle-clo.c truffle-clo.h
+BUILT_SOURCES += truffle.x truffle.xh
 
 bin_PROGRAMS += trod
-trod_SOURCES = trod.c trod-clo.ggo
+trod_SOURCES = trod.c trod.ggo
 trod_SOURCES += mmy.h
 EXTRA_trod_SOURCES =
 EXTRA_trod_SOURCES += daisy.c
@@ -51,20 +51,20 @@ trod_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
 trod_LDFLAGS = $(AM_LDFLAGS)
 trod_LDADD = libtruffle.a
 trod_LDADD += -lm
-BUILT_SOURCES += trod-clo.c trod-clo.h
+BUILT_SOURCES += trod.x trod.xh
 
 version.c: version.c.in $(top_builddir)/version.mk
 	sed -e 's,[@]VERSION[@],$(VERSION),g' <$(srcdir)/$@.in >$@
 
 ## gengetopt rule with sed hack to avoid using VERSION and config.h
 ## depend on Makefile.am to survive a git pull
-%.c %.h: %.ggo Makefile.am
-	gengetopt -l -i $< -F $* \
+%.x %.xh: %.ggo Makefile.am
+	$(AM_V_GEN) gengetopt -l -c x -H xh -i $< -F $* \
 	&& sed \
 	  -e 's,config.h,version.h,g' \
 	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION $(PACKAGE)_version_string,g' \
-	  $*.h >$*.h-t \
-	&& mv $*.h-t $*.h
+	  $*.xh >$*.xh-t \
+	&& mv $*.xh-t $*.xh
 
 ## for dist or dist check we need binaries, so help2man can work
 dist-hook: $(bin_PROGRAMS)

@@ -730,8 +730,8 @@ trod_roll_over_series(
 #if defined __INTEL_COMPILER
 # pragma warning (disable:593)
 #endif	/* __INTEL_COMPILER */
-#include "truffle-clo.h"
-#include "truffle-clo.c"
+#include "truffle.xh"
+#include "truffle.x"
 #if defined __INTEL_COMPILER
 # pragma warning (default:593)
 #endif	/* __INTEL_COMPILER */
