@@ -51,7 +51,7 @@
 #endif	/* WORDS_BIGENDIAN */
 
 #include "truffle.h"
-#include "dt-strpf.h"
+#include "instant.h"
 #include "trod.h"
 #include "gq.h"
 #include "mmy.h"
@@ -133,7 +133,7 @@ static_assert(sizeof(struct trod_stat3_s) == 4U);
  * also we're working in state mode so WHAT is a 0-state terminated list
  * of states at the instant WHEN */
 struct trod_event_s {
-	trod_instant_t when;
+	echs_instant_t when;
 	struct trod_state_s what[];
 };
 
@@ -188,13 +188,13 @@ static struct trod_event_s nil_ev = {0};
 /* shared between trod_{add,pop}_event() */
 static struct gq_s pool[1];
 
-static inline trod_instant_t
+static inline echs_instant_t
 troq_last_inst(struct troq_s t[static 1])
 {
 	const struct troqi_s *qi;
 
 	if (UNLIKELY((qi = (struct troqi_s*)t->trev->ilst) == NULL)) {
-		return (trod_instant_t){0};
+		return (echs_instant_t){0};
 	}
 	return qi->ev.when;
 }
@@ -209,7 +209,7 @@ troq_add_event(struct troq_s tgt[static 1], trod_event_t ev)
 	qi->ev = *ev;
 	qi->what = ev->what[0];
 	/* update counters */
-	if (trod_inst_lt_p(troq_last_inst(tgt), ev->when)) {
+	if (__inst_lt_p(troq_last_inst(tgt), ev->when)) {
 		tgt->ninst++;
 	}
 	tgt->nev++;
@@ -252,7 +252,7 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 
 	if ((p = strchr(line, '\t')) == NULL) {
 		goto nul;
-	} else if (trod_inst_0_p(res.ev.when = dt_strp(line))) {
+	} else if (__inst_0_p(res.ev.when = dt_strp(line, NULL))) {
 		goto nul;
 	}
 
@@ -293,7 +293,7 @@ static struct troq_s
 read_troq(FILE *f)
 {
 	struct troq_s q = {0UL, 0UL};
-	trod_instant_t last = {0};
+	echs_instant_t last = {0};
 	size_t llen = 0UL;
 	char *line = NULL;
 	ssize_t nrd;
@@ -301,7 +301,7 @@ read_troq(FILE *f)
 	while ((nrd = getline(&line, &llen, f)) > 0) {
 		trod_event_t ev = read_trod_event(line, nrd);
 
-		if (trod_inst_le_p(last, ev->when)) {
+		if (__inst_le_p(last, ev->when)) {
 			troq_add_event(&q, ev);
 			last = ev->when;
 		}
@@ -330,7 +330,7 @@ static trod_t
 troq_to_trod(struct troq_s q)
 {
 /* go over the queue Q and arrange stuff in arrays and array-of-arrays */
-	trod_instant_t last = {0};
+	echs_instant_t last = {0};
 	trod_event_t chunk;
 	trod_event_t cp;
 	size_t chunz;
@@ -352,8 +352,8 @@ troq_to_trod(struct troq_s q)
 	cp = (void*)((char*)chunk - sizeof(*chunk->what));
 
 	for (trod_event_t ev, c;
-	     (ev = troq_pop_event(&q), !trod_inst_0_p(ev->when));) {
-		if (trod_inst_lt_p(last, ev->when)) {
+	     (ev = troq_pop_event(&q), !__inst_0_p(ev->when));) {
+		if (__inst_lt_p(last, ev->when)) {
 			/* start a new chamber */
 			size_t iidx = res->ninst++;
 			widx = 0UL;
@@ -487,7 +487,7 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
 		struct trod_state_s st;
 	} qi;
 
-	qi.ev.when = daysi_to_trod_instant(when);
+	qi.ev.when = daysi_to_echs_instant(when);
 	for (size_t i = 0; i < sch->np; i++) {
 		const struct cline_s *p = sch->p[i];
 
@@ -626,7 +626,7 @@ print_flip_over(trod_event_t ev, FILE *whither)
 	}
 
 	/* otherwise it's a flip-over, print all active (in the old year) */
-	p += dt_strf(buf, sizeof(buf), (trod_instant_t){y, 1, 1, TROD_ALL_DAY});
+	p += dt_strf(buf, sizeof(buf), (echs_instant_t){y, 1, 1, TROD_ALL_DAY});
 	*p++ = '\t';
 	var = p;
 
