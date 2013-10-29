@@ -83,8 +83,8 @@ read_idate(const char *str, char **restrict on)
 	tmp = tmp + 2;
 
 out:
-	if (LIKELY(ptr != NULL)) {
-		*ptr = deconst(tmp);
+	if (LIKELY(on != NULL)) {
+		*on = deconst(tmp);
 	}
 #undef C
 	return res;
