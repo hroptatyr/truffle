@@ -23,6 +23,7 @@ libtruffle_a_SOURCES += cut.c cut.h
 libtruffle_a_SOURCES += mmy.c mmy.h
 libtruffle_a_SOURCES += wheap.c wheap.h
 libtruffle_a_SOURCES += instant.c instant.h
+libtruffle_a_SOURCES += idate.c idate.h
 libtruffle_a_SOURCES += daisy.c daisy.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
 nodist_libtruffle_a_SOURCES = version.c
