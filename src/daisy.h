@@ -56,8 +56,4 @@ extern daisy_t instant_to_daisy(echs_instant_t);
  * Convert a daisy_t to an instant_t */
 extern echs_instant_t daisy_to_instant(daisy_t);
 
-/**
- * Convert instant_t to daisy_t but disregard the year. */
-extern daisy_t daisy_sans_year(echs_instant_t);
-
 #endif	/* INCLUDED_daisy_h_ */

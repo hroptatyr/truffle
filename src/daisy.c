@@ -137,13 +137,4 @@ daisy_to_instant(daisy_t dd)
 	return (echs_instant_t){y, m, d, ECHS_ALL_DAY};
 }
 
-daisy_t
-daisy_sans_year(echs_instant_t i)
-{
-	struct yd_s yd = __md_to_yd(2000U, (struct md_s){.m = i.m, .d = i.d});
-	daisy_t doy = yd.d | DAISY_DIY_BIT;
-
-	return doy;
-}
-
 /* daisy.c ends here */
