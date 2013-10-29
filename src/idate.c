@@ -89,4 +89,67 @@ out:
 	return res;
 }
 
+__attribute__((pure, const)) daisy_t
+daisy_sans_year(idate_t id)
+{
+	int d = (id % 100U);
+	int m = (id / 100U) % 100U;
+	struct yd_s yd = __md_to_yd(2000, (struct md_s){.m = m, .d = d});
+	daisy_t doy = yd.d | DAISY_DIY_BIT;
+	return doy;
+}
+
+/* standalone version, we could use ds_sum but this is most likely
+ * causing more cache misses */
+__attribute__((pure, const)) idate_t
+daisy_to_idate(daisy_t dd)
+{
+/* given days since 2000-01-00 (Mon),
+ * compute the idate_t representation X so that idate_to_daysi(X) == DDT */
+/* stolen from dateutils' daisy.c */
+	int y;
+	int m;
+	int d;
+	int j00;
+	unsigned int doy;
+
+	/* get year first (estimate) */
+	y = dd / 365U;
+	/* get jan-00 of (est.) Y */
+	j00 = y * 365U + y / 4U;
+	/* y correct? */
+	if (UNLIKELY(j00 >= (int)dd)) {
+		/* correct y */
+		y--;
+		/* and also recompute the j00 of y */
+		j00 = y * 365U + y / 4U;
+	}
+	/* ass */
+	y = TO_YEAR(y);
+	/* this one must be positive now */
+	doy = dd - j00;
+
+	/* get month and day from doy */
+	{
+		struct md_s md = __yd_to_md((struct yd_s){y, doy});
+		m = md.m;
+		d = md.d;
+	}
+	return (y * 100U + m) * 100U + d;
+}
+
+__attribute__((pure, const)) daisy_t
+idate_to_daisy(idate_t dt)
+{
+/* compute days since BASE-01-00 (Mon),
+ * if year slot is absent in D compute the day in the year of D instead. */
+	int d = dt % 100U;
+	int m = (dt / 100U) % 100U;
+	int y = (dt / 100U) / 100U;
+	struct yd_s yd = __md_to_yd(y, (struct md_s){.m = m, .d = d});
+	int by = TO_BASE(y);
+
+	return by * 365U + by / 4U + yd.d;
+}
+
 /* idate.c ends here */

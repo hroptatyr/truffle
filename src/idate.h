@@ -38,6 +38,7 @@
 #define INCLUDED_idate_h_
 
 #include <stdint.h>
+#include "daisy.h"
 
 /**
  * Daisy is simply the days since EPOCH. */
@@ -46,5 +47,17 @@ typedef uint32_t idate_t;
 /**
  * Convert instant_t to daisy_t but disregard the year. */
 extern idate_t read_idate(const char *str, char **restrict on);
+
+/**
+ * Special purpose idate->daisy glue. */
+extern __attribute__((pure, const)) daisy_t daisy_sans_year(idate_t id);
+
+/**
+ * Convert daisy object to idate object. */
+extern __attribute__((pure, const)) idate_t daisy_to_idate(daisy_t dd);
+
+/**
+ * Convert idate object to daisy object */
+extern __attribute__((pure, const)) daisy_t idate_to_daisy(idate_t dt);
 
 #endif	/* INCLUDED_idate_h_ */
