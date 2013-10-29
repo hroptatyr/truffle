@@ -37,7 +37,7 @@ fi
 
 ## the build chain
 AC_PROG_CC([icc tcc gcc cc])
-SXE_CHECK_CC([c11 c1x c99 gnu99])
+SXE_CHECK_CC([gnu11 gnu99])
 SXE_CHECK_CFLAGS
 AC_CHECK_TOOLS([AR], [xiar ar], [false])
 AC_C_BIGENDIAN
