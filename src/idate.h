@@ -60,4 +60,23 @@ extern __attribute__((pure, const)) idate_t daisy_to_idate(daisy_t dd);
  * Convert idate object to daisy object */
 extern __attribute__((pure, const)) daisy_t idate_to_daisy(idate_t dt);
 
+
+static inline __attribute__((pure, const)) unsigned int
+idate_y(idate_t dt)
+{
+	return dt / 10000U;
+}
+
+static inline __attribute__((pure, const)) unsigned int
+idate_m(idate_t dt)
+{
+	return (dt % 10000U) / 100U;
+}
+
+static inline __attribute__((pure, const)) unsigned int
+idate_d(idate_t dt)
+{
+	return dt % 100U;
+}
+
 #endif	/* INCLUDED_idate_h_ */
