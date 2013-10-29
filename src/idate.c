@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include "idate.h"
 #include "nifty.h"
+#include "yd.h"
 
 
 /* public api */
