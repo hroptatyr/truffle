@@ -13,6 +13,7 @@ EXTRA_DIST = $(BUILT_SOURCES)
 
 noinst_LIBRARIES = libtruffle.a
 libtruffle_a_SOURCES = yd.h
+libtruffle_a_SOURCES += truf-dfp754.c truf-dfp754.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
 libtruffle_a_SOURCES += gq.c gq.h
 libtruffle_a_SOURCES += gbs.c gbs.h
