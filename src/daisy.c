@@ -43,8 +43,6 @@
 
 
 /* date/time goodies */
-#define DAISY_DIY_BIT	(1 << (sizeof(daisy_t) * 8 - 1))
-
 static daisy_t
 daisy_in_year(daisy_t ds, int y)
 {

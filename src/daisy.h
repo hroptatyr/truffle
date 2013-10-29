@@ -48,6 +48,8 @@ typedef uint32_t daisy_t;
 #define TO_BASE(x)	((x) - BASE_YEAR)
 #define TO_YEAR(x)	((x) + BASE_YEAR)
 
+#define DAISY_DIY_BIT	(1 << (sizeof(daisy_t) * 8U - 1U))
+
 /**
  * Convert instant_t to daisy_t */
 extern daisy_t instant_to_daisy(echs_instant_t);
