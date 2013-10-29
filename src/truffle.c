@@ -55,6 +55,7 @@
 #include "cut.h"
 #include "yd.h"
 #include "dt-strpf.h"
+#include "idate.h"
 #include "series.h"
 #include "mmy.h"
 #include "gbs.h"
@@ -187,7 +188,7 @@ warn_noquo(idate_t dt, trym_t ym, double expo)
 	unsigned int yr = trym_yr(ym);
 	unsigned int mo = trym_mo(ym);
 
-	snprint_idate(dts, sizeof(dts), dt);
+	prnt_idate(dts, sizeof(dts), dt);
 	fprintf(stderr, "\
 cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
 		dts, i_to_m(mo), yr, expo);
@@ -463,7 +464,7 @@ roll_over_series(
 	/* find the earliest date */
 	for (size_t i = 0; i < ser->ndvvs; i++) {
 		idate_t dt = ser->dvvs[i].d;
-		daysi_t mc_ds = idate_to_daysi(dt);
+		daisy_t mc_ds = idate_to_daisy(dt);
 
 		/* anchor now contains the very first date and value */
 		if ((c = make_cut(c, s, mc_ds)) == NULL) {
@@ -483,7 +484,7 @@ roll_over_series(
 			} else {
 				val = cfst.cum_flo;
 			}
-			snprint_idate(buf, sizeof(buf), dt);
+			prnt_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, val);
 		}
 	}
@@ -508,7 +509,7 @@ struct trod_state_s {
 };
 
 struct trod_event_s {
-	trod_instant_t when;
+	echs_instant_t when;
 	struct trod_state_s what[];
 };
 
@@ -572,15 +573,15 @@ update_gbs_ev(gbs_t bs, trod_event_t ev)
 }
 
 static int
-update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
+update_gbs(gbs_t bs, trod_t td, echs_instant_t inst)
 {
-	static trod_instant_t last;
+	static echs_instant_t last;
 	static size_t i;
 	int res = 0;
 
-	if (trod_inst_lt_p(inst, last)) {
+	if (echs_instant_lt_p(inst, last)) {
 		/* we'll have to build it all up again */
-		last = (trod_instant_t){0};
+		last = (echs_instant_t){0};
 		i = 0;
 	}
 	for (; i < td->ninst; i++) {
@@ -589,7 +590,7 @@ update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
 		if (last.y < x->when.y) {
 			flip_over(bs, x->when.y - last.y);
 		}
-		if (trod_inst_lt_p(inst, x->when)) {
+		if (echs_instant_lt_p(inst, x->when)) {
 			/* we went to far, aye? */
 			last = inst;
 			break;
@@ -601,7 +602,7 @@ update_gbs(gbs_t bs, trod_t td, trod_instant_t inst)
 }
 
 static void
-print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, struct trcut_pr_s opt)
+print_contracts(gbs_t bs, trod_t td, echs_instant_t inst, struct trcut_pr_s opt)
 {
 	static char buf[256];
 	char *q = buf;
@@ -640,7 +641,7 @@ print_contracts(gbs_t bs, trod_t td, trod_instant_t inst, struct trcut_pr_s opt)
 }
 
 static trcut_t
-make_cut_from_gbs(trcut_t cut, struct gbs_s bs[static 1], trod_instant_t inst)
+make_cut_from_gbs(trcut_t cut, struct gbs_s bs[static 1], echs_instant_t inst)
 {
 	if (cut) {
 		/* quickly rinse the old cut */
@@ -685,8 +686,8 @@ trod_roll_over_series(
 	/* traverse the series, it's chronological */
 	for (size_t i = 0; i < ser->ndvvs; i++) {
 		idate_t dt = ser->dvvs[i].d;
-		trod_instant_t di = {
-			idate_y(dt), idate_m(dt), idate_d(dt), TROD_ALL_DAY,
+		echs_instant_t di = {
+			idate_y(dt), idate_m(dt), idate_d(dt), ECHS_ALL_DAY,
 		};
 
 		if (update_gbs(active, td, di)) {
@@ -711,7 +712,7 @@ trod_roll_over_series(
 			} else {
 				val = cfst.cum_flo;
 			}
-			snprint_idate(buf, sizeof(buf), dt);
+			prnt_idate(buf, sizeof(buf), dt);
 			fprintf(whither, "%s\t%.8g\n", buf, val);
 		}
 	}
@@ -816,8 +817,8 @@ Use trod tool to display trod description files\n", stdout);
 		trcut_t c = NULL;
 
 		for (size_t i = 0; i < argi->inputs_num; i++) {
-			idate_t dt = read_date(argi->inputs[i], NULL);
-			daysi_t ds = idate_to_daysi(dt);
+			idate_t dt = read_idate(argi->inputs[i], NULL);
+			daisy_t ds = idate_to_daisy(dt);
 
 			if ((c = make_cut(c, sch, ds))) {
 				print_cut(c, dt, opt);
@@ -837,7 +838,7 @@ Use trod tool to display trod description files\n", stdout);
 
 		init_gbs(active, 12U * 5U);
 		for (size_t i = 0; i < argi->inputs_num; i++) {
-			trod_instant_t inst = dt_strp(argi->inputs[i]);
+			echs_instant_t inst = dt_strp(argi->inputs[i], NULL);
 
 			print_contracts(active, td, inst, opt);
 		}

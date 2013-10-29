@@ -1,10 +1,10 @@
-/*** dt-strpf.h -- parser and formatter funs for echse
+/*** wheap.h -- weak heaps, as stolen from sxemacs
  *
- * Copyright (C) 2011-2013 Sebastian Freundt
+ * Copyright (C) 2007-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of echse.
+ * This file is part of truffle.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,23 +34,33 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  **/
-#if !defined INCLUDED_dt_strpf_h_
-#define INCLUDED_dt_strpf_h_
+#if !defined INCLUDED_wheap_h_
+#define INCLUDED_wheap_h_
 
 #include <stdlib.h>
 #include "instant.h"
 
-/**
- * Parse STR with the standard parser. */
-extern echs_instant_t dt_strp(const char *str, char **on);
-
-/**
- * Print INST into BUF (of size BSZ) and return its length. */
-extern size_t dt_strf(char *restrict buf, size_t bsz, echs_instant_t inst);
+typedef struct truf_wheap_s *truf_wheap_t;
 
 
-#if defined INCLUDE_DT_STRPF_IMPL
-# include "dt-strpf.c"
-#endif	/* INCLUDE_DT_STRPF_IMPL */
+extern truf_wheap_t make_truf_wheap(void);
+extern void free_truf_wheap(truf_wheap_t);
 
-#endif	/* INCLUDED_dt_strpf_h_ */
+extern echs_instant_t truf_wheap_top_rank(truf_wheap_t);
+extern uintptr_t truf_wheap_top(truf_wheap_t);
+extern uintptr_t truf_wheap_pop(truf_wheap_t);
+
+extern void truf_wheap_add(truf_wheap_t, echs_instant_t, uintptr_t);
+
+/**
+ * Bulk inserts. */
+extern void truf_wheap_add_deferred(truf_wheap_t, echs_instant_t, uintptr_t);
+/**
+ * Recreate the heap property after deferred inserts. */
+extern void truf_wheap_fix_deferred(truf_wheap_t);
+
+/**
+ * Sort the entire heap. */
+extern void truf_wheap_sort(truf_wheap_t);
+
+#endif	/* INCLUDED_wheap_h_ */

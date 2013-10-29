@@ -1,10 +1,10 @@
-/*** dt-strpf.h -- parser and formatter funs for echse
+/*** daisy.h -- daisy dates
  *
  * Copyright (C) 2011-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of echse.
+ * This file is part of truffle.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,24 +33,41 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- **/
-#if !defined INCLUDED_dt_strpf_h_
-#define INCLUDED_dt_strpf_h_
+ ***/
+#if !defined INCLUDED_daisy_h_
+#define INCLUDED_daisy_h_
 
-#include <stdlib.h>
+#include <stdint.h>
 #include "instant.h"
 
 /**
- * Parse STR with the standard parser. */
-extern echs_instant_t dt_strp(const char *str, char **on);
+ * Daisy is simply the days since EPOCH. */
+typedef uint32_t daisy_t;
+
+#define BASE_YEAR	(1917U)
+#define TO_BASE(x)	((x) - BASE_YEAR)
+#define TO_YEAR(x)	((x) + BASE_YEAR)
+
+#define DAISY_DIY_BIT	(1 << (sizeof(daisy_t) * 8U - 1U))
 
 /**
- * Print INST into BUF (of size BSZ) and return its length. */
-extern size_t dt_strf(char *restrict buf, size_t bsz, echs_instant_t inst);
+ * Convert instant_t to daisy_t */
+extern __attribute__((pure, const)) daisy_t instant_to_daisy(echs_instant_t);
 
-
-#if defined INCLUDE_DT_STRPF_IMPL
-# include "dt-strpf.c"
-#endif	/* INCLUDE_DT_STRPF_IMPL */
+/**
+ * Convert a daisy_t to an instant_t */
+extern __attribute__((pure, const)) echs_instant_t daisy_to_instant(daisy_t);
 
-#endif	/* INCLUDED_dt_strpf_h_ */
+/**
+ * Extract the year off a daisy_t object. */
+extern unsigned int daisy_to_year(daisy_t dd);
+
+/**
+ * Extract the year off a daisy_t object. */
+extern unsigned int daisy_to_year(daisy_t dd);
+
+/**
+ * Given a daisy DS, pretend it takes place in year Y. */
+extern daisy_t daisy_in_year(daisy_t ds, unsigned int y);
+
+#endif	/* INCLUDED_daisy_h_ */

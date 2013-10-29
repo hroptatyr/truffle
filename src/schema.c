@@ -44,31 +44,23 @@
 #include "truffle.h"
 #include "schema.h"
 #include "cut.h"
-#include "yd.h"
+#include "daisy.h"
+#include "idate.h"
 #include "dt-strpf.h"
+#include "yd.h"
 #include "mmy.h"
-
-#include "daisy.c"
+#include "nifty.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
 #endif	/* __INTEL_COMPILER */
-#if !defined LIKELY
-# define LIKELY(_x)	__builtin_expect((_x), 1)
-#endif
-#if !defined UNLIKELY
-# define UNLIKELY(_x)	__builtin_expect((_x), 0)
-#endif
-#if !defined UNUSED
-# define UNUSED(_x)	_x __attribute__((unused))
-#endif	/* !UNUSED */
 
 typedef struct cline_s *cline_t;
 
 /* a node */
 struct cnode_s {
-	idate_t x;
-	daysi_t l;
+	idate_t i;
+	daisy_t l;
 	double y __attribute__((aligned(sizeof(double))));
 };
 
@@ -76,8 +68,8 @@ struct cnode_s {
 #define DFLT_FROM	(101)
 #define DFLT_TILL	(1048576)
 struct cline_s {
-	daysi_t valid_from;
-	daysi_t valid_till;
+	daisy_t valid_from;
+	daisy_t valid_till;
 	char month;
 	int8_t year_off;
 	size_t nn;
@@ -89,47 +81,6 @@ struct trsch_s {
 	size_t np;
 	struct cline_s *p[];
 };
-
-
-
-/* standalone version, we could use ds_sum but this is most likely
- * causing more cache misses */
-static idate_t
-daysi_to_idate(daysi_t dd)
-{
-/* given days since 2000-01-00 (Mon),
- * compute the idate_t representation X so that idate_to_daysi(X) == DDT */
-/* stolen from dateutils' daisy.c */
-	int y;
-	int m;
-	int d;
-	int j00;
-	unsigned int doy;
-
-	/* get year first (estimate) */
-	y = dd / 365U;
-	/* get jan-00 of (est.) Y */
-	j00 = y * 365U + y / 4U;
-	/* y correct? */
-	if (UNLIKELY(j00 >= (int)dd)) {
-		/* correct y */
-		y--;
-		/* and also recompute the j00 of y */
-		j00 = y * 365U + y / 4U;
-	}
-	/* ass */
-	y = TO_YEAR(y);
-	/* this one must be positive now */
-	doy = dd - j00;
-
-	/* get month and day from doy */
-	{
-		struct md_s md = __yd_to_md((struct yd_s){y, doy});
-		m = md.m;
-		d = md.d;
-	}
-	return (y * 100U + m) * 100U + d;
-}
 
 
 static void
@@ -159,7 +110,7 @@ make_cline(char month, int yoff)
 }
 
 static cline_t
-cline_add_sugar(cline_t cl, idate_t x, double y)
+cline_add_sugar(cline_t cl, idate_t i, double y)
 {
 #define CN_STEP		(4)
 	size_t idx;
@@ -169,9 +120,9 @@ cline_add_sugar(cline_t cl, idate_t x, double y)
 		cl = realloc(cl, new);
 	}
 	idx = cl->nn++;
-	cl->n[idx].x = x;
+	cl->n[idx].i = i;
 	cl->n[idx].y = y;
-	cl->n[idx].l = daysi_sans_year(x);
+	cl->n[idx].l = daisy_sans_year(i);
 	return cl;
 }
 
@@ -230,9 +181,9 @@ __read_schema_line(const char *line, size_t llen)
 		}
 
 		do {
-			daysi_t ddt;
+			daisy_t ddt;
 
-			if (!(dt = read_date(p, &tmp) % 10000U)) {
+			if (!(dt = read_idate(p, &tmp) % 10000U)) {
 				goto nope;
 			}
 			p = tmp + strspn(tmp, skip);
@@ -240,12 +191,12 @@ __read_schema_line(const char *line, size_t llen)
 			p = tmp + strspn(tmp, skip);
 			if (UNLIKELY(cl->nn == 0)) {
 				/* auto-fill to the left */
-				if (UNLIKELY(v != 0.0 && dt != 101)) {
+				if (UNLIKELY(v != 0.0 && dt != 101U)) {
 					cl = cline_add_sugar(cl, 101, v);
 				}
 			}
 			/* add this line */
-			ddt = daysi_sans_year(dt);
+			ddt = daisy_sans_year(dt);
 			if (cl->nn && ddt <= cl->n[cl->nn - 1].l) {
 				__err_not_asc(line, llen);
 				goto nope;
@@ -277,8 +228,8 @@ read_schema_line(const char *line, size_t llen)
 	static const char skip[] = " \t";
 	cline_t cl;
 	/* validity */
-	daysi_t vfrom = 0;
-	daysi_t vtill = 0;
+	daisy_t vfrom = 0;
+	daisy_t vtill = 0;
 	const char *lp = line;
 
 	while (1) {
@@ -286,12 +237,12 @@ read_schema_line(const char *line, size_t llen)
 			char *tmp;
 			idate_t tmi;
 		case '0' ... '9':
-			tmi = read_date(lp, &tmp);
+			tmi = read_idate(lp, &tmp);
 
 			if (!vfrom) {
-				vfrom = idate_to_daysi(tmi);
+				vfrom = idate_to_daisy(tmi);
 			} else {
-				vtill = idate_to_daysi(tmi);
+				vtill = idate_to_daisy(tmi);
 			}
 			lp = tmp + strspn(tmp, skip);
 			continue;
@@ -331,7 +282,8 @@ print_cline(cline_t cl, FILE *whither)
 		if (cl->valid_from == DFLT_FROM) {
 			fputc('*', whither);
 		} else if (cl->valid_from > DFLT_FROM) {
-			fprintf(whither, "%u", daysi_to_idate(cl->valid_from));
+			fprintf(whither, "%u",
+				daisy_to_idate(cl->valid_from));
 		} else {
 			/* we were meant to fill this bugger */
 			abort();
@@ -342,7 +294,7 @@ print_cline(cline_t cl, FILE *whither)
 				fputc('*', whither);
 			} else if (cl->valid_from > 0) {
 				fprintf(whither, "%u",
-					daysi_to_idate(cl->valid_till));
+					daisy_to_idate(cl->valid_till));
 			} else {
 				/* invalid value in here */
 				abort();
@@ -356,7 +308,7 @@ print_cline(cline_t cl, FILE *whither)
 		fprintf(whither, "%d", cl->year_off);
 	}
 	for (size_t i = 0; i < cl->nn; i++) {
-		idate_t dt = cl->n[i].x;
+		idate_t dt = cl->n[i].i;
 		fputc(' ', whither);
 		fprintf(whither, " %04u %.8g", dt, cl->n[i].y);
 	}
@@ -420,10 +372,10 @@ free_schema(trsch_t sch)
 
 /* cuts, this is the glue between schema and cut */
 DEFUN trcut_t
-make_cut(trcut_t old, trsch_t sch, daysi_t when)
+make_cut(trcut_t old, trsch_t sch, daisy_t when)
 {
 	trcut_t res = old;
-	int y = daysi_to_year(when);
+	int y = daisy_to_year(when);
 
 	if (old) {
 		/* quickly rinse the old cut */
@@ -442,8 +394,8 @@ make_cut(trcut_t old, trsch_t sch, daysi_t when)
 		for (size_t j = 0; j < p->nn - 1; j++) {
 			struct cnode_s *n1 = p->n + j;
 			struct cnode_s *n2 = n1 + 1;
-			daysi_t l1 = daysi_in_year(n1->l, y);
-			daysi_t l2 = daysi_in_year(n2->l, y);
+			daisy_t l1 = daisy_in_year(n1->l, y);
+			daisy_t l2 = daisy_in_year(n2->l, y);
 
 			if (when >= l1 && when <= l2) {
 				/* something happened between n1 and n2 */

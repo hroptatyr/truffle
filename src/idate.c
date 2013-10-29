@@ -1,4 +1,4 @@
-/*** daisy.c -- common daisy related goodies
+/*** idate.c -- integer coded dates
  *
  * Copyright (C) 2011-2013 Sebastian Freundt
  *
@@ -37,33 +37,93 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
-#include "instant.h"
-#include "daisy.h"
+#include <ctype.h>
+#include <stdio.h>
+#include "idate.h"
+#include "nifty.h"
 #include "yd.h"
 
 
-/* public API */
-__attribute__((pure, const)) daisy_t
-instant_to_daisy(echs_instant_t i)
+/* public api */
+idate_t
+read_idate(const char *str, char **restrict on)
 {
-/* compute days since BASE-01-00 (Mon),
- * if year slot is absent in D compute the day in the year of D instead. */
-	struct yd_s yd = __md_to_yd(i.y, (struct md_s){.m = i.m, .d = i.d});
-	int by = TO_BASE(i.y);
+#define C(x)	(x - '0')
+	idate_t res = 0;
+	const char *tmp;
 
-	return by * 365U + by / 4U + yd.d;
+	tmp = str;
+	if (!isdigit(*tmp)) {
+		goto out;
+	}
+
+	/* start off populating res */
+	res = C(tmp[0]) * 10 + C(tmp[1]);
+	tmp = tmp + 2 + (tmp[2] == '-');
+
+	if (!isdigit(*tmp)) {
+		goto out;
+	}
+
+	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
+	tmp = tmp + 2 + (tmp[2] == '-');
+
+	if (!isdigit(*tmp)) {
+		/* already buggered? */
+		goto out;
+	}
+
+	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
+	tmp = tmp + 2 + (tmp[2] == '-');
+
+	if (!isdigit(*tmp)) {
+		/* date is fucked? */
+		goto out;
+	}
+
+	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
+	tmp = tmp + 2;
+
+out:
+	if (LIKELY(on != NULL)) {
+		*on = deconst(tmp);
+	}
+#undef C
+	return res;
 }
 
-__attribute__((pure, const)) echs_instant_t
-daisy_to_instant(daisy_t dd)
+size_t
+prnt_idate(char *restrict buf, size_t bsz, idate_t dt)
 {
-/* given days since BASE-01-00,
- * compute the instant_t representation X */
+	unsigned int y = idate_y(dt);
+	unsigned int m = idate_m(dt);
+	unsigned int d = idate_d(dt);
+
+	return snprintf(buf, bsz, "%u-%02u-%02u", y, m, d);
+}
+
+__attribute__((pure, const)) daisy_t
+daisy_sans_year(idate_t id)
+{
+	int d = (id % 100U);
+	int m = (id / 100U) % 100U;
+	struct yd_s yd = __md_to_yd(2000, (struct md_s){.m = m, .d = d});
+	daisy_t doy = yd.d | DAISY_DIY_BIT;
+	return doy;
+}
+
+/* standalone version, we could use ds_sum but this is most likely
+ * causing more cache misses */
+__attribute__((pure, const)) idate_t
+daisy_to_idate(daisy_t dd)
+{
+/* given days since 2000-01-00 (Mon),
+ * compute the idate_t representation X so that idate_to_daysi(X) == DDT */
 /* stolen from dateutils' daisy.c */
-	unsigned int y;
-	unsigned int m;
-	unsigned int d;
-	unsigned int j00;
+	int y;
+	int m;
+	int d;
+	int j00;
 	unsigned int doy;
 
 	/* get year first (estimate) */
@@ -71,7 +131,7 @@ daisy_to_instant(daisy_t dd)
 	/* get jan-00 of (est.) Y */
 	j00 = y * 365U + y / 4U;
 	/* y correct? */
-	if (UNLIKELY(j00 >= dd)) {
+	if (UNLIKELY(j00 >= (int)dd)) {
 		/* correct y */
 		y--;
 		/* and also recompute the j00 of y */
@@ -88,49 +148,21 @@ daisy_to_instant(daisy_t dd)
 		m = md.m;
 		d = md.d;
 	}
-	return (echs_instant_t){y, m, d, ECHS_ALL_DAY};
+	return (y * 100U + m) * 100U + d;
 }
 
-/* standalone version and adapted to what make_cut() needs */
-unsigned int
-daisy_to_year(daisy_t dd)
+__attribute__((pure, const)) daisy_t
+idate_to_daisy(idate_t dt)
 {
-	int y;
-	int j00;
-
-	/* get year first (estimate) */
-	y = dd / 365U;
-	/* get jan-00 of (est.) Y */
-	j00 = y * 365U + y / 4U;
-	/* y correct? */
-	if (UNLIKELY(j00 >= (int)dd)) {
-		/* correct y */
-		y--;
-	}
-	/* ass */
-	return TO_YEAR(y);
-}
-
-daisy_t
-daisy_in_year(daisy_t ds, unsigned int y)
-{
-	int j00;
+/* compute days since BASE-01-00 (Mon),
+ * if year slot is absent in D compute the day in the year of D instead. */
+	int d = dt % 100U;
+	int m = (dt / 100U) % 100U;
+	int y = (dt / 100U) / 100U;
+	struct yd_s yd = __md_to_yd(y, (struct md_s){.m = m, .d = d});
 	int by = TO_BASE(y);
 
-	if (UNLIKELY(!(ds & DAISY_DIY_BIT))) {
-		/* we could technically do something here */
-		return ds;
-	}
-
-	ds &= ~DAISY_DIY_BIT;
-
-	/* get jan-00 of (est.) Y */
-	j00 = by * 365U + by / 4U;
-
-	if (y % 4U != 0 && ds >= 60) {
-		ds--;
-	}
-	return ds + j00;
+	return by * 365U + by / 4U + yd.d;
 }
 
-/* daisy.c ends here */
+/* idate.c ends here */

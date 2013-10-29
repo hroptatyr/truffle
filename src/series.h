@@ -39,8 +39,10 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
-#include "dt-strpf.h"
+#include "daisy.h"
+#include "idate.h"
 #include "mmy.h"
 
 #if !defined DECLF
@@ -64,7 +66,7 @@ struct trtsc_s {
 
 struct __dvv_s {
 	idate_t d;
-	daysi_t dd;
+	daisy_t dd;
 	double *v;
 };
 

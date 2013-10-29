@@ -40,7 +40,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "truffle.h"
+#include "idate.h"
+#include "daisy.h"
 #include "schema.h"
 
 #if !defined DECLF
@@ -84,7 +85,7 @@ struct trcut_pr_s {
 };
 
 
-DECLF trcut_t make_cut(trcut_t, trsch_t schema, daysi_t when);
+DECLF trcut_t make_cut(trcut_t, trsch_t schema, daisy_t when);
 
 /**
  * Free resources associated with the cut. */
@@ -94,6 +95,6 @@ DECLF trcut_t cut_add_cc(trcut_t c, struct trcc_s cc);
 
 DECLF void cut_rem_cc(trcut_t c, struct trcc_s *cc);
 
-DECLF void print_cut(trcut_t c, idate_t dt, struct trcut_pr_s);
+DECLF void print_cut(trcut_t c, idate_t i, struct trcut_pr_s);
 
 #endif	/* INCLUDED_cut_h_ */

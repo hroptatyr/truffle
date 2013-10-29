@@ -304,7 +304,7 @@ read_series(FILE *f)
 		if ((dat = strchr(con, '\t')) == NULL) {
 			break;
 		}
-		if (!(dv.d = read_date(dat + 1, &val)) ||
+		if (!(dv.d = read_idate(dat + 1, &val)) ||
 		    (val == NULL) ||
 		    (dv.v = strtod(val + 1, &val), val) == NULL) {
 			break;

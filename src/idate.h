@@ -1,10 +1,10 @@
-/*** dt-strpf.h -- parser and formatter funs for echse
+/*** idate.h -- integer coded dates
  *
  * Copyright (C) 2011-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of echse.
+ * This file is part of truffle.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,24 +33,55 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- **/
-#if !defined INCLUDED_dt_strpf_h_
-#define INCLUDED_dt_strpf_h_
+ ***/
+#if !defined INCLUDED_idate_h_
+#define INCLUDED_idate_h_
 
+#include <stdint.h>
 #include <stdlib.h>
-#include "instant.h"
+#include "daisy.h"
 
 /**
- * Parse STR with the standard parser. */
-extern echs_instant_t dt_strp(const char *str, char **on);
+ * Daisy is simply the days since EPOCH. */
+typedef uint32_t idate_t;
 
 /**
- * Print INST into BUF (of size BSZ) and return its length. */
-extern size_t dt_strf(char *restrict buf, size_t bsz, echs_instant_t inst);
+ * Turn STR into idate and set ON to character after the last consumed one. */
+extern idate_t read_idate(const char *str, char **restrict on);
+
+/**
+ * Turn idate I to string in BUF of size BSZ. */
+extern size_t prnt_idate(char *restrict buf, size_t bsz, idate_t i);
+
+/**
+ * Special purpose idate->daisy glue. */
+extern __attribute__((pure, const)) daisy_t daisy_sans_year(idate_t id);
+
+/**
+ * Convert daisy object to idate object. */
+extern __attribute__((pure, const)) idate_t daisy_to_idate(daisy_t dd);
+
+/**
+ * Convert idate object to daisy object */
+extern __attribute__((pure, const)) daisy_t idate_to_daisy(idate_t dt);
 
 
-#if defined INCLUDE_DT_STRPF_IMPL
-# include "dt-strpf.c"
-#endif	/* INCLUDE_DT_STRPF_IMPL */
+static inline __attribute__((pure, const)) unsigned int
+idate_y(idate_t dt)
+{
+	return dt / 10000U;
+}
 
-#endif	/* INCLUDED_dt_strpf_h_ */
+static inline __attribute__((pure, const)) unsigned int
+idate_m(idate_t dt)
+{
+	return (dt % 10000U) / 100U;
+}
+
+static inline __attribute__((pure, const)) unsigned int
+idate_d(idate_t dt)
+{
+	return dt % 100U;
+}
+
+#endif	/* INCLUDED_idate_h_ */
