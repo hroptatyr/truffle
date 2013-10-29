@@ -52,11 +52,11 @@ typedef uint32_t daisy_t;
 
 /**
  * Convert instant_t to daisy_t */
-extern daisy_t instant_to_daisy(echs_instant_t);
+extern __attribute__((pure, const)) daisy_t instant_to_daisy(echs_instant_t);
 
 /**
  * Convert a daisy_t to an instant_t */
-extern echs_instant_t daisy_to_instant(daisy_t);
+extern __attribute__((pure, const)) echs_instant_t daisy_to_instant(daisy_t);
 
 /**
  * Extract the year off a daisy_t object. */

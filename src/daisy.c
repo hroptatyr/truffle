@@ -43,7 +43,7 @@
 
 
 /* public API */
-daisy_t
+__attribute__((pure, const)) daisy_t
 instant_to_daisy(echs_instant_t i)
 {
 /* compute days since BASE-01-00 (Mon),
@@ -54,7 +54,7 @@ instant_to_daisy(echs_instant_t i)
 	return by * 365U + by / 4U + yd.d;
 }
 
-echs_instant_t
+__attribute__((pure, const)) echs_instant_t
 daisy_to_instant(daisy_t dd)
 {
 /* given days since BASE-01-00,
