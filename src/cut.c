@@ -42,6 +42,7 @@
 #include <string.h>
 #include <math.h>
 #include "truffle.h"
+#include "idate.h"
 #include "cut.h"
 
 #if !defined LIKELY
@@ -143,7 +144,7 @@ print_cut(trcut_t c, idate_t dt, struct trcut_pr_s opt)
 	if (opt.abs || opt.oco) {
 		c->year_off = (uint16_t)(dt / 10000U);
 	}
-	p += snprint_idate(buf, sizeof(buf), dt);
+	p += prnt_idate(buf, sizeof(buf), dt);
 	*p++ = '\t';
 	var = p;
 	for (size_t i = 0; i < c->ncomps; i++, p = var) {
