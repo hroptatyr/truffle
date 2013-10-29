@@ -1,10 +1,10 @@
-/*** dt-strpf.c -- date parsing and formatting
+/*** dt-strpf.c -- parser and formatter funs for echse
  *
  * Copyright (C) 2011-2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
- * This file is part of truffle.
+ * This file is part of echse.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,81 +33,23 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- ***/
+ **/
+/* implementation part of date-core-strpf.h */
+#if !defined INCLUDED_dt_strpf_c_
+#define INCLUDED_dt_strpf_c_
+
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
-#include <ctype.h>
-#include "truffle.h"
+#include <stdint.h>
+#include "dt-strpf.h"
 
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
-#endif
+#endif	/* !LIKELY */
 #if !defined UNLIKELY
 # define UNLIKELY(_x)	__builtin_expect((_x), 0)
-#endif
-#if !defined UNUSED
-# define UNUSED(_x)	_x __attribute__((unused))
-#endif	/* !UNUSED */
-
-static char*
-__p2c(const char *str)
-{
-	union {
-		const char *c;
-		char *p;
-	} this = {.c = str};
-	return this.p;
-}
-
-
-/* public api */
-DEFUN idate_t
-read_date(const char *str, char **restrict ptr)
-{
-#define C(x)	(x - '0')
-	idate_t res = 0;
-	const char *tmp;
-
-	tmp = str;
-	if (!isdigit(*tmp)) {
-		goto out;
-	}
-
-	/* start off populating res */
-	res = C(tmp[0]) * 10 + C(tmp[1]);
-	tmp = tmp + 2 + (tmp[2] == '-');
-
-	if (!isdigit(*tmp)) {
-		goto out;
-	}
-
-	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
-	tmp = tmp + 2 + (tmp[2] == '-');
-
-	if (!isdigit(*tmp)) {
-		/* already buggered? */
-		goto out;
-	}
-
-	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
-	tmp = tmp + 2 + (tmp[2] == '-');
-
-	if (!isdigit(*tmp)) {
-		/* date is fucked? */
-		goto out;
-	}
-
-	res = (res * 10 + C(tmp[0])) * 10 + C(tmp[1]);
-	tmp = tmp + 2;
-
-out:
-	if (ptr) {
-		*ptr = __p2c(tmp);
-	}
-#undef C
-	return res;
-}
+#endif	/* UNLIKELY */
 
 static int32_t
 strtoi_lim(const char *str, const char **ep, int32_t llim, int32_t ulim)
@@ -173,12 +115,12 @@ ui32tostr(char *restrict buf, size_t bsz, uint32_t d, int pad)
 }
 
 
-DEFUN trod_instant_t
+echs_instant_t
 dt_strp(const char *str)
 {
 /* code dupe, see __strpd_std() */
-	trod_instant_t nul = {0};
-	trod_instant_t res = {0};
+	echs_instant_t nul = {};
+	echs_instant_t res = {};
 	const char *sp;
 	int32_t tmp;
 
@@ -212,8 +154,8 @@ dt_strp(const char *str)
 		break;
 	case '\0':
 	default:
-		/* just the date, make it TROD_ALL_DAY then aye */
-		res.H = TROD_ALL_DAY;
+		/* just the date, make it ECHS_ALL_DAY then aye */
+		res.H = ECHS_ALL_DAY;
 		return res;
 	}
 
@@ -238,7 +180,7 @@ dt_strp(const char *str)
 	/* millisecond part */
 	if (*sp++ != '.') {
 		/* make it ALL_SEC then */
-		tmp = TROD_ALL_SEC;
+		tmp = ECHS_ALL_SEC;
 	} else if ((tmp = strtoi_lim(sp, &sp, 0, 999)) < 0) {
 		return nul;
 	}
@@ -246,8 +188,8 @@ dt_strp(const char *str)
 	return res;
 }
 
-DEFUN size_t
-dt_strf(char *restrict buf, size_t bsz, trod_instant_t inst)
+size_t
+dt_strf(char *restrict buf, size_t bsz, echs_instant_t inst)
 {
 	char *restrict bp = buf;
 #define bz	(bsz - (bp - buf))
@@ -258,14 +200,14 @@ dt_strf(char *restrict buf, size_t bsz, trod_instant_t inst)
 	*bp++ = '-';
 	bp += ui32tostr(bp, bz, inst.d, 2);
 
-	if (LIKELY(!trod_instant_all_day_p(inst))) {
+	if (LIKELY(!echs_instant_all_day_p(inst))) {
 		*bp++ = 'T';
 		bp += ui32tostr(bp, bz, inst.H, 2);
 		*bp++ = ':';
 		bp += ui32tostr(bp, bz, inst.M, 2);
 		*bp++ = ':';
 		bp += ui32tostr(bp, bz, inst.S, 2);
-		if (LIKELY(!trod_instant_all_sec_p(inst))) {
+		if (LIKELY(!echs_instant_all_sec_p(inst))) {
 			*bp++ = '.';
 			bp += ui32tostr(bp, bz, inst.ms, 3);
 		}
@@ -274,115 +216,4 @@ dt_strf(char *restrict buf, size_t bsz, trod_instant_t inst)
 	return bp - buf;
 }
 
-DEFUN trod_instant_t
-trod_instant_fixup(trod_instant_t e)
-{
-/* this is basically __ymd_fixup_d of dateutils
- * we only care about additive cockups though because instants are
- * chronologically ascending */
-	static const unsigned int mdays[] = {
-		0U, 31U, 28U, 31U, 30U, 31U, 30U, 31U, 31U, 30U, 31U, 30U, 31U,
-	};
-	unsigned int md;
-
-	if (UNLIKELY(trod_instant_all_day_p(e))) {
-		/* just fix up the day, dom and year portion */
-		goto fixup_d;
-	} else if (UNLIKELY(trod_instant_all_day_p(e))) {
-		/* just fix up the sec, min, ... portions */
-		goto fixup_S;
-	}
-
-	if (UNLIKELY(e.ms >= 1000U)) {
-		unsigned int dS = e.ms / 1000U;
-		unsigned int ms = e.ms % 1000U;
-
-		e.ms = ms;
-		e.S += dS;
-	}
-
-fixup_S:
-	if (UNLIKELY(e.S >= 60U)) {
-		/* leap seconds? */
-		unsigned int dM = e.S / 60U;
-		unsigned int S = e.S % 60U;
-
-		e.S = S;
-		e.M += dM;
-	}
-	if (UNLIKELY(e.M >= 60U)) {
-		unsigned int dH = e.M / 60U;
-		unsigned int M = e.M % 60U;
-
-		e.M = M;
-		e.H += dH;
-	}
-	if (UNLIKELY(e.H >= 24U)) {
-		unsigned int dd = e.H / 24U;
-		unsigned int H = e.H % 24U;
-
-		e.H = H;
-		e.d += dd;
-	}
-
-fixup_d:
-refix_ym:
-	if (UNLIKELY(e.m > 12U)) {
-		unsigned int dy = (e.m - 1) / 12U;
-		unsigned int m = (e.m - 1) % 12U + 1U;
-
-		e.m = m;
-		e.y += dy;
-	}
-
-	if (UNLIKELY(e.d > (md = mdays[e.m]))) {
-		/* leap year handling */
-		if (UNLIKELY(e.m == 2U && (e.y % 4U) == 0U)) {
-			md++;
-		}
-		if (LIKELY((e.d -= md) > 0U)) {
-			e.m++;
-			goto refix_ym;
-		}
-	}
-	return e;
-}
-
-DEFUN trod_instant_t
-daysi_to_trod_instant(daysi_t dd)
-{
-/* given days since BASE-01-00,
- * compute the instant_t representation X */
-/* stolen from dateutils' daisy.c */
-	unsigned int y;
-	unsigned int m;
-	unsigned int d;
-	unsigned int j00;
-	unsigned int doy;
-
-	/* get year first (estimate) */
-	y = dd / 365U;
-	/* get jan-00 of (est.) Y */
-	j00 = y * 365U + y / 4U;
-	/* y correct? */
-	if (UNLIKELY(j00 >= dd)) {
-		/* correct y */
-		y--;
-		/* and also recompute the j00 of y */
-		j00 = y * 365U + y / 4U;
-	}
-	/* ass */
-	y = TO_YEAR(y);
-	/* this one must be positive now */
-	doy = dd - j00;
-
-	/* get month and day from doy */
-	{
-		struct md_s md = __yd_to_md((struct yd_s){y, doy});
-		m = md.m;
-		d = md.d;
-	}
-	return (trod_instant_t){y, m, d, TROD_ALL_DAY};
-}
-
-/* dt-strpf.c ends here */
+#endif	/* INCLUDED_dt_strpf_c_ */

@@ -34,45 +34,29 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#include "truffle.h"
-
-#if !defined LIKELY
-# define LIKELY(_x)	__builtin_expect((_x), 1)
-#endif
-#if !defined UNLIKELY
-# define UNLIKELY(_x)	__builtin_expect((_x), 0)
-#endif
-#if !defined UNUSED
-# define UNUSED(_x)	_x __attribute__((unused))
-#endif	/* !UNUSED */
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
+#include "instant.h"
+#include "daisy.h"
+#include "yd.h"
 
 
 /* date/time goodies */
-#define DAYSI_DIY_BIT	(1 << (sizeof(daysi_t) * 8 - 1))
+#define DAISY_DIY_BIT	(1 << (sizeof(daisy_t) * 8 - 1))
 
-static __attribute__((unused)) daysi_t
-daysi_sans_year(idate_t id)
-{
-	int d = (id % 100U);
-	int m = (id / 100U) % 100U;
-	struct yd_s yd = __md_to_yd(2000, (struct md_s){.m = m, .d = d});
-	daysi_t doy = yd.d | DAYSI_DIY_BIT;
-
-	return doy;
-}
-
-static daysi_t
-daysi_in_year(daysi_t ds, int y)
+static daisy_t
+daisy_in_year(daisy_t ds, int y)
 {
 	int j00;
 	int by = TO_BASE(y);
 
-	if (UNLIKELY(!(ds & DAYSI_DIY_BIT))) {
+	if (UNLIKELY(!(ds & DAISY_DIY_BIT))) {
 		/* we could technically do something here */
 		return ds;
 	}
 
-	ds &= ~DAYSI_DIY_BIT;
+	ds &= ~DAISY_DIY_BIT;
 
 	/* get jan-00 of (est.) Y */
 	j00 = by * 365U + by / 4U;
@@ -85,7 +69,7 @@ daysi_in_year(daysi_t ds, int y)
 
 /* standalone version and adapted to what make_cut() needs */
 static int
-daysi_to_year(daysi_t dd)
+daisy_to_year(daisy_t dd)
 {
 	int y;
 	int j00;
@@ -101,6 +85,65 @@ daysi_to_year(daysi_t dd)
 	}
 	/* ass */
 	return TO_YEAR(y);
+}
+
+
+/* public API */
+daisy_t
+instant_to_daisy(echs_instant_t i)
+{
+/* compute days since BASE-01-00 (Mon),
+ * if year slot is absent in D compute the day in the year of D instead. */
+	struct yd_s yd = __md_to_yd(i.y, (struct md_s){.m = i.m, .d = i.d});
+	int by = TO_BASE(i.y);
+
+	return by * 365U + by / 4U + yd.d;
+}
+
+echs_instant_t
+daisy_to_instant(daisy_t dd)
+{
+/* given days since BASE-01-00,
+ * compute the instant_t representation X */
+/* stolen from dateutils' daisy.c */
+	unsigned int y;
+	unsigned int m;
+	unsigned int d;
+	unsigned int j00;
+	unsigned int doy;
+
+	/* get year first (estimate) */
+	y = dd / 365U;
+	/* get jan-00 of (est.) Y */
+	j00 = y * 365U + y / 4U;
+	/* y correct? */
+	if (UNLIKELY(j00 >= dd)) {
+		/* correct y */
+		y--;
+		/* and also recompute the j00 of y */
+		j00 = y * 365U + y / 4U;
+	}
+	/* ass */
+	y = TO_YEAR(y);
+	/* this one must be positive now */
+	doy = dd - j00;
+
+	/* get month and day from doy */
+	{
+		struct md_s md = __yd_to_md((struct yd_s){y, doy});
+		m = md.m;
+		d = md.d;
+	}
+	return (echs_instant_t){y, m, d, ECHS_ALL_DAY};
+}
+
+daisy_t
+daisy_sans_year(echs_instant_t i)
+{
+	struct yd_s yd = __md_to_yd(2000U, (struct md_s){.m = i.m, .d = i.d});
+	daisy_t doy = yd.d | DAISY_DIY_BIT;
+
+	return doy;
 }
 
 /* daisy.c ends here */
