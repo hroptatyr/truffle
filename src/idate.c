@@ -89,6 +89,16 @@ out:
 	return res;
 }
 
+size_t
+prnt_idate(char *restrict buf, size_t bsz, idate_t dt)
+{
+	unsigned int y = idate_y(dt);
+	unsigned int m = idate_m(dt);
+	unsigned int d = idate_d(dt);
+
+	return snprintf(buf, bsz, "%u-%02u-%02u", y, m, d);
+}
+
 __attribute__((pure, const)) daisy_t
 daisy_sans_year(idate_t id)
 {

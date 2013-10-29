@@ -38,6 +38,7 @@
 #define INCLUDED_idate_h_
 
 #include <stdint.h>
+#include <stdlib.h>
 #include "daisy.h"
 
 /**
@@ -45,8 +46,12 @@
 typedef uint32_t idate_t;
 
 /**
- * Convert instant_t to daisy_t but disregard the year. */
+ * Turn STR into idate and set ON to character after the last consumed one. */
 extern idate_t read_idate(const char *str, char **restrict on);
+
+/**
+ * Turn idate I to string in BUF of size BSZ. */
+extern size_t prnt_idate(char *restrict buf, size_t bsz, idate_t i);
 
 /**
  * Special purpose idate->daisy glue. */
