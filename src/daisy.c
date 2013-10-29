@@ -42,50 +42,6 @@
 #include "yd.h"
 
 
-/* date/time goodies */
-static daisy_t
-daisy_in_year(daisy_t ds, int y)
-{
-	int j00;
-	int by = TO_BASE(y);
-
-	if (UNLIKELY(!(ds & DAISY_DIY_BIT))) {
-		/* we could technically do something here */
-		return ds;
-	}
-
-	ds &= ~DAISY_DIY_BIT;
-
-	/* get jan-00 of (est.) Y */
-	j00 = by * 365U + by / 4U;
-
-	if (y % 4U != 0 && ds >= 60) {
-		ds--;
-	}
-	return ds + j00;
-}
-
-/* standalone version and adapted to what make_cut() needs */
-static int
-daisy_to_year(daisy_t dd)
-{
-	int y;
-	int j00;
-
-	/* get year first (estimate) */
-	y = dd / 365U;
-	/* get jan-00 of (est.) Y */
-	j00 = y * 365U + y / 4U;
-	/* y correct? */
-	if (UNLIKELY(j00 >= (int)dd)) {
-		/* correct y */
-		y--;
-	}
-	/* ass */
-	return TO_YEAR(y);
-}
-
-
 /* public API */
 daisy_t
 instant_to_daisy(echs_instant_t i)
@@ -133,6 +89,48 @@ daisy_to_instant(daisy_t dd)
 		d = md.d;
 	}
 	return (echs_instant_t){y, m, d, ECHS_ALL_DAY};
+}
+
+/* standalone version and adapted to what make_cut() needs */
+unsigned int
+daisy_to_year(daisy_t dd)
+{
+	int y;
+	int j00;
+
+	/* get year first (estimate) */
+	y = dd / 365U;
+	/* get jan-00 of (est.) Y */
+	j00 = y * 365U + y / 4U;
+	/* y correct? */
+	if (UNLIKELY(j00 >= (int)dd)) {
+		/* correct y */
+		y--;
+	}
+	/* ass */
+	return TO_YEAR(y);
+}
+
+daisy_t
+daisy_in_year(daisy_t ds, unsigned int y)
+{
+	int j00;
+	int by = TO_BASE(y);
+
+	if (UNLIKELY(!(ds & DAISY_DIY_BIT))) {
+		/* we could technically do something here */
+		return ds;
+	}
+
+	ds &= ~DAISY_DIY_BIT;
+
+	/* get jan-00 of (est.) Y */
+	j00 = by * 365U + by / 4U;
+
+	if (y % 4U != 0 && ds >= 60) {
+		ds--;
+	}
+	return ds + j00;
 }
 
 /* daisy.c ends here */

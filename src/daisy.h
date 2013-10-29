@@ -58,4 +58,16 @@ extern daisy_t instant_to_daisy(echs_instant_t);
  * Convert a daisy_t to an instant_t */
 extern echs_instant_t daisy_to_instant(daisy_t);
 
+/**
+ * Extract the year off a daisy_t object. */
+extern unsigned int daisy_to_year(daisy_t dd);
+
+/**
+ * Extract the year off a daisy_t object. */
+extern unsigned int daisy_to_year(daisy_t dd);
+
+/**
+ * Given a daisy DS, pretend it takes place in year Y. */
+extern daisy_t daisy_in_year(daisy_t ds, unsigned int y);
+
 #endif	/* INCLUDED_daisy_h_ */
