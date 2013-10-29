@@ -45,6 +45,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <assert.h>
 #include <sys/mman.h>
 #if defined WORDS_BIGENDIAN
 # include <limits.h>
@@ -52,13 +53,11 @@
 
 #include "truffle.h"
 #include "instant.h"
+#include "daisy.h"
 #include "trod.h"
 #include "gq.h"
 #include "mmy.h"
-
-#if defined STANDALONE
-# include "daisy.c"
-#endif	/* STANDALONE */
+#include "nifty.h"
 
 #if defined STANDALONE
 # include <stdio.h>
@@ -72,22 +71,6 @@
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)
 #endif
-#if !defined UNLIKELY
-# define UNLIKELY(_x)	__builtin_expect((_x), 0)
-#endif
-#if !defined UNUSED
-# define UNUSED(_x)	_x __attribute__((unused))
-#endif	/* !UNUSED */
-#if defined DEBUG_FLAG
-# include <assert.h>
-# define TRUF_DEBUG(args...)	fprintf(stderr, args)
-#else  /* !DEBUG_FLAG */
-# define assert(args...)
-# define TRUF_DEBUG(args...)
-#endif	/* DEBUG_FLAG */
-#if !defined countof
-# define countof(x)	(sizeof(x) / sizeof(*(x)))
-#endif	/* !countof */
 
 #if !defined MAP_ANON && defined MAP_ANONYMOUS
 # define MAP_ANON	MAP_ANONYMOUS
@@ -422,13 +405,13 @@ static int opt_abs;
 
 struct cnode_s {
 	idate_t x;
-	daysi_t l;
+	daisy_t l;
 	double y __attribute__((aligned(sizeof(double))));
 };
 
 struct cline_s {
-	daysi_t valid_from;
-	daysi_t valid_till;
+	daisy_t valid_from;
+	daisy_t valid_till;
 	char month;
 	int8_t year_off;
 	size_t nn;
@@ -441,15 +424,15 @@ struct trsch_s {
 };
 
 static int
-troq_add_cline(trod_event_t qi, const struct cline_s *p, daysi_t when)
+troq_add_cline(trod_event_t qi, const struct cline_s *p, daisy_t when)
 {
-	unsigned int y = daysi_to_year(when);
+	unsigned int y = daisy_to_year(when);
 
 	for (size_t j = 0; j < p->nn - 1; j++) {
 		const struct cnode_s *n1 = p->n + j;
 		const struct cnode_s *n2 = n1 + 1;
-		daysi_t l1 = daysi_in_year(n1->l, y);
-		daysi_t l2 = daysi_in_year(n2->l, y);
+		daisy_t l1 = daisy_in_year(n1->l, y);
+		daisy_t l2 = daisy_in_year(n2->l, y);
 
 		if (when == l2) {
 			/* something happened at l2 */
@@ -480,14 +463,14 @@ troq_add_cline(trod_event_t qi, const struct cline_s *p, daysi_t when)
 }
 
 static void
-troq_add_clines(struct troq_s q[static 1], trsch_t sch, daysi_t when)
+troq_add_clines(struct troq_s q[static 1], trsch_t sch, daisy_t when)
 {
 	static struct {
 		struct trod_event_s ev;
 		struct trod_state_s st;
 	} qi;
 
-	qi.ev.when = daysi_to_echs_instant(when);
+	qi.ev.when = daisy_to_instant(when);
 	for (size_t i = 0; i < sch->np; i++) {
 		const struct cline_s *p = sch->p[i];
 
@@ -510,11 +493,11 @@ static trod_t
 schema_to_trod(trsch_t sch, idate_t from, idate_t till)
 {
 	struct troq_s q = {0UL, 0UL};
-	daysi_t fsi = idate_to_daysi(from);
-	daysi_t tsi = idate_to_daysi(till);
+	daisy_t fsi = idate_to_daisy(from);
+	daisy_t tsi = idate_to_daisy(till);
 	trod_t res;
 
-	for (daysi_t now = fsi; now < tsi; now++) {
+	for (daisy_t now = fsi; now < tsi; now++) {
 		troq_add_clines(&q, sch, now);
 	}
 
@@ -626,7 +609,7 @@ print_flip_over(trod_event_t ev, FILE *whither)
 	}
 
 	/* otherwise it's a flip-over, print all active (in the old year) */
-	p += dt_strf(buf, sizeof(buf), (echs_instant_t){y, 1, 1, TROD_ALL_DAY});
+	p += dt_strf(buf, sizeof(buf), (echs_instant_t){y, 1, 1, ECHS_ALL_DAY});
 	*p++ = '\t';
 	var = p;
 
@@ -699,12 +682,12 @@ main(int argc, char *argv[])
 	}
 
 	if (argi->from_given) {
-		from = read_date(argi->from_arg, NULL);
+		from = read_idate(argi->from_arg, NULL);
 	} else {
 		from = 20000101U;
 	}
 	if (argi->till_given) {
-		till = read_date(argi->till_arg, NULL);
+		till = read_idate(argi->till_arg, NULL);
 	} else {
 		till = 20371231U;
 	}
