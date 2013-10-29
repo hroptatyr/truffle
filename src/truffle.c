@@ -579,7 +579,7 @@ update_gbs(gbs_t bs, trod_t td, echs_instant_t inst)
 	static size_t i;
 	int res = 0;
 
-	if (__inst_lt_p(inst, last)) {
+	if (echs_instant_lt_p(inst, last)) {
 		/* we'll have to build it all up again */
 		last = (echs_instant_t){0};
 		i = 0;
@@ -590,7 +590,7 @@ update_gbs(gbs_t bs, trod_t td, echs_instant_t inst)
 		if (last.y < x->when.y) {
 			flip_over(bs, x->when.y - last.y);
 		}
-		if (__inst_lt_p(inst, x->when)) {
+		if (echs_instant_lt_p(inst, x->when)) {
 			/* we went to far, aye? */
 			last = inst;
 			break;

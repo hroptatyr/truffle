@@ -179,7 +179,7 @@ __wheapify_mrg(truf_wheap_t h, size_t i, size_t j)
 /* aka Merge(i, j) in Edelkamp/Wegener's paper, or join in the improved one */
 	bool res;
 
-	if ((res = __inst_lt_p(h->cells[j], h->cells[i]))) {
+	if ((res = echs_instant_lt_p(h->cells[j], h->cells[i]))) {
 		/* swap(pop(idx), idx) */
 		__wheap_swap(h, i, j);
 		/* update bit field */

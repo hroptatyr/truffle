@@ -192,7 +192,7 @@ troq_add_event(struct troq_s tgt[static 1], trod_event_t ev)
 	qi->ev = *ev;
 	qi->what = ev->what[0];
 	/* update counters */
-	if (__inst_lt_p(troq_last_inst(tgt), ev->when)) {
+	if (echs_instant_lt_p(troq_last_inst(tgt), ev->when)) {
 		tgt->ninst++;
 	}
 	tgt->nev++;
@@ -235,7 +235,7 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 
 	if ((p = strchr(line, '\t')) == NULL) {
 		goto nul;
-	} else if (__inst_0_p(res.ev.when = dt_strp(line, NULL))) {
+	} else if (echs_instant_0_p(res.ev.when = dt_strp(line, NULL))) {
 		goto nul;
 	}
 
@@ -284,7 +284,7 @@ read_troq(FILE *f)
 	while ((nrd = getline(&line, &llen, f)) > 0) {
 		trod_event_t ev = read_trod_event(line, nrd);
 
-		if (__inst_le_p(last, ev->when)) {
+		if (echs_instant_le_p(last, ev->when)) {
 			troq_add_event(&q, ev);
 			last = ev->when;
 		}
@@ -335,8 +335,8 @@ troq_to_trod(struct troq_s q)
 	cp = (void*)((char*)chunk - sizeof(*chunk->what));
 
 	for (trod_event_t ev, c;
-	     (ev = troq_pop_event(&q), !__inst_0_p(ev->when));) {
-		if (__inst_lt_p(last, ev->when)) {
+	     (ev = troq_pop_event(&q), !echs_instant_0_p(ev->when));) {
+		if (echs_instant_lt_p(last, ev->when)) {
 			/* start a new chamber */
 			size_t iidx = res->ninst++;
 			widx = 0UL;

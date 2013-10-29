@@ -90,13 +90,13 @@ echs_instant_all_sec_p(echs_instant_t i)
 }
 
 static inline __attribute__((pure)) bool
-__inst_0_p(echs_instant_t x)
+echs_instant_0_p(echs_instant_t x)
 {
 	return x.u == 0U;
 }
 
 static inline __attribute__((pure)) bool
-__inst_lt_p(echs_instant_t x, echs_instant_t y)
+echs_instant_lt_p(echs_instant_t x, echs_instant_t y)
 {
 	return (x.y < y.y || x.y == y.y &&
 		(x.m < y.m || x.m == y.m &&
@@ -108,7 +108,7 @@ __inst_lt_p(echs_instant_t x, echs_instant_t y)
 }
 
 static inline __attribute__((pure)) bool
-__inst_le_p(echs_instant_t x, echs_instant_t y)
+echs_instant_le_p(echs_instant_t x, echs_instant_t y)
 {
 	return !(x.y > y.y || x.y == y.y &&
 		 (x.m > y.m || x.m == y.m &&
@@ -120,7 +120,7 @@ __inst_le_p(echs_instant_t x, echs_instant_t y)
 }
 
 static inline __attribute__((pure)) bool
-__inst_eq_p(echs_instant_t x, echs_instant_t y)
+echs_instant_eq_p(echs_instant_t x, echs_instant_t y)
 {
 	return x.y == y.y && x.m == y.m && x.d == y.d &&
 		x.H == y.H && x.M == y.M && x.S == y.S &&
