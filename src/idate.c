@@ -38,6 +38,7 @@
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
 #include <ctype.h>
+#include <stdio.h>
 #include "idate.h"
 #include "nifty.h"
 
