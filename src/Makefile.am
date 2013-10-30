@@ -1,7 +1,7 @@
 ### Makefile.am
 include $(top_builddir)/version.mk
 
-AM_CPPFLAGS = -D_GNU_SOURCE -D_POSIX_C_SOURCE=201001L -D__USE_XOPEN2K8
+AM_CPPFLAGS = -D_GNU_SOURCE -D_POSIX_C_SOURCE=201001L -D_XOPEN_SOURCE=700
 AM_LDFLAGS =
 
 bin_PROGRAMS =
@@ -33,6 +33,21 @@ nodist_libtruffle_a_SOURCES = version.c
 noinst_HEADERS += version.h
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
+
+noinst_LIBRARIES += libcoru.a
+libcoru_a_SOURCES =
+EXTRA_libcoru_a_SOURCES =
+libcoru_a_SOURCES += coru.h
+libcoru_a_SOURCES += coru/cocore.c coru/cocore.h
+libcoru_a_SOURCES += coru/switch.c coru/switch.h
+libcoru_a_SOURCES += coru/platform.h
+libcoru_a_SOURCES += coru/valgrind.h
+libcoru_a_SOURCES += coru/memcheck.h
+EXTRA_libcoru_a_SOURCES += coru/switch-arm.c
+EXTRA_libcoru_a_SOURCES += coru/switch-ppc_osx.c
+EXTRA_libcoru_a_SOURCES += coru/switch-x86.c
+EXTRA_libcoru_a_SOURCES += coru/switch-x86_64.c
+
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle.ggo
