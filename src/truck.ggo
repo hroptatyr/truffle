@@ -1,0 +1,11 @@
+args "--unamed-opts --no-handle-error --long-help -a truf_args_info -f truf_parser"
+package "truffle"
+usage "truffle [OPTION]... COMMAND [ARG]..."
+description "Tool to apply roll-over directives (trod) to time series.
+
+COMMAND may be one of:
+  print  Print resulting actors of trod echse messages.
+"
+text "
+Options affecting the print command:"
+
