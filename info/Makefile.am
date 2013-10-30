@@ -20,7 +20,7 @@ EXTRA_DIST += author.h2m
 
 
 ## help2man helpers
-%.man: $(top_srcdir)/src/%-clo.ggo $(top_srcdir)/configure $(top_builddir)/version.mk
+%.man: $(top_srcdir)/src/%.ggo $(top_srcdir)/configure $(top_builddir)/version.mk
 	$(AM_V_GEN) $(HELP2MAN) -S "$(PACKAGE_STRING)" -p "($(PACKAGE))$*" \
 		--no-info \
 		-I "$(srcdir)/$*.name" \
