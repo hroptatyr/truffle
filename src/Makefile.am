@@ -73,6 +73,7 @@ noinst_PROGRAMS += truck
 truck_SOURCES = truck.c truck.ggo
 truck_LDADD = libtruffle.a
 truck_LDADD += libcoru.a
+truck_LDADD += -lm
 BUILT_SOURCES += truck.x truck.xh
 
 
