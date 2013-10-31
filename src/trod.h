@@ -37,6 +37,7 @@
 #if !defined INCLUDED_trod_h_
 #define INCLUDED_trod_h_
 
+#include <stdlib.h>
 #include <stdint.h>
 
 /* old abstract type */
@@ -57,6 +58,14 @@ extern trod_t read_trod(const char *file);
 /**
  * Free resources associated with roll-over schema. */
 extern void free_trod(trod_t);
+
+/**
+ * Try and read the string STR containing a symbol and an exposure. */
+extern truf_trod_t truf_trod_rd(const char *str, char **on);
+
+/**
+ * Output trod directive T into BUF of size BSZ, return bytes written. */
+extern size_t truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t);
 
 
 static inline __attribute__((pure, const)) truf_trod_t

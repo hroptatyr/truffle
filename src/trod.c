@@ -50,6 +50,7 @@
 #if defined WORDS_BIGENDIAN
 # include <limits.h>
 #endif	/* WORDS_BIGENDIAN */
+#include <stdio.h>
 
 #include "truffle.h"
 #include "instant.h"
@@ -57,20 +58,12 @@
 #include "trod.h"
 #include "gq.h"
 #include "mmy.h"
+#include "truf-dfp754.h"
 #include "nifty.h"
 
-#if defined STANDALONE
-# include <stdio.h>
-#endif	/* STANDALONE */
-#if !defined __GNUC__ && !defined __INTEL_COMPILER
-# define __builtin_expect(x, y)	x
-#endif	/* !GCC && !ICC */
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
-#endif	/* __INTEL_COMPILER */
-#if !defined LIKELY
-# define LIKELY(_x)	__builtin_expect((_x), 1)
-#endif
+#endif /* __INTEL_COMPILER */
 
 #if !defined MAP_ANON && defined MAP_ANONYMOUS
 # define MAP_ANON	MAP_ANONYMOUS
@@ -137,6 +130,20 @@ struct troq_s {
 	/* linked list of struct troq_s objects */
 	struct gq_ll_s trev[1];
 };
+
+
+/* auxiliaries */
+static size_t
+xstrlcpy(char *restrict dst, const char *src, size_t dsz)
+{
+	size_t ssz = strlen(src);
+	if (ssz > dsz) {
+		ssz = dsz - 1U;
+	}
+	memcpy(dst, src, ssz);
+	dst[ssz] = '\0';
+	return ssz;
+}
 
 
 static void*
@@ -215,7 +222,6 @@ troq_pop_event(struct troq_s src[static 1])
 	return &res.ev;
 }
 
-#if !defined STANDALONE
 static trod_event_t
 read_trod_event(const char *line, size_t UNUSED(llen))
 {
@@ -290,7 +296,6 @@ read_troq(FILE *f)
 	}
 	return q;
 }
-#endif	/* !STANDALONE */
 
 static inline trod_event_t
 chunk_inc_when(trod_event_t cp)
@@ -359,7 +364,6 @@ troq_to_trod(struct troq_s q)
 
 
 /* public API */
-#if !defined STANDALONE
 DEFUN void
 free_trod(trod_t td)
 {
@@ -390,7 +394,66 @@ read_trod(const char *file)
 	res = troq_to_trod(q);
 	return res;
 }
-#endif	/* !STANDALONE */
+
+/* new api */
+truf_trod_t
+truf_trod_rd(const char *str, char **on)
+{
+	static const char sep[] = " \t\n";
+	truf_trod_t res = truf_nul_trod();
+	const char *brk;
+
+	switch (*(brk += strcspn(brk = str, sep))) {
+	case '\0':
+	case '\n':
+		/* no separator, so it's just a symbol
+		 * imply exp = 0.df if ~FOO, exp = 1.df otherwise */
+		if (*str != '~') {
+			res.exp = 1.df;
+		} else {
+			/* could be ~FOO notation */
+			str++;
+		}
+		/* also set ON pointer */
+		if (LIKELY(on != NULL)) {
+			*on = deconst(brk);
+		}
+		break;
+	default:
+		/* get the exposure sorted */
+		res.exp = strtod32(brk, on);
+		break;
+	}
+	with (char *tmp = strndup(str, brk - str)) {
+		res.sym = (uintptr_t)tmp;
+	}
+	return res;
+}
+
+size_t
+truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t)
+{
+	char *restrict bp = buf;
+	const char *const ep = bp + bsz;
+
+	if (LIKELY(t.sym)) {
+		if (truf_mmy_p(t.sym)) {
+			bp += truf_mmy_wr(bp, ep - bp, t.sym);
+		} else {
+			bp += xstrlcpy(bp, (const char*)t.sym, ep - bp);
+		}
+	}
+	if (LIKELY(bp < ep)) {
+		*bp++ = '\t';
+	}
+	bp += d32tostr(bp, ep - bp, t.exp);
+	if (LIKELY(bp < ep)) {
+		*bp = '\0';
+	} else if (LIKELY(ep > bp)) {
+		*--bp = '\0';
+	}
+	return bp - buf;
+}
 
 
 /* converter, schema->trod */
