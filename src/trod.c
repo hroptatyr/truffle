@@ -427,8 +427,18 @@ truf_trod_rd(const char *str, char **on)
 		res.exp = strtod32(brk, on);
 		break;
 	}
-	with (char *tmp = strndup(str, brk - str)) {
-		res.sym = (uintptr_t)tmp;
+	/* before blindly strdup()ing the symbol check if it's not by
+	 * any chance in MMY notation */
+	with (truf_mmy_t ym) {
+		char *tmp;
+
+		if ((ym = truf_mmy_rd(str, &tmp))) {
+			/* YAY */
+			res.sym = ym;
+		} else {
+			tmp = strndup(str, brk - str);
+			res.sym = (uintptr_t)tmp;
+		}
 	}
 	return res;
 }
