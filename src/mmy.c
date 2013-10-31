@@ -102,7 +102,7 @@ strtoui(const char *str, const char *ep[static 1])
 
 /* public API */
 truf_mmy_t
-truf_mmy_rd(const char *str, const char **restrict ptr)
+truf_mmy_rd(const char *str, char **ptr)
 {
 	const char *sp = str;
 	const char *sq;
