@@ -294,7 +294,7 @@ read_series(FILE *f)
 	res = calloc(1, sizeof(*res));
 	/* read the series file first */
 	while (getline(&line, &llen, f) > 0) {
-		const char *q;
+		char *on;
 		char *con = line;
 		char *dat;
 		char *val;
@@ -310,7 +310,7 @@ read_series(FILE *f)
 			break;
 		}
 
-		if (!(ym = truf_mmy_rd(con, &q)) || q <= con) {
+		if (!(ym = truf_mmy_rd(con, &on)) || on <= con) {
 			break;
 		} else if (!truf_mmy_abs_p(ym)) {
 			/* make sure it's an absolute trym */
