@@ -46,7 +46,7 @@
     #include "switch-x86_64.c"
 #elif defined(__arm__)  &&  defined(__unix__)
     #include "switch-arm.c"
-#elif defined(__ppc__)
+#elif defined(__ppc__) || defined(__powerpc__)
     #include "switch-ppc_osx.c"
 #else
     #error "Don't know how to support this platform"
