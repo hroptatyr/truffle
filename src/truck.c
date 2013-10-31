@@ -54,6 +54,10 @@
 #include "mmy.h"
 #include "truf-dfp754.h"
 
+#if defined __INTEL_COMPILER
+# pragma warning (disable:1572)
+#endif /* __INTEL_COMPILER */
+
 struct truf_ctx_s {
 	truf_wheap_t q;
 };
@@ -120,13 +124,34 @@ DEFCORU(co_rdr, const struct co_rdr_res_s*, {
 
 
 /* public api, might go to libtruffle one day */
+static truf_trod_t *trods;
+static size_t ntrods;
+static size_t trodi;
+
+static int
+truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
+{
+	uintptr_t qmsg;
+
+	/* resize check */
+	if (trodi >= ntrods) {
+		size_t nu = ntrods + 64U;
+		trods = realloc(trods, nu * sizeof(*trods));
+		ntrods = nu;
+	}
+
+	/* `clone' D */
+	qmsg = (uintptr_t)trodi;
+	trods[trodi++] = d;
+	/* insert to heap */
+	truf_wheap_add_deferred(ctx->q, t, qmsg);
+	return 0;
+}
+
 static int
 truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 {
 /* wants a const char *fn */
-	static truf_trod_t *trods;
-	static size_t ntrods;
-	size_t trodi = 0U;
 	struct cocore *rdr;
 	struct cocore *me;
 	FILE *f;
@@ -143,26 +168,160 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 	for (const struct co_rdr_res_s *ln; (ln = NEXT(rdr)) != NULL;) {
 		/* try to read the whole shebang */
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
-		uintptr_t qmsg;
-
-		/* resize check */
-		if (trodi >= ntrods) {
-			size_t nu = ntrods + 64U;
-			trods = realloc(trods, nu * sizeof(*trods));
-			ntrods = nu;
-		}
-
-		/* `clone' C */
-		qmsg = (uintptr_t)(trods + trodi);
-		trods[trodi++] = c;
-		/* insert to heap */
-		truf_wheap_add_deferred(ctx->q, ln->t, qmsg);
+		/* ... and add it */
+		truf_add_trod(ctx, ln->t, c);
 	}
 	/* now sort the guy */
 	truf_wheap_fix_deferred(ctx->q);
 	fclose(f);
 	UNPREP();
 	return 0;
+}
+
+static void
+truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
+{
+	for (echs_instant_t t;
+	     !echs_instant_0_p(t = truf_wheap_top_rank(ctx->q));) {
+		uintptr_t tmp = truf_wheap_pop(ctx->q);
+		truf_trod_t this = trods[tmp];
+		char buf[256U];
+		char *bp = buf;
+		const char *const ep = buf + sizeof(buf);
+
+		bp += dt_strf(bp, ep - bp, t);
+		*bp++ = '\t';
+		bp += truf_trod_wr(bp, ep - bp, this);
+		*bp++ = '\n';
+		*bp = '\0';
+		fputs(buf, f);
+		if (!truf_mmy_p(this.sym) && this.sym) {
+			free((char*)this.sym);
+		}
+	}
+	return;
+}
+
+
+/* old schema wizardry */
+struct cnode_s {
+	idate_t x;
+	daisy_t l;
+	double y __attribute__((aligned(sizeof(double))));
+};
+
+struct cline_s {
+	daisy_t valid_from;
+	daisy_t valid_till;
+	char month;
+	int8_t year_off;
+	size_t nn;
+	struct cnode_s n[];
+};
+
+struct trsch_s {
+	size_t np;
+	struct cline_s *p[];
+};
+
+static inline unsigned int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'f': case 'F':
+		return 1U;
+	case 'g': case 'G':
+		return 2U;
+	case 'h': case 'H':
+		return 3U;
+	case 'j': case 'J':
+		return 4U;
+	case 'k': case 'K':
+		return 5U;
+	case 'm': case 'M':
+		return 6U;
+	case 'n': case 'N':
+		return 7U;
+	case 'q': case 'Q':
+		return 8U;
+	case 'u': case 'U':
+		return 9;
+	case 'v': case 'V':
+		return 10U;
+	case 'x': case 'X':
+		return 11U;
+	case 'z': case 'Z':
+		return 12U;
+	default:
+		break;
+	}
+	return 0U;
+}
+
+static truf_trod_t
+make_trod_from_cline(const struct cline_s *p, daisy_t when)
+{
+	unsigned int y = daisy_to_year(when);
+	truf_trod_t res;
+
+	for (size_t j = 0; j < p->nn - 1; j++) {
+		const struct cnode_s *n1 = p->n + j;
+		const struct cnode_s *n2 = n1 + 1;
+		daisy_t l1 = daisy_in_year(n1->l, y);
+		daisy_t l2 = daisy_in_year(n2->l, y);
+
+		if (when == l2) {
+			/* something happened at l2 */
+			if (n2->y == 0.0 && n1->y != 0.0) {
+				res.exp = 0.df;
+			} else if (n2->y != 0.0 && n1->y == 0.0) {
+				res.exp = 1.df;
+			} else {
+				continue;
+			}
+		} else if (j == 0 && when == l1) {
+			/* something happened at l1 */
+			if (UNLIKELY(n1->y != 0.0)) {
+				res.exp = 1.df;
+			} else {
+				continue;
+			}
+		} else {
+			continue;
+		}
+		res.sym = make_truf_mmy(y + p->year_off, m_to_i(p->month), 0U);
+
+		/* indicate success (as in clear for adding) */
+		return res;
+	}
+	/* indicate failure (to add anything) */
+	return truf_nul_trod();
+}
+
+static void
+bang_schema(struct truf_ctx_s ctx[static 1], trsch_t sch, daisy_t when)
+{
+	echs_instant_t t = daisy_to_instant(when);
+
+	for (size_t i = 0; i < sch->np; i++) {
+		const struct cline_s *p = sch->p[i];
+		truf_trod_t d;
+
+		/* check year validity */
+		if (when < p->valid_from || when > p->valid_till) {
+			/* cline isn't applicable */
+			;
+		} else if (!((d = make_trod_from_cline(p, when)).sym)) {
+			/* nothing added then */
+			;
+		} else {
+			/* just add the guy */
+			truf_add_trod(ctx, t, d);
+		}
+	}
+	/* and sort the guy */
+	truf_wheap_fix_deferred(ctx->q);
+	return;
 }
 
 
@@ -200,29 +359,73 @@ cmd_print(struct truf_args_info argi[static 1U])
 			goto out;
 		}
 	}
-
-	for (echs_instant_t t;
-	     !echs_instant_0_p(t = truf_wheap_top_rank(ctx->q));) {
-		uintptr_t tmp = truf_wheap_pop(ctx->q);
-		const truf_trod_t *this = (const void*)tmp;
-		char buf[256U];
-		char *bp = buf;
-		const char *const ep = buf + sizeof(buf);
-
-		bp += dt_strf(bp, ep - bp, t);
-		*bp++ = '\t';
-		bp += truf_trod_wr(bp, ep - bp, *this);
-		*bp++ = '\n';
-		*bp = '\0';
-		fputs(buf, stdout);
-		if (!truf_mmy_p(this->sym)) {
-			free((char*)this->sym);
-		}
-	}
+	/* and print him */
+	truf_prnt_trod_file(ctx, stdout);
 
 out:
 	if (LIKELY(ctx->q != NULL)) {
 		free_truf_wheap(ctx->q);
+	}
+	return res;
+}
+
+static int
+cmd_migrate(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "Usage: truffle migrate [SCHEMA-FILE]...\n";
+	static struct truf_ctx_s ctx[1];
+	daisy_t from;
+	daisy_t till;
+	int res = 0;
+
+	if (argi->inputs_num < 1U) {
+		fputs(usg, stderr);
+		res = 1;
+		goto out;
+	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	if (argi->from_given) {
+		echs_instant_t i = dt_strp(argi->from_arg, NULL);
+		from = instant_to_daisy(i);
+	} else {
+		echs_instant_t i = {2000U, 1U, 1U, ECHS_ALL_DAY};
+		from = instant_to_daisy(i);
+	}
+	if (argi->till_given) {
+		echs_instant_t i = dt_strp(argi->till_arg, NULL);
+		till = instant_to_daisy(i);
+	} else {
+		echs_instant_t i = {2037U, 12U, 31U, ECHS_ALL_DAY};
+		till = instant_to_daisy(i);
+	}
+
+	for (size_t i = 1U; i < argi->inputs_num; i++) {
+		trsch_t sch;
+
+		if ((sch = read_schema(argi->inputs[i])) == NULL) {
+			continue;
+		}
+		/* bang into wheap */
+		for (daisy_t now = from; now <= till; now++) {
+			bang_schema(ctx, sch, now);
+		}
+		/* and out again */
+		free_schema(sch);
+	}
+
+	/* and print the whole wheap now */
+	truf_prnt_trod_file(ctx, stdout);
+
+out:
+	if (LIKELY(ctx->q != NULL)) {
+		free_truf_wheap(ctx->q);
+	}
+	if (LIKELY(trodi > 0U)) {
+		free(trods);
+		trodi = ntrods = 0U;
 	}
 	return res;
 }
@@ -247,6 +450,8 @@ main(int argc, char *argv[])
 	with (const char *cmd = argi->inputs[0U]) {
 		if (!strcmp(cmd, "print")) {
 			res = cmd_print(argi);
+		} else if (!strcmp(cmd, "migrate")) {
+			res = cmd_migrate(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\

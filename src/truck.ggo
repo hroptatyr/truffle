@@ -4,8 +4,19 @@ usage "truffle [OPTION]... COMMAND [ARG]..."
 description "Tool to apply roll-over directives (trod) to time series.
 
 COMMAND may be one of:
-  print  Print resulting actors of trod echse messages.
+  print    Print resulting actors of trod echse messages.
+  migrate  Read recurrence schemas and roll them out.
 "
 text "
 Options affecting the print command:"
 
+text "
+Options affecting the migrate command:"
+
+option "from" -
+	"Start event states at DT."
+	string typestr="DT" optional
+
+option "till" -
+	"Finish event streams by DT."
+	string typestr="DT" optional
