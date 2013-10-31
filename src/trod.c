@@ -232,7 +232,6 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 	} res;
 	const char *p;
 	const char *q;
-	truf_mmy_t ym;
 
 	if ((p = strchr(line, '\t')) == NULL) {
 		goto nul;
@@ -254,13 +253,17 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 snarf:
 	/* now it's either YYYY-MM, or M-YYYY or M-dy where DY is relative
 	 * to the year portion of I */
-	if (UNLIKELY(!(ym = truf_mmy_rd(p, &q)) || q <= p)) {
-		goto nul;
-	} else if (!truf_mmy_abs_p(ym)) {
-		/* always use absolute tryms */
-		ym = truf_mmy_abs(ym, res.ev.when.y);
+	with (truf_mmy_t ym) {
+		char *tmp;
+
+		if (UNLIKELY(!(ym = truf_mmy_rd(p, &tmp)) || (q = tmp) <= p)) {
+			goto nul;
+		} else if (!truf_mmy_abs_p(ym)) {
+			/* always use absolute tryms */
+			ym = truf_mmy_abs(ym, res.ev.when.y);
+		}
+		res.st.sym = ym;
 	}
-	res.st.sym = ym;
 	/* check if it's a A->B state */
 	if (*q++ == '-' && *q++ == '>') {
 		/* ah good, but we need to capture the bit right of the arrow */
@@ -424,8 +427,18 @@ truf_trod_rd(const char *str, char **on)
 		res.exp = strtod32(brk, on);
 		break;
 	}
-	with (char *tmp = strndup(str, brk - str)) {
-		res.sym = (uintptr_t)tmp;
+	/* before blindly strdup()ing the symbol check if it's not by
+	 * any chance in MMY notation */
+	with (truf_mmy_t ym) {
+		char *tmp;
+
+		if ((ym = truf_mmy_rd(str, &tmp))) {
+			/* YAY */
+			res.sym = ym;
+		} else {
+			tmp = strndup(str, brk - str);
+			res.sym = (uintptr_t)tmp;
+		}
 	}
 	return res;
 }

@@ -65,7 +65,7 @@ typedef intptr_t truf_mmy_t;
 
 /**
  * Try and read the string STR as MMY notation and return a truf sym object. */
-extern truf_mmy_t truf_mmy_rd(const char *str, const char **restrict ptr);
+extern truf_mmy_t truf_mmy_rd(const char *str, char **ptr);
 
 /**
  * Output YM into buffer BUF of size BSZ, return the number of bytes written. */
