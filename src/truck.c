@@ -403,9 +403,12 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 	}
 
 	for (size_t i = 1U; i < argi->inputs_num; i++) {
+		const char *fn = argi->inputs[i];
 		trsch_t sch;
 
-		if ((sch = read_schema(argi->inputs[i])) == NULL) {
+		if ((sch = read_schema(fn)) == NULL) {
+			/* try the normal trod reader */
+			(void)truf_read_trod_file(ctx, fn);
 			continue;
 		}
 		/* bang into wheap */
