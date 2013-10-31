@@ -37,96 +37,105 @@
 #if !defined INCLUDED_mmy_h_
 #define INCLUDED_mmy_h_
 
+#include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
-#if !defined DECLF
-# define DECLF		extern
-# define DEFUN
-#endif	/* !DECLF */
-
-/* our notion of MMY */
-typedef int32_t trym_t;
-#define TRYM_WIDTH	(24U)
+/**
+ * truf_mmys specify a contract's maturity date or the classic MMY.
+ *
+ * They fit neatly into a uintptr, taking only 32bits of space but
+ * can be cast to const char* for arbitrary symbols.
+ *
+ * In case of mmy notation the layout is:
+ * YYYYYYYYYYYYYYYY MMMMMMMM DDDDDDD1
+ * ^^^^^^^^^^^^^^^^ ^^^^^^^^ ^^^^^^^|
+ * year (rel/abs)   month    day    to distinguish from const char* 
+ *
+ * Years below TRUF_SYM_ABSYR are relative.
+ * If the maturity lacks a date (classic mmy) the day slot shall
+ * be zeroed out.
+ *
+ * In either case */
+typedef intptr_t truf_mmy_t;
 
 /* first year interpreted as absolute */
-#define TRYM_YR_CUTOFF	(1024)
-/* first trym regarded as absolute, values < are rel, values > are abs */
-#define TRYM_ABS_CUTOFF	(cym_to_trym(TRYM_YR_CUTOFF, 0))
+#define TRUF_MMY_ABSYR	(1024)
 
 
-DECLF trym_t read_trym(const char *str, const char **restrict ptr);
+/**
+ * Try and read the string STR as MMY notation and return a truf sym object. */
+extern truf_mmy_t truf_mmy_rd(const char *str, const char **restrict ptr);
 
 
-static inline __attribute__((pure, const)) trym_t
-cym_to_trym(unsigned int year, unsigned int mon)
+static inline __attribute__((pure, const)) truf_mmy_t
+make_truf_mmy(signed int year, unsigned int mon, unsigned int day)
 {
-	return (year << 8U) | (mon & 0xffU);
+	mon &= 0xffU;
+	day &= 0x7fU;
+	return (((((year << 8U) | mon) << 7U) | day) << 1U) | 1U;
 }
 
-static inline __attribute__((pure, const)) int
-trym_yr(trym_t ym)
+static inline __attribute__((pure, const)) signed int
+truf_mmy_year(truf_mmy_t ym)
 {
-	return ym >> 8U;
+	return ym >> 16U;
 }
 
 static inline __attribute__((pure, const)) unsigned int
-trym_mo(trym_t ym)
+truf_mmy_mon(truf_mmy_t ym)
 {
-	return ym & 0xffU;
+	return (ym >> 8U) & 0xffU;
 }
 
-static inline __attribute__((pure, const)) trym_t
-rel_trym(trym_t ym, int year)
+static inline __attribute__((pure, const)) unsigned int
+truf_mmy_day(truf_mmy_t ym)
 {
-/* return a trym relative to YEAR, i.e. F0 for F2000 for year == 2000 */
-	return cym_to_trym(trym_yr(ym) - year, ym);
+	return (ym >> 1U) & 0x7fU;
 }
 
-static inline __attribute__((pure, const)) trym_t
-abs_trym(trym_t ym, int year)
+static inline __attribute__((pure, const)) bool
+truf_mmy_p(truf_mmy_t ym)
 {
-	return cym_to_trym(trym_yr(ym) + year, ym);
+/* return true if YM encodes a MMY and false if it is a pointer */
+	return (ym & 0b1U);
 }
 
-static inline char
-i_to_m(unsigned int month)
+static inline __attribute__((pure, const)) bool
+truf_mmy_abs_p(truf_mmy_t ym)
 {
-	static char months[] = "?FGHJKMNQUVXZ";
-	return months[month];
+/* return true if YM is in absolute notation. */
+	register signed int yr = truf_mmy_year(ym);
+	return yr >= TRUF_MMY_ABSYR;
 }
 
-static inline unsigned int
-m_to_i(char month)
+static inline __attribute__((pure, const)) truf_mmy_t
+truf_mmy_rel(truf_mmy_t ym, unsigned int year)
 {
-	switch (month) {
-	case 'f': case 'F':
-		return 1U;
-	case 'g': case 'G':
-		return 2U;
-	case 'h': case 'H':
-		return 3U;
-	case 'j': case 'J':
-		return 4U;
-	case 'k': case 'K':
-		return 5U;
-	case 'm': case 'M':
-		return 6U;
-	case 'n': case 'N':
-		return 7U;
-	case 'q': case 'Q':
-		return 8U;
-	case 'u': case 'U':
-		return 9;
-	case 'v': case 'V':
-		return 10U;
-	case 'x': case 'X':
-		return 11U;
-	case 'z': case 'Z':
-		return 12U;
-	default:
-		break;
+/* return a trym relative to YEAR, i.e. F0 for F2000 for year == 2000
+ * or leave as is if YM is relative already. */
+	register signed int yr = truf_mmy_year(ym);
+	if (truf_mmy_abs_p(ym)) {
+		register signed int m = truf_mmy_mon(ym);
+		register signed int d = truf_mmy_day(ym);
+		return make_truf_mmy(yr - year, m, d);
 	}
-	return 0U;
+	return ym;
+}
+
+static inline __attribute__((pure, const)) truf_mmy_t
+truf_mmy_abs(truf_mmy_t ym, unsigned int year)
+{
+/* return the absolute version of YM relative to YEAR,
+ * i.e. F0 goes to F2000 for year == 2000
+ * or leave as is if YM is absolute already. */
+	register signed int yr = truf_mmy_year(ym);
+	if (!truf_mmy_abs_p(ym)) {
+		register signed int m = truf_mmy_mon(ym);
+		register signed int d = truf_mmy_day(ym);
+		return make_truf_mmy(yr + year, m, d);
+	}
+	return ym;
 }
 
 #endif	/* INCLUDED_mmy_h_ */
