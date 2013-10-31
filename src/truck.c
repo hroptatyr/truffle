@@ -50,6 +50,7 @@
 #include "wheap.h"
 #include "nifty.h"
 #include "coru.h"
+#include "trod.h"
 #include "truf-dfp754.h"
 
 struct truf_ctx_s {
@@ -130,15 +131,6 @@ DEFCORU(co_rdr, const struct co_rdr_res_s*, {
 
 
 /* public api, might go to libtruffle one day */
-typedef struct truf_trod_s truf_trod_t;
-
-struct truf_trod_s {
-	const char *sym;
-	_Decimal32 exp;
-};
-
-static const truf_trod_t nul_trod = {NULL, 0.df};
-
 static truf_trod_t
 truf_trod_rd(const char msg[static 1U])
 {
@@ -147,7 +139,7 @@ truf_trod_rd(const char msg[static 1U])
 	truf_trod_t res;
 
 	if (!*(brk += strcspn(brk = msg, sep))) {
-		return nul_trod;
+		return truf_nul_trod();
 	}
 	res.sym = strndup(msg, brk - msg);
 	res.exp = strtod32(brk + 1U, NULL);

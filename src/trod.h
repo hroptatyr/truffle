@@ -37,20 +37,32 @@
 #if !defined INCLUDED_trod_h_
 #define INCLUDED_trod_h_
 
-#if !defined DECLF
-# define DECLF		extern
-# define DEFUN
-#endif	/* !DECLF */
+#include <stdint.h>
 
+/* old abstract type */
 typedef struct trod_s *trod_t;
+
+typedef struct truf_trod_s truf_trod_t;
+
+struct truf_trod_s {
+	uintptr_t sym;
+	_Decimal32 exp;
+};
 
 
 /**
  * Read truffle roll-over schema from FILE. */
-DECLF trod_t read_trod(const char *file);
+extern trod_t read_trod(const char *file);
 
 /**
  * Free resources associated with roll-over schema. */
-DECLF void free_trod(trod_t);
+extern void free_trod(trod_t);
+
+
+static inline __attribute__((pure, const)) truf_trod_t
+truf_nul_trod(void)
+{
+	return (truf_trod_t){0U, 0.df};
+}
 
 #endif	/* INCLUDED_trod_h_ */
