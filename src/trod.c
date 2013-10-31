@@ -102,11 +102,6 @@ struct trod_stat3_s {
 	uint16_t year;
 };
 
-struct trod_state_s {
-	uint8_t val;
-	trym_t ym:TRYM_WIDTH;
-};
-
 static_assert(sizeof(struct trod_stat3_s) == 4U);
 static_assert(sizeof(struct trod_stat3_s) == 4U);
 
@@ -117,7 +112,7 @@ static_assert(sizeof(struct trod_stat3_s) == 4U);
  * of states at the instant WHEN */
 struct trod_event_s {
 	echs_instant_t when;
-	struct trod_state_s what[];
+	struct truf_trod_s what[];
 };
 
 /* trod container */
@@ -133,7 +128,7 @@ struct troqi_s {
 	struct gq_item_s i;
 	/* an exploded trod_event_s, we'll use ev.what[0] to access what */
 	struct trod_event_s ev;
-	struct trod_state_s what;
+	struct truf_trod_s what;
 };
 
 struct troq_s {
@@ -207,7 +202,7 @@ troq_pop_event(struct troq_s src[static 1])
 	struct troqi_s *qi;
 	static struct {
 		struct trod_event_s ev;
-		struct trod_state_s st;
+		struct truf_trod_s st;
 	} res;
 
 	if (UNLIKELY((qi = (void*)gq_pop_head(src->trev)) == NULL)) {
@@ -227,11 +222,11 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 /* just a normal echse edge line */
 	static struct {
 		struct trod_event_s ev;
-		struct trod_state_s st;
+		struct truf_trod_s st;
 	} res;
 	const char *p;
 	const char *q;
-	trym_t ym;
+	truf_mmy_t ym;
 
 	if ((p = strchr(line, '\t')) == NULL) {
 		goto nul;
@@ -242,28 +237,28 @@ read_trod_event(const char *line, size_t UNUSED(llen))
 	/* otherwise it's a match, snarf the val month year bit */
 	switch (*++p) {
 	case '~':
-		res.st.val = 0U;
+		res.st.exp = 0.df;
 		p++;
 		break;
 	default:
-		res.st.val = 1U;
+		res.st.exp = 1.df;
 		break;
 	}
 
 snarf:
 	/* now it's either YYYY-MM, or M-YYYY or M-dy where DY is relative
 	 * to the year portion of I */
-	if (UNLIKELY(!(ym = read_trym(p, &q)) || q <= p)) {
+	if (UNLIKELY(!(ym = truf_mmy_rd(p, &q)) || q <= p)) {
 		goto nul;
-	} else if (ym < TRYM_ABS_CUTOFF) {
+	} else if (!truf_mmy_abs_p(ym)) {
 		/* always use absolute tryms */
-		ym = abs_trym(ym, res.ev.when.y);
+		ym = truf_mmy_abs(ym, res.ev.when.y);
 	}
-	res.st.ym = ym;
+	res.st.sym = ym;
 	/* check if it's a A->B state */
 	if (*q++ == '-' && *q++ == '>') {
 		/* ah good, but we need to capture the bit right of the arrow */
-		res.st.val = 2U;
+		res.st.exp = 2.df;
 		p = q;
 		goto snarf;
 	}
@@ -423,6 +418,48 @@ struct trsch_s {
 	struct cline_s *p[];
 };
 
+/* auxiliaries to disappear */
+static inline char
+i_to_m(unsigned int month)
+{
+	static char months[] = "?FGHJKMNQUVXZ";
+	return months[month];
+}
+
+static inline unsigned int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'f': case 'F':
+		return 1U;
+	case 'g': case 'G':
+		return 2U;
+	case 'h': case 'H':
+		return 3U;
+	case 'j': case 'J':
+		return 4U;
+	case 'k': case 'K':
+		return 5U;
+	case 'm': case 'M':
+		return 6U;
+	case 'n': case 'N':
+		return 7U;
+	case 'q': case 'Q':
+		return 8U;
+	case 'u': case 'U':
+		return 9;
+	case 'v': case 'V':
+		return 10U;
+	case 'x': case 'X':
+		return 11U;
+	case 'z': case 'Z':
+		return 12U;
+	default:
+		break;
+	}
+	return 0U;
+}
+
 static int
 troq_add_cline(trod_event_t qi, const struct cline_s *p, daisy_t when)
 {
@@ -437,23 +474,24 @@ troq_add_cline(trod_event_t qi, const struct cline_s *p, daisy_t when)
 		if (when == l2) {
 			/* something happened at l2 */
 			if (n2->y == 0.0 && n1->y != 0.0) {
-				qi->what->val = 0U;
+				qi->what->exp = 0.df;
 			} else if (n2->y != 0.0 && n1->y == 0.0) {
-				qi->what->val = 1U;
+				qi->what->exp = 1.df;
 			} else {
 				continue;
 			}
 		} else if (j == 0 && when == l1) {
 			/* something happened at l1 */
 			if (UNLIKELY(n1->y != 0.0)) {
-				qi->what->val = 2U;
+				qi->what->exp = 2.df;
 			} else {
 				continue;
 			}
 		} else {
 			continue;
 		}
-		qi->what->ym = cym_to_trym(y + p->year_off, m_to_i(p->month));
+		qi->what->sym =
+			make_truf_mmy(y + p->year_off, m_to_i(p->month), 0U);
 
 		/* indicate success (as in clear for adding) */
 		return 0;
@@ -467,7 +505,7 @@ troq_add_clines(struct troq_s q[static 1], trsch_t sch, daisy_t when)
 {
 	static struct {
 		struct trod_event_s ev;
-		struct trod_state_s st;
+		truf_trod_t st;
 	} qi;
 
 	qi.ev.when = daisy_to_instant(when);
@@ -555,15 +593,15 @@ print_trod_event(trod_event_t ev, FILE *whither)
 	p += dt_strf(buf, sizeof(buf), ev->when);
 	*p++ = '\t';
 	var = p;
-	for (const struct trod_state_s *s = ev->what; s->ym; s++, p = var) {
-		unsigned int m = trym_mo(s->ym);
-		unsigned int y = trym_yr(s->ym);
+	for (const struct truf_trod_s *s = ev->what; s->sym; s++, p = var) {
+		unsigned int m = truf_mmy_mon(s->sym);
+		unsigned int y = truf_mmy_year(s->sym);
 		int ry = y - ev->when.y;
 
-		if (!s->val) {
+		if (s->exp == 0.df) {
 			*p++ = '~';
 			deactivate(ry, m);
-		} else if (s->val > 1U && activep(ry, m)) {
+		} else if (s->exp > 1.df && activep(ry, m)) {
 			continue;
 		} else {
 			activate(ry, m);

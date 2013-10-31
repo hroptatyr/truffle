@@ -111,6 +111,47 @@ cut_non_nil_expo_p(trcut_t cut)
 }
 #endif
 
+static inline char
+i_to_m(unsigned int month)
+{
+	static char months[] = "?FGHJKMNQUVXZ";
+	return months[month];
+}
+
+static inline unsigned int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'f': case 'F':
+		return 1U;
+	case 'g': case 'G':
+		return 2U;
+	case 'h': case 'H':
+		return 3U;
+	case 'j': case 'J':
+		return 4U;
+	case 'k': case 'K':
+		return 5U;
+	case 'm': case 'M':
+		return 6U;
+	case 'n': case 'N':
+		return 7U;
+	case 'q': case 'Q':
+		return 8U;
+	case 'u': case 'U':
+		return 9;
+	case 'v': case 'V':
+		return 10U;
+	case 'x': case 'X':
+		return 11U;
+	case 'z': case 'Z':
+		return 12U;
+	default:
+		break;
+	}
+	return 0U;
+}
+
 
 /* cutflo handling */
 typedef enum {
@@ -182,16 +223,16 @@ free_cutflo_st(struct __cutflo_st_s *st)
 }
 
 static void
-warn_noquo(idate_t dt, trym_t ym, double expo)
+warn_noquo(idate_t dt, truf_mmy_t ym, double expo)
 {
 	char dts[32];
-	unsigned int yr = trym_yr(ym);
-	unsigned int mo = trym_mo(ym);
+	char yms[32];
 
 	prnt_idate(dts, sizeof(dts), dt);
+	truf_mmy_wr(yms, sizeof(yms), ym);
 	fprintf(stderr, "\
-cut as of %s contained %c%u with an exposure of %.8g but no quotes\n",
-		dts, i_to_m(mo), yr, expo);
+cut as of %s contained %s with an exposure of %.8g but no quotes\n",
+		dts, yms, expo);
 	return;
 }
 
@@ -215,7 +256,7 @@ cut_flow(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		unsigned int mo = m_to_i(c->comps[i].month);
 		unsigned int yr = c->comps[i].year;
-		trym_t ym = cym_to_trym(yr, mo);
+		truf_mmy_t ym = make_truf_mmy(yr, mo, 0U);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -298,7 +339,7 @@ cut_base(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		unsigned int mo = m_to_i(c->comps[i].month);
 		unsigned int yr = c->comps[i].year;
-		trym_t ym = cym_to_trym(yr, mo);
+		truf_mmy_t ym = make_truf_mmy(yr, mo, 0U);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -364,7 +405,7 @@ cut_sparse(struct __cutflo_st_s *st, trcut_t c, idate_t dt)
 	for (size_t i = 0; i < c->ncomps; i++) {
 		unsigned int mo = m_to_i(c->comps[i].month);
 		unsigned int yr = c->comps[i].year;
-		trym_t ym = cym_to_trym(yr, mo);
+		truf_mmy_t ym = make_truf_mmy(yr, mo, 0U);
 		double expo;
 		ssize_t idx;
 		double flo;
@@ -500,17 +541,11 @@ roll_over_series(
 
 
 /* trod goodness */
-typedef struct trod_state_s *trod_state_t;
 typedef struct trod_event_s *trod_event_t;
-
-struct trod_state_s {
-	uint8_t val;
-	trym_t ym:TRYM_WIDTH;
-};
 
 struct trod_event_s {
 	echs_instant_t when;
-	struct trod_state_s what[];
+	struct truf_trod_s what[];
 };
 
 /* trod container */
@@ -554,15 +589,15 @@ update_gbs_ev(gbs_t bs, trod_event_t ev)
 {
 	int res = 0;
 
-	for (const struct trod_state_s *s = ev->what; s->ym; s++) {
-		unsigned int m = trym_mo(s->ym);
-		unsigned int y = trym_yr(s->ym);
+	for (const struct truf_trod_s *s = ev->what; s->sym; s++) {
+		unsigned int m = truf_mmy_mon(s->sym);
+		unsigned int y = truf_mmy_year(s->sym);
 		int ry = y - ev->when.y;
 
-		if (!s->val) {
+		if (s->exp == 0.df) {
 			deactivate(bs, ry, m);
 			res++;
-		} else if (s->val > 1U && activep(bs, ry, m)) {
+		} else if (s->exp > 1.df && activep(bs, ry, m)) {
 			continue;
 		} else {
 			activate(bs, ry, m);

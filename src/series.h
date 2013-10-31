@@ -60,7 +60,7 @@ struct trtsc_s {
 	size_t ncons;
 	idate_t first;
 	idate_t last;
-	trym_t *cons;
+	truf_mmy_t *cons;
 	struct __dvv_s *dvvs;
 };
 
@@ -85,7 +85,7 @@ DECLF void free_series(trtsc_t);
 
 
 static ssize_t
-tsc_find_cym_idx(const_trtsc_t s, trym_t ym)
+tsc_find_cym_idx(const_trtsc_t s, truf_mmy_t ym)
 {
 	for (size_t i = 0; i < s->ncons; i++) {
 		if (s->cons[i] == ym) {
