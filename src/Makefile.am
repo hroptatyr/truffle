@@ -68,6 +68,14 @@ trod_LDADD = libtruffle.a
 trod_LDADD += -lm
 BUILT_SOURCES += trod.x trod.xh
 
+## truffle umbrella command kit
+noinst_PROGRAMS += truck
+truck_SOURCES = truck.c truck.ggo
+truck_LDADD = libtruffle.a
+truck_LDADD += libcoru.a
+BUILT_SOURCES += truck.x truck.xh
+
+
 version.c: version.c.in $(top_builddir)/version.mk
 	sed -e 's,[@]VERSION[@],$(VERSION),g' <$(srcdir)/$@.in >$@
 
