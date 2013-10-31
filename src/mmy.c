@@ -37,21 +37,54 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
-
+#include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "mmy.h"
-
-#if !defined LIKELY
-# define LIKELY(_x)	__builtin_expect((_x), 1)
-#endif
-#if !defined UNLIKELY
-# define UNLIKELY(_x)	__builtin_expect((_x), 0)
-#endif
-#if !defined UNUSED
-# define UNUSED(_x)	_x __attribute__((unused))
-#endif	/* !UNUSED */
+#include "nifty.h"
 
 
+static inline char
+i_to_m(unsigned int month)
+{
+	static char months[] = "?FGHJKMNQUVXZ";
+	return months[month];
+}
+
+static inline unsigned int
+m_to_i(char month)
+{
+	switch (month) {
+	case 'f': case 'F':
+		return 1U;
+	case 'g': case 'G':
+		return 2U;
+	case 'h': case 'H':
+		return 3U;
+	case 'j': case 'J':
+		return 4U;
+	case 'k': case 'K':
+		return 5U;
+	case 'm': case 'M':
+		return 6U;
+	case 'n': case 'N':
+		return 7U;
+	case 'q': case 'Q':
+		return 8U;
+	case 'u': case 'U':
+		return 9;
+	case 'v': case 'V':
+		return 10U;
+	case 'x': case 'X':
+		return 11U;
+	case 'z': case 'Z':
+		return 12U;
+	default:
+		break;
+	}
+	return 0U;
+}
+
 static uint32_t
 strtoui(const char *str, const char *ep[static 1])
 {
@@ -67,15 +100,16 @@ strtoui(const char *str, const char *ep[static 1])
 }
 
 
-DEFUN trym_t
-read_trym(const char *str, const char **restrict ptr)
+/* public API */
+truf_mmy_t
+truf_mmy_rd(const char *str, const char **restrict ptr)
 {
 	const char *sp = str;
 	const char *sq;
 	unsigned int ym;
 	unsigned int mo;
 	unsigned int yr;
-	trym_t res;
+	truf_mmy_t res;
 
 	if ((mo = m_to_i(*sp))) {
 		sp++;
@@ -86,7 +120,7 @@ read_trym(const char *str, const char **restrict ptr)
 	if (UNLIKELY(sq == sp)) {
 		/* completely fucked innit */
 		return 0U;
-	} else if (ym < TRYM_YR_CUTOFF) {
+	} else if (ym < TRUF_MMY_ABSYR) {
 		/* something like G0 or F4 or so */
 		yr = ym;
 	} else if (ym < 4096U) {
@@ -110,12 +144,26 @@ read_trym(const char *str, const char **restrict ptr)
 		yr = (ym / 100U) / 100U;
 		mo = (ym / 100U) % 100U;
 	}
-	res = cym_to_trym(yr, mo);
+	res = make_truf_mmy(yr, mo, 0U);
 	/* assign end pointer */
 	if (ptr) {
 		*ptr = (const char*)sq;
 	}
 	return res;
+}
+
+size_t
+truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym)
+{
+	register unsigned int d = truf_mmy_day(ym);
+	register unsigned int m = truf_mmy_mon(ym);
+	register signed int y = truf_mmy_year(ym);
+
+	if (truf_mmy_abs_p(ym) && d) {
+		return snprintf(buf, bsz, "%d-%02u-%02u", y, m, d);
+	}
+	/* kick d as it doesn't work with relative mmys */
+	return snprintf(buf, bsz, "%c%d", i_to_m(m), y);
 }
 
 /* mmy.c ends here */

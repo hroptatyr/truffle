@@ -225,7 +225,7 @@ tsc_move(trtsc_t s, ssize_t idx, int num)
 }
 
 static void
-tsc_add_dv(trtsc_t s, trym_t ym, struct __dv_s dv)
+tsc_add_dv(trtsc_t s, truf_mmy_t ym, struct __dv_s dv)
 {
 	struct __dvv_s *this = NULL;
 	ssize_t idx = 0;
@@ -298,7 +298,7 @@ read_series(FILE *f)
 		char *con = line;
 		char *dat;
 		char *val;
-		trym_t ym;
+		truf_mmy_t ym;
 		struct __dv_s dv;
 
 		if ((dat = strchr(con, '\t')) == NULL) {
@@ -310,11 +310,11 @@ read_series(FILE *f)
 			break;
 		}
 
-		if (!(ym = read_trym(con, &q)) || q <= con) {
+		if (!(ym = truf_mmy_rd(con, &q)) || q <= con) {
 			break;
-		} else if (ym < TRYM_ABS_CUTOFF) {
+		} else if (!truf_mmy_abs_p(ym)) {
 			/* make sure it's an absolute trym */
-			ym = abs_trym(ym, idate_y(dv.d));
+			ym = truf_mmy_abs(ym, idate_y(dv.d));
 		}
 		tsc_add_dv(res, ym, dv);
 	}

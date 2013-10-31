@@ -50,6 +50,8 @@
 #include "wheap.h"
 #include "nifty.h"
 #include "coru.h"
+#include "trod.h"
+#include "mmy.h"
 #include "truf-dfp754.h"
 
 struct truf_ctx_s {
@@ -72,18 +74,6 @@ error(const char *fmt, ...)
 	}
 	fputc('\n', stderr);
 	return;
-}
-
-static size_t
-xstrlcpy(char *restrict dst, const char *src, size_t dsz)
-{
-	size_t ssz = strlen(src);
-	if (ssz > dsz) {
-		ssz = dsz - 1U;
-	}
-	memcpy(dst, src, ssz);
-	dst[ssz] = '\0';
-	return ssz;
 }
 
 
@@ -130,51 +120,6 @@ DEFCORU(co_rdr, const struct co_rdr_res_s*, {
 
 
 /* public api, might go to libtruffle one day */
-typedef struct truf_trod_s truf_trod_t;
-
-struct truf_trod_s {
-	const char *sym;
-	_Decimal32 exp;
-};
-
-static const truf_trod_t nul_trod = {NULL, 0.df};
-
-static truf_trod_t
-truf_trod_rd(const char msg[static 1U])
-{
-	static const char sep[] = " \t\n";
-	const char *brk;
-	truf_trod_t res;
-
-	if (!*(brk += strcspn(brk = msg, sep))) {
-		return nul_trod;
-	}
-	res.sym = strndup(msg, brk - msg);
-	res.exp = strtod32(brk + 1U, NULL);
-	return res;
-}
-
-static size_t
-truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t)
-{
-	char *restrict bp = buf;
-	const char *const ep = bp + bsz;
-
-	if (LIKELY(t.sym != NULL)) {
-		bp += xstrlcpy(buf, t.sym, bsz);
-	}
-	if (LIKELY(bp < ep)) {
-		*bp++ = '\t';
-	}
-	bp += d32tostr(bp, ep - bp, t.exp);
-	if (LIKELY(bp < ep)) {
-		*bp = '\0';
-	} else if (LIKELY(ep > bp)) {
-		*--bp = '\0';
-	}
-	return bp - buf;
-}
-
 static int
 truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 {
@@ -197,7 +142,7 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 
 	for (const struct co_rdr_res_s *ln; (ln = NEXT(rdr)) != NULL;) {
 		/* try to read the whole shebang */
-		truf_trod_t c = truf_trod_rd(ln->ln);
+		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
 		uintptr_t qmsg;
 
 		/* resize check */
@@ -270,7 +215,9 @@ cmd_print(struct truf_args_info argi[static 1U])
 		*bp++ = '\n';
 		*bp = '\0';
 		fputs(buf, stdout);
-		free(deconst(this->sym));
+		if (!truf_mmy_p(this->sym)) {
+			free((char*)this->sym);
+		}
 	}
 
 out:
