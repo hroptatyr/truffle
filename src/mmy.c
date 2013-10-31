@@ -152,4 +152,18 @@ truf_mmy_rd(const char *str, const char **restrict ptr)
 	return res;
 }
 
+size_t
+truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym)
+{
+	register unsigned int d = truf_mmy_day(ym);
+	register unsigned int m = truf_mmy_mon(ym);
+	register signed int y = truf_mmy_year(ym);
+
+	if (truf_mmy_abs_p(ym) && d) {
+		return snprintf(buf, bsz, "%d-%02u-%02u", y, m, d);
+	}
+	/* kick d as it doesn't work with relative mmys */
+	return snprintf(buf, bsz, "%c%d", i_to_m(m), y);
+}
+
 /* mmy.c ends here */
