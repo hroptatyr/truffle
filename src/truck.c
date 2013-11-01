@@ -152,8 +152,8 @@ static int
 truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 {
 /* wants a const char *fn */
-	struct cocore *rdr;
-	struct cocore *me;
+	coru_t rdr;
+	coru_t me;
 	FILE *f;
 
 	if (fn == NULL) {
@@ -174,7 +174,7 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 	/* now sort the guy */
 	truf_wheap_fix_deferred(ctx->q);
 	fclose(f);
-	UNPREP();
+	UNPREP(me);
 	return 0;
 }
 
@@ -447,7 +447,7 @@ main(int argc, char *argv[])
 	}
 
 	/* get the coroutines going */
-	initialise_cocore();
+	INIT_CORU_CORE();
 
 	/* check the command */
 	with (const char *cmd = argi->inputs[0U]) {
