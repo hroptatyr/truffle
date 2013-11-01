@@ -37,10 +37,15 @@
 #if !defined INCLUDED_coru_h_
 #define INCLUDED_coru_h_
 
+#if 0
 #include "coru/cocore.h"
 
-#define PREP()		initialise_cocore_thread()
-#define UNPREP()	terminate_cocore_thread()
+typedef struct cocore *coru_t;
+
+#define INIT_CORU_CORE(args...)	initialise_cocore()
+
+#define PREP()			initialise_cocore_thread()
+#define UNPREP(args...)		terminate_cocore_thread()
 #define INIT(name, ctx)							\
 	({								\
 		struct cocore *next = (ctx)->next;			\
@@ -49,16 +54,16 @@
 			(ctx), sizeof(*(ctx)),				\
 			next, 0U, false, 0);				\
 	})
-#define NEXT1(x, o)	(check_cocore(x) ? switch_cocore((x), (o)) : NULL)
-#define NEXT(x)		NEXT1(x, NULL)
-#define YIELD1(x, i)	(switch_cocore((x), (i)))
-#define YIELD(args...)	YIELD1(coru_ctx->next, (args))
-#define NEXT_PACK(x, s, a...)			\
-	NEXT1(x, PACK(s, a))
+#define NEXT1(x, o)							\
+	(check_cocore(x) ? switch_cocore((x), (o)) : NULL)
+#define NEXT(x)			NEXT1(x, NULL)
+#define YIELD1(x, i)		(switch_cocore((x), (i)))
+#define YIELD(args...)		YIELD1(coru_ctx->next, (args))
+#define NEXT_PACK(x, s, a...)	NEXT1(x, PACK(s, a))
 
 #define DEFCORU(name, out, closure, inargs...)		\
 	struct name##_s {				\
-		struct cocore *next;			\
+		coru_t next;				\
 		struct closure args;			\
 	};						\
 	struct name##_in_s {inargs};			\
@@ -75,12 +80,45 @@
 		return NEXT1(this, &in);		\
 	}						\
 	static out					\
-	name(struct name##_s *coru_ctx,			\
+	name(const struct name##_s *coru_ctx,		\
 	     const struct name##_in_s *arg		\
 	     __attribute__((unused)))
 #define CORU_CLOSUR(x)	(coru_ctx->args.x)
 #define CORU_STRUCT(x)	struct x##_s
 #define PACK(x, args...)	&((x){args})
 #define INIT_CORU(x, args...)	INIT(x, PACK(CORU_STRUCT(x), args))
+
+#else
+#include <coru/coro.h>
+
+typedef coro coru_t;
+
+#define INIT_CORU_CORE(args...)
+#define PREP()			coro_init()
+#define UNPREP(args...)		coro_free(args)
+
+#define INIT(name, ctx)		coro_new((_entry)name, (cvalue)ctx)
+#define NEXT1(x, o)		coro_call((x), (intptr_t)(o))
+#define NEXT(x)			NEXT1(x, NULL)
+#define YIELD1(x, i)		coro_call((x), (intptr_t)(i))
+#define YIELD(args...)		coro_yield((intptr_t)(args))
+#define NEXT_PACK(x, s, a...)	NEXT1(x, PACK(s, a))
+
+#define DEFCORU(name, out, closure, inargs...)		\
+	struct name##_s {				\
+		coru_t next;				\
+		struct closure args;			\
+	};						\
+	struct name##_in_s {inargs};			\
+	static out					\
+	name(const struct name##_s *coru_ctx,		\
+	     const struct name##_in_s *arg		\
+	     __attribute__((unused)))
+#define CORU_CLOSUR(x)	(coru_ctx->args.x)
+#define CORU_STRUCT(x)	struct x##_s
+#define PACK(x, args...)	&((x){args})
+#define INIT_CORU(x, args...)	INIT(x, PACK(CORU_STRUCT(x), args))
+
+#endif
 
 #endif	/* INCLUDED_coru_h_ */
