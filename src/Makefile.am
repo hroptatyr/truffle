@@ -34,14 +34,6 @@ noinst_HEADERS += version.h
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
 
-noinst_LIBRARIES += libcoru.a
-libcoru_a_SOURCES =
-EXTRA_libcoru_a_SOURCES =
-libcoru_a_SOURCES += coru.h
-libcoru_a_SOURCES += coru/coro.c coru/coro.h
-libcoru_a_SOURCES += coru/ctxt.h
-libcoru_a_SOURCES += coru/tls.h
-
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle.ggo
@@ -66,7 +58,6 @@ BUILT_SOURCES += trod.x trod.xh
 noinst_PROGRAMS += truck
 truck_SOURCES = truck.c truck.ggo
 truck_LDADD = libtruffle.a
-truck_LDADD += libcoru.a
 truck_LDADD += -lm
 BUILT_SOURCES += truck.x truck.xh
 
