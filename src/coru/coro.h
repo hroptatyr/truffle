@@ -18,7 +18,6 @@
  * http://www.yl.is.s.u-tokyo.ac.jp/sthreads/
  */
 
-#include "tls.h"
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -33,45 +32,38 @@ typedef cvalue (*_entry)(cvalue init, cvalue inargs);
 /*
  * Initialize the coroutine library, returning a coroutine for the thread that called init.
  */
-EXPORT
 extern coro coro_init(void);
 
 /*
  * Create a new coroutine from the given function, and with the
  * given stack.
  */
-EXPORT
 extern coro coro_new(_entry fn, cvalue init);
 
 /*
  * Invoke a coroutine passing the given value.
  */
-EXPORT
 extern cvalue coro_call(coro target, cvalue value);
 
 /*
  * Return to calling coroutine and pass on VALUE.
  */
-EXPORT
 extern cvalue coro_yield(cvalue value);
 
 /*
  * Clone a given coroutine. This can be used to implement multishot continuations.
  */
-EXPORT
 coro coro_clone(coro c);
 
 /*
  * Free the coroutine and return the space for the stack.
  */
-EXPORT
 extern void coro_free(coro c);
 
 /*
  * Poll the current coroutine to ensure sufficient resources are allocated. This
  * should be called periodically to ensure a coroutine doesn't segfault.
  */
-EXPORT
 extern void coro_poll(void);
 
 #endif /* __CORO_H__ */

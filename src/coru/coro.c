@@ -28,7 +28,6 @@
 #include <stdint.h>
 #include <string.h>
 #include "coro.h"
-#include "tls.h"
 #include "ctxt.h"
 
 /*
@@ -47,6 +46,7 @@
 struct _coro {
 	_ctxt ctxt;
 	_entry start;
+	cvalue initargs;
 	intptr_t stack_base;
 	size_t stack_size;
 };
@@ -56,17 +56,16 @@ struct _coro {
  * otherwise _value is often cached as a local when switching contexts, so
  * a sequence of calls will always return the first value!
  */
-THREAD_LOCAL volatile coro _callee;
-THREAD_LOCAL volatile coro _caller;
-THREAD_LOCAL volatile cvalue _value;
-THREAD_LOCAL struct _coro _on_exit;
+static volatile coro _callee;
+static volatile coro _caller;
+static volatile cvalue _value;
+static struct _coro _on_exit;
 
 /*
  * We probe the current machine and extract the data needed to modify the
  * machine context. The current thread is then initialized as the currently
  * executing coroutine.
  */
-EXPORT
 coro coro_init(void)
 {
 	_probe_arch();
@@ -101,13 +100,13 @@ static void _coro_rebase(coro c, intptr_t local_sp, intptr_t new_sp)
  * coroutine is first called. If it was called from coro_new, then it sets
  * up the stack and initializes the saved context.
  */
-static void _coro_enter(coro c, cvalue init)
+static void _coro_enter(coro c)
 {
 	if (_save_and_resumed(c->ctxt))
 	{	/* start the coroutine; stack is empty at this point. */
 		cvalue _return;
 		_return = (intptr_t)_callee;
-		_callee->start(init, _value);
+		_callee->start(_callee->initargs, _value);
 		/* return the exited coroutine to the exit handler */
 		coro_call(&_on_exit, _return);
 	}
@@ -131,15 +130,15 @@ static void _coro_enter(coro c, cvalue init)
 	return;
 }
 
-EXPORT
 coro coro_new(_entry fn, cvalue init)
 {
 	/* FIXME: should not malloc directly? */
-	coro c = (coro)malloc(sizeof(struct _coro));
+	coro c = malloc(sizeof(struct _coro));
 	c->stack_size = STACK_DEFAULT;
 	c->stack_base = (intptr_t)malloc(c->stack_size);
 	c->start = fn;
-	_coro_enter(c, init);
+	c->initargs = init;
+	_coro_enter(c);
 	return c;
 }
 
@@ -149,7 +148,6 @@ coro coro_new(_entry fn, cvalue init)
  * save the context for the current coroutine, set the target coroutine as the current
  * one running, then restore it. The target is now running, and it simply returns _value.
  */
-EXPORT
 cvalue coro_call(coro target, cvalue value)
 {
 	/* FIXME: ensure target is on the same proc as cur, else, migrate cur to target->proc */
@@ -166,13 +164,11 @@ cvalue coro_call(coro target, cvalue value)
 	return _value;
 }
 
-EXPORT
 cvalue coro_yield(cvalue v)
 {
 	return coro_call(_caller, v);
 }
 
-EXPORT
 coro coro_clone(coro c)
 {
 	coro cnew = (coro)malloc(sizeof(struct _coro));
@@ -188,7 +184,6 @@ coro coro_clone(coro c)
 	return cnew;
 }
 
-EXPORT
 void coro_free(coro c)
 {
 	free((void *)c->stack_base);
@@ -226,7 +221,6 @@ static void _coro_resume_with(size_t sz)
  * there's less than STACK_TGROW bytes left in the current stack, and we only shrink
  * if there's more than STACK_TSHRINK empty.
  */
-EXPORT
 void coro_poll(void)
 {
 	/* check the current stack pointer */
