@@ -38,15 +38,9 @@ noinst_LIBRARIES += libcoru.a
 libcoru_a_SOURCES =
 EXTRA_libcoru_a_SOURCES =
 libcoru_a_SOURCES += coru.h
-libcoru_a_SOURCES += coru/cocore.c coru/cocore.h
-libcoru_a_SOURCES += coru/switch.c coru/switch.h
-libcoru_a_SOURCES += coru/platform.h
-libcoru_a_SOURCES += coru/valgrind.h
-libcoru_a_SOURCES += coru/memcheck.h
-EXTRA_libcoru_a_SOURCES += coru/switch-arm.c
-EXTRA_libcoru_a_SOURCES += coru/switch-ppc_osx.c
-EXTRA_libcoru_a_SOURCES += coru/switch-x86.c
-EXTRA_libcoru_a_SOURCES += coru/switch-x86_64.c
+libcoru_a_SOURCES += coru/coro.c coru/coro.h
+libcoru_a_SOURCES += coru/ctxt.h
+libcoru_a_SOURCES += coru/tls.h
 
 
 bin_PROGRAMS += truffle
