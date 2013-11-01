@@ -81,14 +81,16 @@ error(const char *fmt, ...)
 }
 
 
-struct co_rdr_res_s {
+declcoru(co_echs_rdr, {
+		FILE *f;
+		int foo;
+	});
+
+static const struct co_rdr_res_s {
 	echs_instant_t t;
 	const char *ln;
 	size_t lz;
-};
-
-static const struct co_rdr_res_s*
-co_echs_rdr(void *UNUSED(arg), FILE *f)
+} *co_echs_rdr(void *UNUSED(arg), const struct co_echs_rdr_initargs_s *c)
 {
 /* coroutine for the reader of the tseries */
 	char *line = NULL;
@@ -97,7 +99,7 @@ co_echs_rdr(void *UNUSED(arg), FILE *f)
 	/* we'll yield a rdr_res */
 	struct co_rdr_res_s res;
 
-	while ((nrd = getline(&line, &llen, f)) > 0) {
+	while ((nrd = getline(&line, &llen, c->f)) > 0) {
 		char *p;
 
 		if (*line == '#') {
@@ -158,6 +160,7 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 		return -1;
 	}
 
+	init_coru();
 	rdr = make_coru(co_echs_rdr, f);
 
 	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
@@ -168,6 +171,7 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 	}
 	/* now sort the guy */
 	truf_wheap_fix_deferred(ctx->q);
+	fini_coru();
 	fclose(f);
 	return 0;
 }
@@ -441,7 +445,7 @@ main(int argc, char *argv[])
 	}
 
 	/* get the coroutines going */
-	INIT_CORU_CORE();
+	init_coru_core();
 
 	/* check the command */
 	with (const char *cmd = argi->inputs[0U]) {

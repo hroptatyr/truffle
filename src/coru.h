@@ -37,56 +37,53 @@
 #if !defined INCLUDED_coru_h_
 #define INCLUDED_coru_h_
 
+#define declcoru(name, init...)	struct name##_initargs_s init
+
 #if 1
 #include "coru/cocore.h"
 
 typedef struct cocore *coru_t;
 
-#define INIT_CORU_CORE(args...)	initialise_cocore()
+static __thread coru_t ____caller;
 
-#define PREP()			initialise_cocore_thread()
-#define UNPREP(args...)		terminate_cocore_thread()
-#define INIT(name, ctx)							\
+#define init_coru_core(args...)	initialise_cocore()
+#define init_coru()		____caller = initialise_cocore_thread()
+#define fini_coru()		terminate_cocore_thread(), ____caller = NULL
+
+#define make_coru(x, init...)						\
 	({								\
-		struct cocore *next = (ctx)->next;			\
+		struct x##_initargs_s __initargs = {init};		\
 		create_cocore(						\
-			next, (cocore_action_t)(name),			\
-			(ctx), sizeof(*(ctx)),				\
-			next, 0U, false, 0);				\
-	})
-#define NEXT1(x, o)							\
-	(check_cocore(x) ? switch_cocore((x), (o)) : NULL)
-#define NEXT(x)			NEXT1(x, NULL)
-#define YIELD1(x, i)		(switch_cocore((x), (i)))
-#define YIELD(args...)		YIELD1(coru_ctx->next, (args))
-#define NEXT_PACK(x, s, a...)	NEXT1(x, PACK(s, a))
+			____caller, (cocore_action_t)(x),		\
+			&__initargs, sizeof(__initargs),		\
+			____caller, 0U, false, 0);			\
+	})								\
 
-#define DEFCORU(name, out, closure, inargs...)		\
-	struct name##_s {				\
-		coru_t next;				\
-		struct closure args;			\
-	};						\
-	struct name##_in_s {inargs};			\
-	static inline __attribute__((unused))		\
-		const struct name##_in_s*		\
-	yield_##name(struct cocore *next, out res)	\
-	{						\
-		return YIELD1(next, &res);		\
-	}						\
-	static inline __attribute__((unused)) out	\
-	next_##name(struct cocore *this,		\
-		    struct name##_in_s in)		\
-	{						\
-		return NEXT1(this, &in);		\
-	}						\
-	static out					\
-	name(const struct name##_s *coru_ctx,		\
-	     const struct name##_in_s *arg		\
-	     __attribute__((unused)))
-#define CORU_CLOSUR(x)	(coru_ctx->args.x)
-#define CORU_STRUCT(x)	struct x##_s
-#define PACK(x, args...)	&((x){args})
-#define INIT_CORU(x, args...)	INIT(x, PACK(CORU_STRUCT(x), args))
+#define next(x)			____next(x, NULL)
+#define next_with(x, val)				\
+	({						\
+		static typeof((val)) ____res;		\
+							\
+		____res = val;				\
+		____next(x, &____res);			\
+	})
+#define ____next(x, ptr)				\
+	(check_cocore(x)				\
+	 ? switch_cocore((x), ptr)			\
+	 : NULL)
+
+#define yield(yld)				\
+	({					\
+		coru_t tmp = ____caller;	\
+		yield_to(tmp, yld);		\
+	})
+#define yield_to(x, yld)				\
+	({						\
+		static typeof((yld)) ____res;		\
+							\
+		____res = yld;				\
+		switch_cocore((x), (void*)&____res);	\
+	})
 
 #else
 /* my own take on things */
@@ -95,7 +92,9 @@ typedef struct cocore *coru_t;
 
 typedef jmp_buf *coru_t;
 
-#define INIT_CORU_CORE(args...)
+#define init_coru_core(args...)
+#define init_coru()
+#define fini_coru()
 
 static __thread coru_t ____caller;
 static __thread coru_t ____callee;
@@ -108,13 +107,14 @@ static intptr_t ____glob;
 # define _longjmp		longjmp
 #endif	/* !_longjmp */
 
-#define make_coru(x, init...)				\
-	({						\
-		static jmp_buf __##x##b;		\
-		if (_setjmp(__##x##b)) {		\
-			x((void*)____glob, ##init);	\
-		}					\
-		&__##x##b;				\
+#define make_coru(x, init...)						\
+	({								\
+		static jmp_buf __##x##b;				\
+		struct x##_initargs_s __initargs = {init};		\
+		if (_setjmp(__##x##b)) {				\
+			x((void*)____glob, &__initargs);		\
+		}							\
+		&__##x##b;						\
 	})
 
 #define yield(yld)				\
