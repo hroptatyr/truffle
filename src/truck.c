@@ -87,19 +87,17 @@ struct co_rdr_res_s {
 	size_t lz;
 };
 
-DEFCORU(co_rdr, const struct co_rdr_res_s*, {
-		FILE *f;
-	})
+static const struct co_rdr_res_s*
+co_echs_rdr(void *UNUSED(arg), FILE *f)
 {
 /* coroutine for the reader of the tseries */
-#define yield(args...)	yield_co_rdr(args)
 	char *line = NULL;
 	size_t llen = 0UL;
 	ssize_t nrd;
 	/* we'll yield a rdr_res */
-	static struct co_rdr_res_s res;
+	struct co_rdr_res_s res;
 
-	while ((nrd = getline(&line, &llen, CORU_CLOSUR(f))) > 0) {
+	while ((nrd = getline(&line, &llen, f)) > 0) {
 		char *p;
 
 		if (*line == '#') {
@@ -112,13 +110,12 @@ DEFCORU(co_rdr, const struct co_rdr_res_s*, {
 		/* pack the result structure */
 		res.ln = p + 1U;
 		res.lz = nrd - (p + 1U - line);
-		YIELD(&res);
+		yield(res);
 	}
 
 	free(line);
 	line = NULL;
 	llen = 0U;
-#undef yield
 	return 0;
 }
 
@@ -153,7 +150,6 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 {
 /* wants a const char *fn */
 	coru_t rdr;
-	coru_t me;
 	FILE *f;
 
 	if (fn == NULL) {
@@ -162,10 +158,9 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 		return -1;
 	}
 
-	me = PREP();
-	rdr = INIT_CORU(co_rdr, .args.f = f, .next = me);
+	rdr = make_coru(co_echs_rdr, f);
 
-	for (const struct co_rdr_res_s *ln; (ln = NEXT(rdr)) != NULL;) {
+	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
 		/* try to read the whole shebang */
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
 		/* ... and add it */
@@ -174,7 +169,6 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 	/* now sort the guy */
 	truf_wheap_fix_deferred(ctx->q);
 	fclose(f);
-	UNPREP(me);
 	return 0;
 }
 
