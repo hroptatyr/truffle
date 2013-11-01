@@ -37,7 +37,7 @@
 #if !defined INCLUDED_coru_h_
 #define INCLUDED_coru_h_
 
-#if 0
+#if 1
 #include "coru/cocore.h"
 
 typedef struct cocore *coru_t;
