@@ -95,14 +95,23 @@ typedef struct cocore *coru_t;
 
 typedef jmp_buf *coru_t;
 
+#define INIT_CORU_CORE(args...)
+
 static __thread coru_t ____caller;
 static __thread coru_t ____callee;
 static intptr_t ____glob;
 
+#if !defined _setjmp
+# define _setjmp		setjmp
+#endif	/* !_setjmp */
+#if !defined _longjmp
+# define _longjmp		longjmp
+#endif	/* !_longjmp */
+
 #define make_coru(x, init...)				\
 	({						\
 		static jmp_buf __##x##b;		\
-		if (setjmp(__##x##b)) {			\
+		if (_setjmp(__##x##b)) {		\
 			x((void*)____glob, ##init);	\
 		}					\
 		&__##x##b;				\
@@ -120,10 +129,10 @@ static intptr_t ____glob;
 						\
 		____res = yld;			\
 		____glob = (intptr_t)&____res;	\
-		if (!setjmp(*____callee)) {	\
+		if (!_setjmp(*____callee)) {	\
 			____caller = ____callee;\
 			____callee = x;		\
-			longjmp(*x, 1);		\
+			_longjmp(*x, 1);	\
 		}				\
 		(void*)____glob;		\
 	})
@@ -137,10 +146,10 @@ static intptr_t ____glob;
 						\
 		____res = val;			\
 		____glob = (intptr_t)&____res;	\
-		if (!setjmp(__##x##sb)) {	\
+		if (!_setjmp(__##x##sb)) {	\
 			____caller = &__##x##sb;\
 			____callee = x;		\
-			longjmp(*x, 1);		\
+			_longjmp(*x, 1);	\
 		}				\
 		(void*)____glob;		\
 	})
