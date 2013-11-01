@@ -89,35 +89,61 @@ typedef struct cocore *coru_t;
 #define INIT_CORU(x, args...)	INIT(x, PACK(CORU_STRUCT(x), args))
 
 #else
-#include <coru/coro.h>
+/* my own take on things */
+#include <setjmp.h>
+#include <stdint.h>
 
-typedef coro coru_t;
+typedef jmp_buf *coru_t;
 
-#define INIT_CORU_CORE(args...)
-#define PREP()			coro_init()
-#define UNPREP(args...)		coro_free(args)
+static __thread coru_t ____caller;
+static __thread coru_t ____callee;
+static intptr_t ____glob;
 
-#define INIT(name, ctx)		coro_new((_entry)name, (cvalue)ctx)
-#define NEXT1(x, o)		coro_call((x), (intptr_t)(o))
-#define NEXT(x)			NEXT1(x, NULL)
-#define YIELD1(x, i)		coro_call((x), (intptr_t)(i))
-#define YIELD(args...)		coro_yield((intptr_t)(args))
-#define NEXT_PACK(x, s, a...)	NEXT1(x, PACK(s, a))
+#define make_coru(x, init...)				\
+	({						\
+		static jmp_buf __##x##b;		\
+		if (setjmp(__##x##b)) {			\
+			x((void*)____glob, ##init);	\
+		}					\
+		&__##x##b;				\
+	})
 
-#define DEFCORU(name, out, closure, inargs...)		\
-	struct name##_s {				\
-		coru_t next;				\
-		struct closure args;			\
-	};						\
-	struct name##_in_s {inargs};			\
-	static out					\
-	name(const struct name##_s *coru_ctx,		\
-	     const struct name##_in_s *arg		\
-	     __attribute__((unused)))
-#define CORU_CLOSUR(x)	(coru_ctx->args.x)
-#define CORU_STRUCT(x)	struct x##_s
-#define PACK(x, args...)	&((x){args})
-#define INIT_CORU(x, args...)	INIT(x, PACK(CORU_STRUCT(x), args))
+#define yield(yld)				\
+	({					\
+		coru_t tmp = ____caller;	\
+		yield_to(tmp, yld);		\
+	})
+
+#define yield_to(x, yld)			\
+	({					\
+		static typeof((yld)) ____res;	\
+						\
+		____res = yld;			\
+		____glob = (intptr_t)&____res;	\
+		if (!setjmp(*____callee)) {	\
+			____caller = ____callee;\
+			____callee = x;		\
+			longjmp(*x, 1);		\
+		}				\
+		(void*)____glob;		\
+	})
+
+#define next(x)			next_with(x, NULL)
+
+#define next_with(x, val)			\
+	({					\
+		static jmp_buf __##x##sb;	\
+		static typeof((val)) ____res;	\
+						\
+		____res = val;			\
+		____glob = (intptr_t)&____res;	\
+		if (!setjmp(__##x##sb)) {	\
+			____caller = &__##x##sb;\
+			____callee = x;		\
+			longjmp(*x, 1);		\
+		}				\
+		(void*)____glob;		\
+	})
 
 #endif
 
