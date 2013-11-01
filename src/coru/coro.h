@@ -20,35 +20,28 @@
 
 #include "tls.h"
 #include <stdlib.h>
+#include <stdint.h>
 
 /* a coroutine handle */
 typedef struct _coro *coro;
 
-/* the type of value passed between coroutines */
-typedef union _value {
-	void *p;
-	unsigned u;
-	int i;
-	char c;
-} cvalue;
+typedef intptr_t cvalue;
 
 /* the type of entry function */
-typedef void (*_entry)(cvalue v);
-
-static cvalue cnone;
+typedef cvalue (*_entry)(cvalue init, cvalue inargs);
 
 /*
  * Initialize the coroutine library, returning a coroutine for the thread that called init.
  */
 EXPORT
-extern coro coro_init();
+extern coro coro_init(void);
 
 /*
  * Create a new coroutine from the given function, and with the
  * given stack.
  */
 EXPORT
-extern coro coro_new(_entry fn);
+extern coro coro_new(_entry fn, cvalue init);
 
 /*
  * Invoke a coroutine passing the given value.
@@ -57,10 +50,16 @@ EXPORT
 extern cvalue coro_call(coro target, cvalue value);
 
 /*
+ * Return to calling coroutine and pass on VALUE.
+ */
+EXPORT
+extern cvalue coro_yield(cvalue value);
+
+/*
  * Clone a given coroutine. This can be used to implement multishot continuations.
  */
-/*EXPORT
-coro coro_clone(coro c);*/
+EXPORT
+coro coro_clone(coro c);
 
 /*
  * Free the coroutine and return the space for the stack.
@@ -73,6 +72,6 @@ extern void coro_free(coro c);
  * should be called periodically to ensure a coroutine doesn't segfault.
  */
 EXPORT
-extern void coro_poll();
+extern void coro_poll(void);
 
 #endif /* __CORO_H__ */

@@ -50,14 +50,14 @@ struct _coro {
 	intptr_t stack_base;
 	size_t stack_size;
 };
-static cvalue cnone = { NULL };
 
 /*
  * Each of these are local to the kernel thread. Volatile storage is necessary
  * otherwise _value is often cached as a local when switching contexts, so
  * a sequence of calls will always return the first value!
  */
-THREAD_LOCAL volatile coro _cur;
+THREAD_LOCAL volatile coro _callee;
+THREAD_LOCAL volatile coro _caller;
 THREAD_LOCAL volatile cvalue _value;
 THREAD_LOCAL struct _coro _on_exit;
 
@@ -67,29 +67,16 @@ THREAD_LOCAL struct _coro _on_exit;
  * executing coroutine.
  */
 EXPORT
-coro coro_init()
+coro coro_init(void)
 {
 	_probe_arch();
-	_cur = &_on_exit;
-	return _cur;
+	_callee = &_on_exit;
+	_caller = NULL;
+	return _callee;
 }
 
-/*EXPORT
-coro coro_error()
-{
-	coro c = (coro)malloc(sizeof(struct _coro));
-	c->stack_base = NULL;
-	c->stack_size = 0;
-	c->start = NULL;
-	if (!_save_and_resumed(c->ctxt))
-	{
-		_cur = c;
-	}
-	return _cur;
-}*/
-
 /* copy the old stack frame to the new stack frame */
-void _coro_cpframe(intptr_t local_sp, intptr_t new_sp)
+static void _coro_cpframe(intptr_t local_sp, intptr_t new_sp)
 {
 	intptr_t src = local_sp - (_stack_grows_up ? _frame_offset : 0);
 	intptr_t dst = new_sp - (_stack_grows_up ? _frame_offset : 0);
@@ -98,12 +85,12 @@ void _coro_cpframe(intptr_t local_sp, intptr_t new_sp)
 }
 
 /* rebase any values in saved state to the new stack */
-void _coro_rebase(coro c, intptr_t local_sp, intptr_t new_sp)
+static void _coro_rebase(coro c, intptr_t local_sp, intptr_t new_sp)
 {
 	intptr_t * s = (intptr_t *)c->ctxt;
 	ptrdiff_t diff = new_sp - local_sp; /* subtract old base, and add new base */
-	int i;
-	for (i = 0; i < _offsets_len; ++i)
+
+	for (size_t i = 0; i < _offsets_len; ++i)
 	{
 		s[_offsets[i]] += diff;
 	}
@@ -114,18 +101,17 @@ void _coro_rebase(coro c, intptr_t local_sp, intptr_t new_sp)
  * coroutine is first called. If it was called from coro_new, then it sets
  * up the stack and initializes the saved context.
  */
-void _coro_enter(coro c)
+static void _coro_enter(coro c, cvalue init)
 {
 	if (_save_and_resumed(c->ctxt))
 	{	/* start the coroutine; stack is empty at this point. */
 		cvalue _return;
-		_return.p = _cur;
-		_cur->start(_value);
+		_return = (intptr_t)_callee;
+		_callee->start(init, _value);
 		/* return the exited coroutine to the exit handler */
 		coro_call(&_on_exit, _return);
 	}
 	/* this code executes when _coro_enter is called from coro_new */
-INIT_CTXT:
 	{
 		/* local and new stack pointers at identical relative positions on the stack */
 		intptr_t local_sp = (intptr_t)&local_sp;
@@ -142,17 +128,18 @@ INIT_CTXT:
 		/* reset any locals in the saved state to point to the new stack */
 		_coro_rebase(c, local_sp, new_sp);
 	}
+	return;
 }
 
 EXPORT
-coro coro_new(_entry fn)
+coro coro_new(_entry fn, cvalue init)
 {
 	/* FIXME: should not malloc directly? */
 	coro c = (coro)malloc(sizeof(struct _coro));
 	c->stack_size = STACK_DEFAULT;
 	c->stack_base = (intptr_t)malloc(c->stack_size);
 	c->start = fn;
-	_coro_enter(c);
+	_coro_enter(c, init);
 	return c;
 }
 
@@ -168,14 +155,21 @@ cvalue coro_call(coro target, cvalue value)
 	/* FIXME: ensure target is on the same proc as cur, else, migrate cur to target->proc */
 
 	_value = value; /* pass value to 'target' */
-	if (!_save_and_resumed(_cur->ctxt))
+	if (!_save_and_resumed(_callee->ctxt))
 	{
 		/* we are calling someone else, so we set up the environment, and jump to target */
-		_cur = target;
-		_rstr_and_jmp(_cur->ctxt);
+		_caller = _callee;
+		_callee = target;
+		_rstr_and_jmp(_callee->ctxt);
 	}
 	/* when someone called us, just return the value */
 	return _value;
+}
+
+EXPORT
+cvalue coro_yield(cvalue v)
+{
+	return coro_call(_caller, v);
 }
 
 EXPORT
@@ -212,17 +206,17 @@ void coro_free(coro c)
 static void _coro_resume_with(size_t sz)
 {
 	/* allocate bigger stack */
-	intptr_t old_sp = _cur->stack_base;
+	intptr_t old_sp = _callee->stack_base;
 	void * new_sp = malloc(sz);
-	memcpy(new_sp, (void *)old_sp, _cur->stack_size);
-	_cur->stack_base = (intptr_t)new_sp;
-	_cur->stack_size = sz;
+	memcpy(new_sp, (void *)old_sp, _callee->stack_size);
+	_callee->stack_base = (intptr_t)new_sp;
+	_callee->stack_size = sz;
 	/* save the current context; execution resumes here with new stack */
-	if (!_save_and_resumed(_cur->ctxt))
+	if (!_save_and_resumed(_callee->ctxt))
 	{
 		/* rebase jmp_buf using new stack */
-		_coro_rebase(_cur, old_sp, (intptr_t)new_sp);
-		_rstr_and_jmp(_cur->ctxt);
+		_coro_rebase(_callee, old_sp, (intptr_t)new_sp);
+		_rstr_and_jmp(_callee->ctxt);
 	}
 	free((void *)old_sp);
 }
@@ -233,13 +227,13 @@ static void _coro_resume_with(size_t sz)
  * if there's more than STACK_TSHRINK empty.
  */
 EXPORT
-void coro_poll()
+void coro_poll(void)
 {
 	/* check the current stack pointer */
-	size_t stack_size = _cur->stack_size;
+	size_t stack_size = _callee->stack_size;
 	size_t empty = (_stack_grows_up
-		? stack_size - ((uintptr_t)&empty - _cur->stack_base)
-		: (uintptr_t)&empty - _cur->stack_base);
+		? stack_size - ((uintptr_t)&empty - _callee->stack_base)
+		: (uintptr_t)&empty - _callee->stack_base);
 
 	if (empty < STACK_TGROW)
 	{	/* grow stack */

@@ -3,6 +3,7 @@
 
 #include <setjmp.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 /* context management definitions */
 typedef jmp_buf _ctxt;
@@ -23,14 +24,14 @@ typedef jmp_buf _ctxt;
 
 /* the list of offsets in jmp_buf to be adjusted */
 /* # of offsets cannot be greater than jmp_buf */
-static int _offsets[sizeof(jmp_buf) / sizeof(int)];
-static int _offsets_len;
+static ptrdiff_t _offsets[sizeof(jmp_buf) / sizeof(int)];
+static size_t _offsets_len;
 
 /* true if stack grows up, false if down */
-static int _stack_grows_up;
+static bool _stack_grows_up;
 
 /* the offset of the beginning of the stack frame in a function */
-static size_t _frame_offset;
+static ptrdiff_t _frame_offset;
 
 /* This probing code is derived from Douglas Jones' user thread library */
 struct _probe_data {
@@ -46,13 +47,13 @@ struct _probe_data {
 	jmp_buf * ref_probe;	/* switches between probes */
 };
 
-void boundhigh(struct _probe_data *p)
+static inline void boundhigh(struct _probe_data *p)
 {
 	int c;
 	p->high_bound = (intptr_t)&c;
 }
 
-void probe(struct _probe_data *p)
+static inline void probe(struct _probe_data *p)
 {
 	int c;
 	p->prior_local = p->probe_local;
@@ -63,14 +64,14 @@ void probe(struct _probe_data *p)
 	boundhigh(p);
 }
 
-void boundlow(struct _probe_data *p)
+static inline void boundlow(struct _probe_data *p)
 {
 	int c;
 	p->low_bound = (intptr_t)&c;
 	probe(p);
 }
 
-void fill(struct _probe_data *p)
+static inline void fill(struct _probe_data *p)
 {
 	boundlow(p);
 }
@@ -78,20 +79,15 @@ void fill(struct _probe_data *p)
 static void _infer_jmpbuf_offsets(struct _probe_data *pb)
 {
 	/* following line views jump buffer as array of long intptr_t */
-	unsigned i;
 	intptr_t * p = (intptr_t *)pb->probe_env;
 	intptr_t * sameAR = (intptr_t *)pb->probe_sameAR;
 	intptr_t * samePC = (intptr_t *)pb->probe_samePC;
 	intptr_t prior_diff = pb->probe_local - pb->prior_local;
 	intptr_t min_frame = pb->probe_local;
 
-	for (i = 0; i < sizeof(jmp_buf) / sizeof(intptr_t); ++i) {
+	for (size_t i = 0; i < sizeof(jmp_buf) / sizeof(intptr_t); ++i) {
 		intptr_t pi = p[i], samePCi = samePC[i];
 		if (pi != samePCi) {
-			if (pi != sameAR[i]) {
-				perror("No Thread Launch\n" );
-				exit(-1);
-			}
 			if ((pi - samePCi) == prior_diff) {
 				/* the i'th pointer field in jmp_buf needs to be save/restored */
 				_offsets[_offsets_len++] = i;
@@ -101,7 +97,7 @@ static void _infer_jmpbuf_offsets(struct _probe_data *pb)
 			}
 		}
 	}
-	
+
 	_frame_offset = (_stack_grows_up
 		? pb->probe_local - min_frame
 		: min_frame - pb->probe_local);
