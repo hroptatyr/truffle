@@ -39,6 +39,14 @@
 
 #define declcoru(name, init...)	struct name##_initargs_s init
 
+#if !defined _paste
+# define _paste(x, y)		x ## y
+#endif	/* !_paste */
+#if !defined paste
+# define paste(x, y)		_paste(x, y)
+#endif	/* !paste */
+#define TMP(x)			paste(__##x##__, __LINE__)
+
 #if 0
 #include "coru/cocore.h"
 
@@ -52,20 +60,20 @@ static __thread coru_t ____caller;
 
 #define make_coru(x, init...)						\
 	({								\
-		struct x##_initargs_s __initargs = {init};		\
+		struct x##_initargs_s TMP(initargs) = {init};		\
 		create_cocore(						\
 			____caller, (cocore_action_t)(x),		\
-			&__initargs, sizeof(__initargs),		\
+			&TMP(initargs), sizeof(TMP(initargs)),		\
 			____caller, 0U, false, 0);			\
 	})								\
 
 #define next(x)			____next(x, NULL)
 #define next_with(x, val)				\
 	({						\
-		static typeof((val)) ____res;		\
+		static typeof((val)) TMP(res);		\
 							\
-		____res = val;				\
-		____next(x, &____res);			\
+		TMP(res) = val;				\
+		____next(x, &TMP(res));			\
 	})
 #define ____next(x, ptr)				\
 	(check_cocore(x)				\
@@ -74,15 +82,15 @@ static __thread coru_t ____caller;
 
 #define yield(yld)				\
 	({					\
-		coru_t tmp = ____caller;	\
-		yield_to(tmp, yld);		\
+		coru_t TMP(tmp) = ____caller;	\
+		yield_to(TMP(tmp), yld);	\
 	})
 #define yield_to(x, yld)				\
 	({						\
-		static typeof((yld)) ____res;		\
+		static typeof((yld)) TMP(res);		\
 							\
-		____res = yld;				\
-		switch_cocore((x), (void*)&____res);	\
+		TMP(res) = yld;				\
+		switch_cocore((x), (void*)&TMP(res));	\
 	})
 
 #else
@@ -123,16 +131,16 @@ static intptr_t ____glob;
 
 #define yield(yld)				\
 	({					\
-		coru_t tmp = ____caller;	\
-		yield_to(tmp, yld);		\
+		coru_t TMP(tmp) = ____caller;	\
+		yield_to(TMP(tmp), yld);	\
 	})
 
 #define yield_to(x, yld)			\
 	({					\
-		static typeof((yld)) ____res;	\
+		static typeof((yld)) TMP(res);	\
 						\
-		____res = yld;			\
-		____glob = (intptr_t)&____res;	\
+		TMP(res) = yld;			\
+		____glob = (intptr_t)&TMP(res);	\
 		if (!_setjmp(*____callee)) {	\
 			____caller = ____callee;\
 			____callee = x;		\
@@ -146,10 +154,10 @@ static intptr_t ____glob;
 #define next_with(x, val)			\
 	({					\
 		static jmp_buf __##x##sb;	\
-		static typeof((val)) ____res;	\
+		static typeof((val)) TMP(res);	\
 						\
-		____res = val;			\
-		____glob = (intptr_t)&____res;	\
+		TMP(res) = val;			\
+		____glob = (intptr_t)&TMP(res);	\
 		if (!_setjmp(__##x##sb)) {	\
 			____caller = &__##x##sb;\
 			____callee = x;		\
