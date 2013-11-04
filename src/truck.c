@@ -81,25 +81,25 @@ error(const char *fmt, ...)
 }
 
 
-struct co_rdr_res_s {
+declcoru(co_echs_rdr, {
+		FILE *f;
+		int foo;
+	});
+
+static const struct co_rdr_res_s {
 	echs_instant_t t;
 	const char *ln;
 	size_t lz;
-};
-
-DEFCORU(co_rdr, const struct co_rdr_res_s*, {
-		FILE *f;
-	})
+} *co_echs_rdr(void *UNUSED(arg), const struct co_echs_rdr_initargs_s *c)
 {
 /* coroutine for the reader of the tseries */
-#define yield(args...)	yield_co_rdr(args)
 	char *line = NULL;
 	size_t llen = 0UL;
 	ssize_t nrd;
 	/* we'll yield a rdr_res */
-	static struct co_rdr_res_s res;
+	struct co_rdr_res_s res;
 
-	while ((nrd = getline(&line, &llen, CORU_CLOSUR(f))) > 0) {
+	while ((nrd = getline(&line, &llen, c->f)) > 0) {
 		char *p;
 
 		if (*line == '#') {
@@ -112,13 +112,12 @@ DEFCORU(co_rdr, const struct co_rdr_res_s*, {
 		/* pack the result structure */
 		res.ln = p + 1U;
 		res.lz = nrd - (p + 1U - line);
-		YIELD(&res);
+		yield(res);
 	}
 
 	free(line);
 	line = NULL;
 	llen = 0U;
-#undef yield
 	return 0;
 }
 
@@ -152,8 +151,7 @@ static int
 truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 {
 /* wants a const char *fn */
-	struct cocore *rdr;
-	struct cocore *me;
+	coru_t rdr;
 	FILE *f;
 
 	if (fn == NULL) {
@@ -162,10 +160,10 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 		return -1;
 	}
 
-	me = PREP();
-	rdr = INIT_CORU(co_rdr, .args.f = f, .next = me);
+	init_coru();
+	rdr = make_coru(co_echs_rdr, f);
 
-	for (const struct co_rdr_res_s *ln; (ln = NEXT(rdr)) != NULL;) {
+	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
 		/* try to read the whole shebang */
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
 		/* ... and add it */
@@ -173,8 +171,8 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 	}
 	/* now sort the guy */
 	truf_wheap_fix_deferred(ctx->q);
+	fini_coru();
 	fclose(f);
-	UNPREP();
 	return 0;
 }
 
@@ -447,7 +445,7 @@ main(int argc, char *argv[])
 	}
 
 	/* get the coroutines going */
-	initialise_cocore();
+	init_coru_core();
 
 	/* check the command */
 	with (const char *cmd = argi->inputs[0U]) {

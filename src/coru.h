@@ -37,50 +37,123 @@
 #if !defined INCLUDED_coru_h_
 #define INCLUDED_coru_h_
 
+#define declcoru(name, init...)	struct name##_initargs_s init
+
+#if 1
 #include "coru/cocore.h"
 
-#define PREP()		initialise_cocore_thread()
-#define UNPREP()	terminate_cocore_thread()
-#define INIT(name, ctx)							\
-	({								\
-		struct cocore *next = (ctx)->next;			\
-		create_cocore(						\
-			next, (cocore_action_t)(name),			\
-			(ctx), sizeof(*(ctx)),				\
-			next, 0U, false, 0);				\
-	})
-#define NEXT1(x, o)	(check_cocore(x) ? switch_cocore((x), (o)) : NULL)
-#define NEXT(x)		NEXT1(x, NULL)
-#define YIELD1(x, i)	(switch_cocore((x), (i)))
-#define YIELD(args...)	YIELD1(coru_ctx->next, (args))
-#define NEXT_PACK(x, s, a...)			\
-	NEXT1(x, PACK(s, a))
+typedef struct cocore *coru_t;
 
-#define DEFCORU(name, out, closure, inargs...)		\
-	struct name##_s {				\
-		struct cocore *next;			\
-		struct closure args;			\
-	};						\
-	struct name##_in_s {inargs};			\
-	static inline __attribute__((unused))		\
-		const struct name##_in_s*		\
-	yield_##name(struct cocore *next, out res)	\
-	{						\
-		return YIELD1(next, &res);		\
-	}						\
-	static inline __attribute__((unused)) out	\
-	next_##name(struct cocore *this,		\
-		    struct name##_in_s in)		\
-	{						\
-		return NEXT1(this, &in);		\
-	}						\
-	static out					\
-	name(struct name##_s *coru_ctx,			\
-	     const struct name##_in_s *arg		\
-	     __attribute__((unused)))
-#define CORU_CLOSUR(x)	(coru_ctx->args.x)
-#define CORU_STRUCT(x)	struct x##_s
-#define PACK(x, args...)	&((x){args})
-#define INIT_CORU(x, args...)	INIT(x, PACK(CORU_STRUCT(x), args))
+static __thread coru_t ____caller;
+
+#define init_coru_core(args...)	initialise_cocore()
+#define init_coru()		____caller = initialise_cocore_thread()
+#define fini_coru()		terminate_cocore_thread(), ____caller = NULL
+
+#define make_coru(x, init...)						\
+	({								\
+		struct x##_initargs_s __initargs = {init};		\
+		create_cocore(						\
+			____caller, (cocore_action_t)(x),		\
+			&__initargs, sizeof(__initargs),		\
+			____caller, 0U, false, 0);			\
+	})								\
+
+#define next(x)			____next(x, NULL)
+#define next_with(x, val)				\
+	({						\
+		static typeof((val)) ____res;		\
+							\
+		____res = val;				\
+		____next(x, &____res);			\
+	})
+#define ____next(x, ptr)				\
+	(check_cocore(x)				\
+	 ? switch_cocore((x), ptr)			\
+	 : NULL)
+
+#define yield(yld)				\
+	({					\
+		coru_t tmp = ____caller;	\
+		yield_to(tmp, yld);		\
+	})
+#define yield_to(x, yld)				\
+	({						\
+		static typeof((yld)) ____res;		\
+							\
+		____res = yld;				\
+		switch_cocore((x), (void*)&____res);	\
+	})
+
+#else
+/* my own take on things */
+#include <setjmp.h>
+#include <stdint.h>
+
+typedef jmp_buf *coru_t;
+
+#define init_coru_core(args...)
+#define init_coru()
+#define fini_coru()
+
+static __thread coru_t ____caller;
+static __thread coru_t ____callee;
+static intptr_t ____glob;
+
+#if !defined _setjmp
+# define _setjmp		setjmp
+#endif	/* !_setjmp */
+#if !defined _longjmp
+# define _longjmp		longjmp
+#endif	/* !_longjmp */
+
+#define make_coru(x, init...)						\
+	({								\
+		static jmp_buf __##x##b;				\
+		struct x##_initargs_s __initargs = {init};		\
+		if (_setjmp(__##x##b)) {				\
+			x((void*)____glob, &__initargs);		\
+		}							\
+		&__##x##b;						\
+	})
+
+#define yield(yld)				\
+	({					\
+		coru_t tmp = ____caller;	\
+		yield_to(tmp, yld);		\
+	})
+
+#define yield_to(x, yld)			\
+	({					\
+		static typeof((yld)) ____res;	\
+						\
+		____res = yld;			\
+		____glob = (intptr_t)&____res;	\
+		if (!_setjmp(*____callee)) {	\
+			____caller = ____callee;\
+			____callee = x;		\
+			_longjmp(*x, 1);	\
+		}				\
+		(void*)____glob;		\
+	})
+
+#define next(x)			next_with(x, NULL)
+
+#define next_with(x, val)			\
+	({					\
+		static jmp_buf __##x##sb;	\
+		static typeof((val)) ____res;	\
+						\
+		____res = val;			\
+		____glob = (intptr_t)&____res;	\
+		if (!_setjmp(__##x##sb)) {	\
+			____caller = &__##x##sb;\
+			____callee = x;		\
+			_longjmp(*x, 1);	\
+		}				\
+		(void*)____glob;		\
+	})
+
+#endif
 
 #endif	/* INCLUDED_coru_h_ */
