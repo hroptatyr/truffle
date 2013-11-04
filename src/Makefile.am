@@ -29,24 +29,11 @@ libtruffle_a_SOURCES += idate.c idate.h
 libtruffle_a_SOURCES += daisy.c daisy.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
 libtruffle_a_SOURCES += nifty.h
+libtruffle_a_SOURCES += coru.h
 nodist_libtruffle_a_SOURCES = version.c
 noinst_HEADERS += version.h
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
-
-noinst_LIBRARIES += libcoru.a
-libcoru_a_SOURCES =
-EXTRA_libcoru_a_SOURCES =
-libcoru_a_SOURCES += coru.h
-libcoru_a_SOURCES += coru/cocore.c coru/cocore.h
-libcoru_a_SOURCES += coru/switch.c coru/switch.h
-libcoru_a_SOURCES += coru/platform.h
-libcoru_a_SOURCES += coru/valgrind.h
-libcoru_a_SOURCES += coru/memcheck.h
-EXTRA_libcoru_a_SOURCES += coru/switch-arm.c
-EXTRA_libcoru_a_SOURCES += coru/switch-ppc_osx.c
-EXTRA_libcoru_a_SOURCES += coru/switch-x86.c
-EXTRA_libcoru_a_SOURCES += coru/switch-x86_64.c
 
 
 bin_PROGRAMS += truffle
@@ -72,7 +59,6 @@ BUILT_SOURCES += trod.x trod.xh
 noinst_PROGRAMS += truck
 truck_SOURCES = truck.c truck.ggo
 truck_LDADD = libtruffle.a
-truck_LDADD += libcoru.a
 truck_LDADD += -lm
 BUILT_SOURCES += truck.x truck.xh
 
