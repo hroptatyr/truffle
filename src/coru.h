@@ -39,7 +39,7 @@
 
 #define declcoru(name, init...)	struct name##_initargs_s init
 
-#if 1
+#if 0
 #include "coru/cocore.h"
 
 typedef struct cocore *coru_t;
@@ -112,7 +112,11 @@ static intptr_t ____glob;
 		static jmp_buf __##x##b;				\
 		struct x##_initargs_s __initargs = {init};		\
 		if (_setjmp(__##x##b)) {				\
+			char *buf = alloca(0x4000U);			\
+			asm volatile ("" :: "m" (buf));			\
 			x((void*)____glob, &__initargs);		\
+			____glob = (intptr_t)NULL;			\
+			_longjmp(*____caller, 1);			\
 		}							\
 		&__##x##b;						\
 	})
