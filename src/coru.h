@@ -115,18 +115,18 @@ static intptr_t ____glob;
 # define _longjmp		longjmp
 #endif	/* !_longjmp */
 
-#define make_coru(x, init...)						\
-	({								\
-		static jmp_buf __##x##b;				\
-		struct x##_initargs_s __initargs = {init};		\
-		if (_setjmp(__##x##b)) {				\
-			char *buf = alloca(0x4000U);			\
-			asm volatile ("" :: "m" (buf));			\
-			x((void*)____glob, &__initargs);		\
-			____glob = (intptr_t)NULL;			\
-			_longjmp(*____caller, 1);			\
-		}							\
-		&__##x##b;						\
+#define make_coru(x, init...)					\
+	({							\
+		static jmp_buf __##x##b;			\
+		struct x##_initargs_s __initargs = {init};	\
+		if (_setjmp(__##x##b)) {			\
+			char *TMP(brth) = alloca(0x4000U);	\
+			asm volatile ("" :: "m" (TMP(brth)));	\
+			x((void*)____glob, &__initargs);	\
+			____glob = (intptr_t)NULL;		\
+			_longjmp(*____caller, 1);		\
+		}						\
+		&__##x##b;					\
 	})
 
 #define yield(yld)				\
@@ -135,35 +135,37 @@ static intptr_t ____glob;
 		yield_to(TMP(tmp), yld);	\
 	})
 
-#define yield_to(x, yld)			\
-	({					\
-		static typeof((yld)) TMP(res);	\
-						\
-		TMP(res) = yld;			\
-		____glob = (intptr_t)&TMP(res);	\
-		if (!_setjmp(*____callee)) {	\
-			____caller = ____callee;\
-			____callee = x;		\
-			_longjmp(*x, 1);	\
-		}				\
-		(void*)____glob;		\
+#define yield_to(x, yld)					\
+	({							\
+		static typeof((yld)) TMP(res);			\
+								\
+		TMP(res) = yld;					\
+		____glob = (intptr_t)&TMP(res);			\
+		if (!_setjmp(*____callee)) {			\
+			char *TMP(brth) = alloca(0x2000U);	\
+			asm volatile ("" :: "m" (TMP(brth)));	\
+			____caller = ____callee;		\
+			____callee = x;				\
+			_longjmp(*x, 1);			\
+		}						\
+		(void*)____glob;				\
 	})
 
 #define next(x)			next_with(x, NULL)
 
-#define next_with(x, val)			\
-	({					\
-		static jmp_buf __##x##sb;	\
-		static typeof((val)) TMP(res);	\
-						\
-		TMP(res) = val;			\
-		____glob = (intptr_t)&TMP(res);	\
-		if (!_setjmp(__##x##sb)) {	\
-			____caller = &__##x##sb;\
-			____callee = x;		\
-			_longjmp(*x, 1);	\
-		}				\
-		(void*)____glob;		\
+#define next_with(x, val)				\
+	({						\
+		static jmp_buf __##x##sb;		\
+		static typeof((val)) TMP(res);		\
+							\
+		TMP(res) = val;				\
+		____glob = (intptr_t)&TMP(res);		\
+		if (!_setjmp(__##x##sb)) {		\
+			____caller = &__##x##sb;	\
+			____callee = x;			\
+			_longjmp(*x, 1);		\
+		}					\
+		(void*)____glob;			\
 	})
 
 #endif
