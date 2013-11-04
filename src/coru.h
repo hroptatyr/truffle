@@ -37,9 +37,7 @@
 #if !defined INCLUDED_coru_h_
 #define INCLUDED_coru_h_
 
-#define declcoru(name, init...)	struct name##_initargs_s init
-
-#if 1
+#if 0
 #include "coru/cocore.h"
 
 typedef struct cocore *coru_t;
@@ -49,6 +47,8 @@ static __thread coru_t ____caller;
 #define init_coru_core(args...)	initialise_cocore()
 #define init_coru()		____caller = initialise_cocore_thread()
 #define fini_coru()		terminate_cocore_thread(), ____caller = NULL
+
+#define declcoru(name, init...)	struct name##_initargs_s init
 
 #define make_coru(x, init...)						\
 	({								\
@@ -89,8 +89,13 @@ static __thread coru_t ____caller;
 /* my own take on things */
 #include <setjmp.h>
 #include <stdint.h>
+#include <assert.h>
 
-typedef jmp_buf *coru_t;
+typedef struct {
+	void *stk;
+	size_t ssz;
+	jmp_buf *jb;
+} coru_t;
 
 #define init_coru_core(args...)
 #define init_coru()
@@ -99,6 +104,7 @@ typedef jmp_buf *coru_t;
 static __thread coru_t ____caller;
 static __thread coru_t ____callee;
 static intptr_t ____glob;
+static void *sch_rbp;
 
 #if !defined _setjmp
 # define _setjmp		setjmp
@@ -107,14 +113,49 @@ static intptr_t ____glob;
 # define _longjmp		longjmp
 #endif	/* !_longjmp */
 
+#define declcoru(name, init...)	struct name##_initargs_s init
+
 #define make_coru(x, init...)						\
 	({								\
 		static jmp_buf __##x##b;				\
 		struct x##_initargs_s __initargs = {init};		\
+									\
+		/* keep track of frame */				\
 		if (_setjmp(__##x##b)) {				\
+			char *buf = alloca(0x4000U);			\
+			asm volatile("" :: "m" (buf));			\
+			printf("calling " #x " %p\n", sch_rbp);		\
 			x((void*)____glob, &__initargs);		\
+			puts(# x " returning");				\
+			____glob = NULL;				\
+			longjmp(*____caller.jb, 1);			\
 		}							\
-		&__##x##b;						\
+		(coru_t){.jb = &__##x##b};				\
+	})
+
+#define stash(x)							\
+	({								\
+		void *rbp = (char*)__builtin_frame_address(0) - 0x100U;	\
+		size_t ssz = (char*)sch_rbp - (char*)rbp;		\
+									\
+		if (sch_rbp > rbp) {					\
+			if (ssz > x.ssz) {				\
+				x.stk = realloc(x.stk, x.ssz);		\
+				x.ssz = ssz;				\
+			}						\
+			printf("stashing %p: %p %zu -> %p %zu\n",	\
+			       x.jb, rbp, ssz, x.stk, x.ssz);		\
+			memcpy(x.stk, rbp, ssz);			\
+		}							\
+	})
+#define rstor(x)							\
+	({								\
+		printf("restoring %p: %p %zu <- %p %zu\n",		\
+		       x.jb, (char*)sch_rbp - x.ssz, x.ssz,		\
+		       x.stk, x.ssz);					\
+		if (x.ssz) {						\
+			memcpy((char*)sch_rbp - x.ssz, x.stk, x.ssz);	\
+		}							\
 	})
 
 #define yield(yld)				\
@@ -123,35 +164,47 @@ static intptr_t ____glob;
 		yield_to(tmp, yld);		\
 	})
 
-#define yield_to(x, yld)			\
-	({					\
-		static typeof((yld)) ____res;	\
-						\
-		____res = yld;			\
-		____glob = (intptr_t)&____res;	\
-		if (!_setjmp(*____callee)) {	\
-			____caller = ____callee;\
-			____callee = x;		\
-			_longjmp(*x, 1);	\
-		}				\
-		(void*)____glob;		\
+#define yield_to(x, yld)						\
+	({								\
+		static typeof((yld)) ____res;				\
+									\
+		____res = yld;						\
+		____glob = (intptr_t)&____res;				\
+		if (!_setjmp(*____callee.jb)) {				\
+			/* save the stack */				\
+			stash(____callee);				\
+			____caller = ____callee;			\
+			____callee = x;					\
+			_longjmp(*x.jb, 1);				\
+			assert(0);					\
+		}							\
+		/* restore the stack */					\
+		rstor(____callee);					\
+		(void*)____glob;					\
 	})
 
 #define next(x)			next_with(x, NULL)
 
 #define next_with(x, val)			\
-	({					\
-		static jmp_buf __##x##sb;	\
-		static typeof((val)) ____res;	\
-						\
-		____res = val;			\
-		____glob = (intptr_t)&____res;	\
-		if (!_setjmp(__##x##sb)) {	\
-			____caller = &__##x##sb;\
-			____callee = x;		\
-			_longjmp(*x, 1);	\
-		}				\
-		(void*)____glob;		\
+	({								\
+		static jmp_buf __##x##sb;				\
+		static typeof((val)) ____res;				\
+									\
+		____res = val;						\
+		____glob = (intptr_t)&____res;				\
+		/* keep track of frame */				\
+		sch_rbp = (char*)__builtin_frame_address(0) - 0x1000U;	\
+		printf("sch_rbp %p\n", sch_rbp);			\
+		if (!_setjmp(__##x##sb)) {				\
+			____caller = (coru_t){.jb = &__##x##sb};	\
+			____callee = x;					\
+			stash(____caller);				\
+			printf("calling %p\n", x.jb);			\
+			_longjmp(*x.jb, 1);				\
+		}							\
+		/* restore __##x##sb */					\
+		rstor(____callee);					\
+		(void*)____glob;					\
 	})
 
 #endif
