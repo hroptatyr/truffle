@@ -62,6 +62,10 @@ struct truf_ctx_s {
 	truf_wheap_t q;
 };
 
+static truf_trod_t *trods;
+static size_t ntrods;
+static size_t trodi;
+
 
 static void
 __attribute__((format(printf, 1, 2)))
@@ -80,10 +84,21 @@ error(const char *fmt, ...)
 	return;
 }
 
+static size_t
+xstrlcpy(char *restrict dst, const char *src, size_t dsz)
+{
+	size_t ssz = strlen(src);
+	if (ssz > dsz) {
+		ssz = dsz - 1U;
+	}
+	memcpy(dst, src, ssz);
+	dst[ssz] = '\0';
+	return ssz;
+}
+
 
 declcoru(co_echs_rdr, {
 		FILE *f;
-		int foo;
 	});
 
 static const struct co_rdr_res_s {
@@ -121,12 +136,30 @@ static const struct co_rdr_res_s {
 	return 0;
 }
 
+declcoru(co_echs_pop, {
+		truf_wheap_t q;
+	});
+
+static const struct co_pop_res_s {
+	echs_instant_t t;
+	truf_trod_t edge;
+} *co_echs_pop(void *UNUSED(arg), const struct co_echs_pop_initargs_s *c)
+{
+/* coroutine for the wheap popper */
+	/* we'll yield a pop_res */
+	struct co_pop_res_s res;
+
+	while (!echs_instant_0_p(res.t = truf_wheap_top_rank(c->q))) {
+		/* assume it's a truf_trod_t */
+		uintptr_t tmp = truf_wheap_pop(c->q);
+		res.edge = trods[tmp];
+		yield(res);
+	}
+	return 0;
+}
+
 
 /* public api, might go to libtruffle one day */
-static truf_trod_t *trods;
-static size_t ntrods;
-static size_t trodi;
-
 static int
 truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
 {
@@ -198,6 +231,61 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 		}
 	}
 	return;
+}
+
+static int
+truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
+{
+	coru_t rdr;
+	coru_t pop;
+	FILE *f;
+
+	if (UNLIKELY((f = fopen(tser, "r")) == NULL)) {
+		return -1;
+	}
+
+	init_coru();
+	rdr = make_coru(co_echs_rdr, f);
+	pop = make_coru(co_echs_pop, ctx->q);
+
+	const struct co_pop_res_s *ev;
+	const struct co_rdr_res_s *ln;
+	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+		char buf[256U];
+		char *bp;
+		const char *const ep = buf + sizeof(buf);
+
+		/* sum up caevs in between price lines */
+		for (;
+		     LIKELY(ev != NULL) &&
+			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
+		     ev = next(pop)) {
+			bp = buf;
+			bp += dt_strf(bp, ep - bp, ev->t);
+			*bp++ = '\t';
+			bp += truf_trod_wr(bp, ep - bp, ev->edge);
+			*bp = '\0';
+			puts(buf);
+		}
+
+		/* apply roll-over directives to price lines */
+		do {
+			bp = buf;
+			bp += dt_strf(bp, ep - bp, ln->t);
+			*bp++ = '\t';
+			bp += xstrlcpy(bp, ln->ln, ln->lz - 1);
+			*bp++ = '\t';
+			bp += dt_strf(bp, ep - bp, ev->t);
+			*bp++ = '\t';
+			bp += truf_trod_wr(bp, ep - bp, ev->edge);
+			*bp = '\0';
+			puts(buf);
+		} while (LIKELY((ln = next(rdr)) != NULL) &&
+			 LIKELY(ev == NULL || echs_instant_lt_p(ln->t, ev->t)));
+	}
+	fini_coru();
+	fclose(f);
+	return 0;
 }
 
 
@@ -431,6 +519,44 @@ out:
 	return res;
 }
 
+static int
+cmd_series(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle series TSER-FILE [TROD-FILE]...\n";
+	static struct truf_ctx_s ctx[1];
+	int res = 0;
+
+	if (argi->inputs_num < 2U) {
+		fputs(usg, stderr);
+		res = 1;
+		goto out;
+	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
+		const char *fn = argi->inputs[i];
+
+		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+			error("cannot open trod file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	with (const char *fn = argi->inputs[1U]) {
+		truf_appl_tser_file(ctx, fn);
+	}
+
+out:
+	if (LIKELY(ctx->q != NULL)) {
+		free_truf_wheap(ctx->q);
+	}
+	return res;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -453,6 +579,8 @@ main(int argc, char *argv[])
 			res = cmd_print(argi);
 		} else if (!strcmp(cmd, "migrate")) {
 			res = cmd_migrate(argi);
+		} else if (!strcmp(cmd, "series")) {
+			res = cmd_series(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
