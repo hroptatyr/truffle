@@ -236,6 +236,7 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 static int
 truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 {
+	static const struct co_pop_res_s nul_ev[1];
 	coru_t rdr;
 	coru_t pop;
 	FILE *f;
@@ -275,9 +276,9 @@ truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 			*bp++ = '\t';
 			bp += xstrlcpy(bp, ln->ln, ln->lz - 1);
 			*bp++ = '\t';
-			bp += dt_strf(bp, ep - bp, ev->t);
+			bp += dt_strf(bp, ep - bp, (ev ?: nul_ev)->t);
 			*bp++ = '\t';
-			bp += truf_trod_wr(bp, ep - bp, ev->edge);
+			bp += truf_trod_wr(bp, ep - bp, (ev ?: nul_ev)->edge);
 			*bp = '\0';
 			puts(buf);
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
