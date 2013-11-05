@@ -99,13 +99,13 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 
 declcoru(co_echs_rdr, {
 		FILE *f;
-	});
+	}, {});
 
 static const struct co_rdr_res_s {
 	echs_instant_t t;
 	const char *ln;
 	size_t lz;
-} *co_echs_rdr(void *UNUSED(arg), const struct co_echs_rdr_initargs_s *c)
+} *defcoru(co_echs_rdr, c, UNUSED(arg))
 {
 /* coroutine for the reader of the tseries */
 	char *line = NULL;
@@ -138,12 +138,12 @@ static const struct co_rdr_res_s {
 
 declcoru(co_echs_pop, {
 		truf_wheap_t q;
-	});
+	}, {});
 
 static const struct co_pop_res_s {
 	echs_instant_t t;
 	truf_trod_t edge;
-} *co_echs_pop(void *UNUSED(arg), const struct co_echs_pop_initargs_s *c)
+} *defcoru(co_echs_pop, c, UNUSED(arg))
 {
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
