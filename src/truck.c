@@ -281,7 +281,8 @@ truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 			*bp = '\0';
 			puts(buf);
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
-			 LIKELY(ev == NULL || echs_instant_lt_p(ln->t, ev->t)));
+			 (UNLIKELY(ev == NULL) ||
+			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
 	}
 	fini_coru();
 	fclose(f);
