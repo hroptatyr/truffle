@@ -63,6 +63,8 @@ inline __attribute__((pure, const)) _Decimal32 bobs(uint32_t u);
 inline __attribute__((pure, const)) int quantexpbid32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpdpd32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpd32(_Decimal32 x);
+inline __attribute__((pure, const)) _Decimal32 nand32(char *__tagp);
+inline __attribute__((pure, const)) int isnand32(_Decimal32 x);
 
 inline __attribute__((pure, const)) uint32_t
 bits(_Decimal32 x)
@@ -115,6 +117,19 @@ inline __attribute__((pure, const)) int
 quantexpd32(_Decimal32 x)
 {
 	return quantexpbid32(x);
+}
+
+inline __attribute__((pure, const)) _Decimal32
+nand32(char *__tagp __attribute__((unused)))
+{
+	/* we just deliver one type of nans */
+	return bobs(-1);
+}
+
+inline __attribute__((pure, const)) int
+isnand32(_Decimal32 x)
+{
+	return (bits(x) & 0x7c000000) == 0x7c000000;
 }
 
 #endif	/* INCLUDED_truf_dfp754_h_ */

@@ -142,4 +142,11 @@ truf_mmy_abs(truf_mmy_t ym, unsigned int year)
 	return ym;
 }
 
+static inline __attribute__((pure, const)) bool
+truf_mmy_eq_p(truf_mmy_t ym1, truf_mmy_t ym2)
+{
+/* return true iff ym1 and ym2 is the same contract */
+	return ym1 == ym2;
+}
+
 #endif	/* INCLUDED_mmy_h_ */

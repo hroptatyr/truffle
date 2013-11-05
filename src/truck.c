@@ -60,6 +60,8 @@
 
 struct truf_ctx_s {
 	truf_wheap_t q;
+
+	unsigned int edgp:1U;
 };
 
 static truf_trod_t *trods;
@@ -94,6 +96,98 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 	memcpy(dst, src, ssz);
 	dst[ssz] = '\0';
 	return ssz;
+}
+
+
+/* last price stacks */
+static struct lstk_s {
+	truf_trod_t d;
+	_Decimal32 last;
+} lstk[64U];
+static size_t imin;
+static size_t imax;
+
+static size_t
+lstk_find(truf_mmy_t contract)
+{
+	for (size_t i = imin; i < imax; i++) {
+		if (truf_mmy_eq_p(lstk[i].d.sym, contract)) {
+			return i;
+		}
+	}
+	return imax;
+}
+
+static void
+lstk_kick(truf_trod_t directive)
+{
+	size_t i;
+
+	if ((i = lstk_find(directive.sym)) >= imax) {
+		return;
+	}
+	/* otherwise kick the i-th slot */
+	lstk[i].d = truf_nul_trod();
+	lstk[i].last = 0.df;
+	if (i == imin) {
+		/* up imin */
+		for (size_t j = ++imin; j < imax; imin++, j++) {
+			if (lstk[j].d.sym != 0U) {
+				break;
+			}
+		}
+	}
+	if (i == imax - 1U) {
+		/* down imax */
+		for (size_t j = imax; --j >= imin; imax--) {
+			if (lstk[j].d.sym != 0U) {
+				break;
+			}
+		}
+	}
+	/* condense imin/imax */
+	if (imin) {
+		memmove(lstk + 0U, lstk + imin, (imax - imin) * sizeof(*lstk));
+		imax -= imin;
+		imin = 0;
+	}
+	return;
+}
+
+static void
+lstk_join(truf_trod_t directive)
+{
+	size_t i;
+
+	if ((i = lstk_find(directive.sym)) < imax) {
+		/* already in there, just fuck off */
+		return;
+	}
+	/* otherwise add */
+	lstk[imax].d = directive;
+	lstk[imax].last = nand32(NULL);
+	imax++;
+	return;
+}
+
+static bool
+relevantp(size_t i)
+{
+	return i < imax;
+}
+
+static __attribute__((unused)) void
+lstk_prnt(void)
+{
+	char buf[256U];
+	const char *const ep = buf + sizeof(buf);
+
+	for (size_t i = imin; i < imax; i++) {
+		char *bp = buf;
+		truf_trod_wr(bp, ep - bp, lstk[i].d);
+		puts(buf);
+	}
+	return;
 }
 
 
@@ -156,6 +250,40 @@ static const struct co_pop_res_s {
 		yield(res);
 	}
 	return 0;
+}
+
+
+/* auxils between coru and beef routines */
+static void
+pr_rdr_res(const struct co_rdr_res_s *ln)
+{
+	char buf[256U];
+	char *bp;
+	const char *const ep = buf + sizeof(buf);
+
+	bp = buf;
+	bp += dt_strf(bp, ep - bp, ln->t);
+	*bp++ = '\t';
+	xstrlcpy(bp, ln->ln, ln->lz - 1);
+	puts(buf);
+	return;
+}
+
+static void
+pr_last(echs_instant_t i, struct lstk_s last)
+{
+	char buf[256U];
+	char *bp;
+	const char *const ep = buf + sizeof(buf);
+
+	bp = buf;
+	bp += dt_strf(bp, ep - bp, i);
+	*bp++ = '\t';
+	bp += truf_mmy_wr(bp, ep - bp, last.d.sym);
+	*bp++ = '\t';
+	d32tostr(bp, ep - bp, last.last);
+	puts(buf);
+	return;
 }
 
 
@@ -236,9 +364,8 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 }
 
 static int
-truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
+truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 {
-	static const struct co_pop_res_s nul_ev[1];
 	coru_t rdr;
 	coru_t pop;
 	FILE *f;
@@ -254,35 +381,52 @@ truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 	const struct co_pop_res_s *ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
-		char buf[256U];
-		char *bp;
-		const char *const ep = buf + sizeof(buf);
-
 		/* sum up caevs in between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			bp = buf;
-			bp += dt_strf(bp, ep - bp, ev->t);
-			*bp++ = '\t';
-			bp += truf_trod_wr(bp, ep - bp, ev->edge);
-			*bp = '\0';
-			puts(buf);
+			truf_mmy_t c = ev->edge.sym;
+			size_t i;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ev->t.y);
+			}
+			if (ev->edge.exp == 0.df) {
+				if (ctx->edgp && relevantp(i = lstk_find(c))) {
+					/* print last price */
+					pr_last(ev->t, lstk[i]);
+				}
+				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			} else {
+				lstk_join((truf_trod_t){c, ev->edge.exp});
+			}
 		}
 
 		/* apply roll-over directives to price lines */
 		do {
-			bp = buf;
-			bp += dt_strf(bp, ep - bp, ln->t);
-			*bp++ = '\t';
-			bp += xstrlcpy(bp, ln->ln, ln->lz - 1);
-			*bp++ = '\t';
-			bp += dt_strf(bp, ep - bp, (ev ?: nul_ev)->t);
-			*bp++ = '\t';
-			bp += truf_trod_wr(bp, ep - bp, (ev ?: nul_ev)->edge);
-			*bp = '\0';
-			puts(buf);
+			char *on;
+			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
+			size_t i;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ln->t.y);
+			}
+			if (relevantp(i = lstk_find(c))) {
+				if (!ctx->edgp) {
+					/* just print the line as is */
+					pr_rdr_res(ln);
+				} else if (*on++ == '\t') {
+					/* keep track of last price */
+					_Decimal32 p = strtod32(on, &on);
+					bool prntp = isnand32(lstk[i].last);
+
+					lstk[i].last = p;
+					if (UNLIKELY(prntp)) {
+						pr_last(ln->t, lstk[i]);
+					}
+				}
+			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
 			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
@@ -527,10 +671,10 @@ out:
 }
 
 static int
-cmd_series(struct truf_args_info argi[static 1U])
+cmd_filter(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
-Usage: truffle series TSER-FILE [TROD-FILE]...\n";
+Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	static struct truf_ctx_s ctx[1];
 	int res = 0;
 
@@ -541,6 +685,10 @@ Usage: truffle series TSER-FILE [TROD-FILE]...\n";
 	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
+	}
+
+	if (argi->edge_given) {
+		ctx->edgp = 1U;
 	}
 
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
@@ -554,7 +702,7 @@ Usage: truffle series TSER-FILE [TROD-FILE]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
-		truf_appl_tser_file(ctx, fn);
+		truf_filt_tser_file(ctx, fn);
 	}
 
 out:
@@ -586,8 +734,8 @@ main(int argc, char *argv[])
 			res = cmd_print(argi);
 		} else if (!strcmp(cmd, "migrate")) {
 			res = cmd_migrate(argi);
-		} else if (!strcmp(cmd, "series")) {
-			res = cmd_series(argi);
+		} else if (!strcmp(cmd, "filter")) {
+			res = cmd_filter(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
