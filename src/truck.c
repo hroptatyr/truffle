@@ -119,9 +119,9 @@ static const struct co_rdr_res_s {
 
 		if (*line == '#') {
 			continue;
-		} else if ((p = strchr(line, '\t')) == NULL) {
+		} else if (echs_instant_0_p(res.t = dt_strp(line, &p))) {
 			break;
-		} else if (echs_instant_0_p(res.t = dt_strp(line, NULL))) {
+		} else if (*p != '\t') {
 			break;
 		}
 		/* pack the result structure */
