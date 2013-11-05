@@ -37,6 +37,10 @@
 #if !defined INCLUDED_coru_h_
 #define INCLUDED_coru_h_
 
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
+
 #define declcoru(name, init...)	struct name##_initargs_s init
 
 #if !defined _paste
@@ -47,7 +51,7 @@
 #endif	/* !paste */
 #define TMP(x)			paste(__##x##__, __LINE__)
 
-#if 0
+#if defined USE_ASM_CORUS
 #include "coru/cocore.h"
 
 typedef struct cocore *coru_t;
@@ -93,7 +97,8 @@ static __thread coru_t ____caller;
 		switch_cocore((x), (void*)&TMP(res));	\
 	})
 
-#else
+
+#else  /* !USE_ASM_CORUS */
 /* my own take on things */
 #include <setjmp.h>
 #include <stdint.h>
@@ -168,6 +173,6 @@ static intptr_t ____glob;
 		(void*)____glob;			\
 	})
 
-#endif
+#endif	/* USE_ASM_CORUS */
 
 #endif	/* INCLUDED_coru_h_ */
