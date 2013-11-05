@@ -161,7 +161,7 @@ trampoline(int i0, int i1, int i2, int i3)
 	({							\
 		static jmp_buf __##x##b;			\
 		static jmp_buf __##x##trampo;			\
-		static coru_t res = {.jb = &__##x##b};		\
+		static coru_t TMP(res) = {.jb = &__##x##b};	\
 		static struct trampo_s tr[1];			\
 		struct x##_initargs_s TMP(initargs) = {init};	\
 		ucontext_t ol;					\
@@ -172,14 +172,15 @@ trampoline(int i0, int i1, int i2, int i3)
 			abort();				\
 		}						\
 								\
-		res.stk = malloc(res.ssz = 64U * 1024U);	\
+		TMP(res).ssz = 64U * 1024U;			\
+		TMP(res).stk = malloc(TMP(res).ssz);		\
 								\
 		nu.uc_link = &ol;				\
-		nu.uc_stack.ss_sp = res.stk;			\
-		nu.uc_stack.ss_size = res.ssz;			\
+		nu.uc_stack.ss_sp = TMP(res).stk;		\
+		nu.uc_stack.ss_size = TMP(res).ssz;		\
 		nu.uc_stack.ss_flags = 0;			\
 								\
-		tr->c = &res;					\
+		tr->c = &TMP(res);				\
 		tr->caller = &__##x##trampo;			\
 		tr->action = (const void*(*)())&x;		\
 		tr->initargs = &TMP(initargs);			\
@@ -193,7 +194,7 @@ trampoline(int i0, int i1, int i2, int i3)
 		if (!_setjmp(__##x##trampo)) {			\
 			swapcontext(&ol, &nu);			\
 		}						\
-		res;						\
+		TMP(res);					\
 	})
 
 #define free_coru(x)				\
