@@ -60,9 +60,28 @@ AM_CONDITIONAL([HAVE_SCALBND32], [test "${ac_cv_func_scalbnd32}" = "yes"])
 
 AM_MISSING_PROG([HELP2MAN], [help2man], ["${missing_dir}"])
 
+## coroutine provider
+AC_ARG_WITH([asm-backed-coroutines], [
+AS_HELP_STRING([--with-asm-backed-coroutines], [
+Provide coroutines through asm-backed frame switching instead
+of more portable setjmp/longjmp/ucontext.])
+AS_HELP_STRING([], [Default: without])],
+	[with_asm_corus="${withval}"], [with_asm_corus="no"])
+AM_CONDITIONAL([USE_ASM_CORUS], [test "${with_asm_corus}" = "yes"])
+if test "${with_asm_corus}" = "yes"; then
+	AC_DEFINE([USE_ASM_CORUS], [1], [Whether to use asm backed coroutines])
+fi
+
+
 ## trivial, no special stuff needed
 apps="${apps} truffle"
 apps="${apps} trod"
+
+if test "${with_asm_corus}" = "yes"; then
+	coru=" asm"
+else
+	coru=" setjmp/longjmp/ucontext"
+fi
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([src/Makefile])
@@ -76,6 +95,7 @@ echo "Build summary"
 echo "============="
 echo
 echo "Build apps:${apps}"
+echo "Coroutines:${coru}"
 echo
 
 dnl configure.ac ends here

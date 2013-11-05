@@ -35,6 +35,22 @@ noinst_HEADERS += version.h
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
 
+if USE_ASM_CORUS
+noinst_LIBRARIES += libcoru.a
+libcoru_a_SOURCES =
+EXTRA_libcoru_a_SOURCES =
+libcoru_a_SOURCES += coru.h
+libcoru_a_SOURCES += coru/cocore.c coru/cocore.h
+libcoru_a_SOURCES += coru/switch.c coru/switch.h
+libcoru_a_SOURCES += coru/platform.h
+libcoru_a_SOURCES += coru/valgrind.h
+libcoru_a_SOURCES += coru/memcheck.h
+EXTRA_libcoru_a_SOURCES += coru/switch-arm.c
+EXTRA_libcoru_a_SOURCES += coru/switch-ppc_osx.c
+EXTRA_libcoru_a_SOURCES += coru/switch-x86.c
+EXTRA_libcoru_a_SOURCES += coru/switch-x86_64.c
+endif  USE_ASM_CORUS
+
 
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.h truffle.ggo
@@ -59,6 +75,9 @@ BUILT_SOURCES += trod.x trod.xh
 noinst_PROGRAMS += truck
 truck_SOURCES = truck.c truck.ggo
 truck_LDADD = libtruffle.a
+if USE_ASM_CORUS
+truck_LDADD += libcoru.a
+endif  USE_ASM_CORUS
 truck_LDADD += -lm
 BUILT_SOURCES += truck.x truck.xh
 
