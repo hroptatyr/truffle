@@ -177,7 +177,7 @@ relevantp(truf_mmy_t contract)
 	return false;
 }
 
-static void
+static __attribute__((unused)) void
 lstk_prnt(void)
 {
 	char buf[256U];
@@ -333,7 +333,6 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 static int
 truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 {
-	static const struct co_pop_res_s nul_ev[1];
 	coru_t rdr;
 	coru_t pop;
 	FILE *f;
