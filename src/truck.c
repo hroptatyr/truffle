@@ -331,7 +331,7 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 }
 
 static int
-truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
+truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 {
 	coru_t rdr;
 	coru_t pop;
@@ -628,10 +628,10 @@ out:
 }
 
 static int
-cmd_series(struct truf_args_info argi[static 1U])
+cmd_filter(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
-Usage: truffle series TSER-FILE [TROD-FILE]...\n";
+Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	static struct truf_ctx_s ctx[1];
 	int res = 0;
 
@@ -655,7 +655,7 @@ Usage: truffle series TSER-FILE [TROD-FILE]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
-		truf_appl_tser_file(ctx, fn);
+		truf_filt_tser_file(ctx, fn);
 	}
 
 out:
@@ -687,8 +687,8 @@ main(int argc, char *argv[])
 			res = cmd_print(argi);
 		} else if (!strcmp(cmd, "migrate")) {
 			res = cmd_migrate(argi);
-		} else if (!strcmp(cmd, "series")) {
-			res = cmd_series(argi);
+		} else if (!strcmp(cmd, "filter")) {
+			res = cmd_filter(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
