@@ -204,6 +204,8 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 	}
 	/* now sort the guy */
 	truf_wheap_fix_deferred(ctx->q);
+
+	free_coru(rdr);
 	fini_coru();
 	fclose(f);
 	return 0;
@@ -285,6 +287,9 @@ truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 			 (UNLIKELY(ev == NULL) ||
 			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
 	}
+
+	free_coru(rdr);
+	free_coru(pop);
 	fini_coru();
 	fclose(f);
 	return 0;
