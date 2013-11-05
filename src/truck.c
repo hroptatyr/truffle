@@ -120,9 +120,9 @@ static const struct co_rdr_res_s {
 		if (*line == '#') {
 			continue;
 		} else if (echs_instant_0_p(res.t = dt_strp(line, &p))) {
-			break;
+			continue;
 		} else if (*p != '\t') {
-			break;
+			continue;
 		}
 		/* pack the result structure */
 		res.ln = p + 1U;
