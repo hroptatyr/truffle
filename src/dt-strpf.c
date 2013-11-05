@@ -154,6 +154,7 @@ dt_strp(const char *str, char **on)
 	default:
 		/* just the date, make it ECHS_ALL_DAY then aye */
 		res.H = ECHS_ALL_DAY;
+		sp--;
 		goto nul;
 	}
 
@@ -165,14 +166,14 @@ dt_strp(const char *str, char **on)
 	res.H = tmp;
 
 	/* minute */
-	if ((tmp = strtoi_lim(++sp, &sp, 0, 59)) < 0 || *sp++ != ':') {
+	if ((tmp = strtoi_lim(sp, &sp, 0, 59)) < 0 || *sp++ != ':') {
 		res = nul;
 		goto nul;
 	}
 	res.M = tmp;
 
 	/* second, allow leap second too */
-	if ((tmp = strtoi_lim(++sp, &sp, 0, 60)) < 0) {
+	if ((tmp = strtoi_lim(sp, &sp, 0, 60)) < 0) {
 		res = nul;
 		goto nul;
 	}
