@@ -97,6 +97,101 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 }
 
 
+/* last price stacks */
+static struct {
+	truf_trod_t d;
+	_Decimal32 last;
+} lstk[64U];
+static size_t imin;
+static size_t imax;
+
+static size_t
+lstk_find(truf_mmy_t contract)
+{
+	for (size_t i = imin; i < imax; i++) {
+		if (truf_mmy_eq_p(lstk[i].d.sym, contract)) {
+			return i;
+		}
+	}
+	return imax;
+}
+
+static void
+lstk_kick(truf_trod_t directive)
+{
+	size_t i;
+
+	if ((i = lstk_find(directive.sym)) >= imax) {
+		return;
+	}
+	/* otherwise kick the i-th slot */
+	lstk[i].d = truf_nul_trod();
+	lstk[i].last = 0.df;
+	if (i == imin) {
+		/* up imin */
+		for (size_t j = ++imin; j < imax; imin++, j++) {
+			if (lstk[j].d.sym != 0U) {
+				break;
+			}
+		}
+	}
+	if (i == imax - 1U) {
+		/* down imax */
+		for (size_t j = imax; --j >= imin; imax--) {
+			if (lstk[j].d.sym != 0U) {
+				break;
+			}
+		}
+	}
+	/* condense imin/imax */
+	if (imin) {
+		memmove(lstk + 0U, lstk + imin, (imax - imin) * sizeof(*lstk));
+		imax -= imin;
+		imin = 0;
+	}
+	return;
+}
+
+static void
+lstk_join(truf_trod_t directive)
+{
+	size_t i;
+
+	if ((i = lstk_find(directive.sym)) < imax) {
+		/* already in there, just fuck off */
+		return;
+	}
+	/* otherwise add */
+	lstk[imax++].d = directive;
+	return;
+}
+
+static bool
+relevantp(truf_mmy_t contract)
+{
+	size_t i;
+
+	if ((i = lstk_find(contract)) < imax) {
+		return true;
+	}
+	return false;
+}
+
+static void
+lstk_prnt(void)
+{
+	char buf[256U];
+	const char *const ep = buf + sizeof(buf);
+
+	for (size_t i = imin; i < imax; i++) {
+		char *bp = buf;
+		truf_trod_wr(bp, ep - bp, lstk[i].d);
+		puts(buf);
+	}
+	return;
+}
+
+
 declcoru(co_echs_rdr, {
 		FILE *f;
 	}, {});
@@ -263,26 +358,33 @@ truf_appl_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			bp = buf;
-			bp += dt_strf(bp, ep - bp, ev->t);
-			*bp++ = '\t';
-			bp += truf_trod_wr(bp, ep - bp, ev->edge);
-			*bp = '\0';
-			puts(buf);
+			truf_mmy_t c = ev->edge.sym;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ev->t.y);
+			}
+			if (ev->edge.exp == 0.df) {
+				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			} else {
+				lstk_join((truf_trod_t){c, ev->edge.exp});
+			}
 		}
 
 		/* apply roll-over directives to price lines */
 		do {
-			bp = buf;
-			bp += dt_strf(bp, ep - bp, ln->t);
-			*bp++ = '\t';
-			bp += xstrlcpy(bp, ln->ln, ln->lz - 1);
-			*bp++ = '\t';
-			bp += dt_strf(bp, ep - bp, (ev ?: nul_ev)->t);
-			*bp++ = '\t';
-			bp += truf_trod_wr(bp, ep - bp, (ev ?: nul_ev)->edge);
-			*bp = '\0';
-			puts(buf);
+			char *on;
+			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ln->t.y);
+			}
+			if (relevantp(c)) {
+				bp = buf;
+				bp += dt_strf(bp, ep - bp, ln->t);
+				*bp++ = '\t';
+				bp += xstrlcpy(bp, ln->ln, ln->lz - 1);
+				puts(buf);
+			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
 			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
