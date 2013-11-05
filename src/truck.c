@@ -60,6 +60,8 @@
 
 struct truf_ctx_s {
 	truf_wheap_t q;
+
+	unsigned int edgp:1U;
 };
 
 static truf_trod_t *trods;
@@ -98,7 +100,7 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 
 
 /* last price stacks */
-static struct {
+static struct lstk_s {
 	truf_trod_t d;
 	_Decimal32 last;
 } lstk[64U];
@@ -162,19 +164,16 @@ lstk_join(truf_trod_t directive)
 		return;
 	}
 	/* otherwise add */
-	lstk[imax++].d = directive;
+	lstk[imax].d = directive;
+	lstk[imax].last = nand32(NULL);
+	imax++;
 	return;
 }
 
 static bool
-relevantp(truf_mmy_t contract)
+relevantp(size_t i)
 {
-	size_t i;
-
-	if ((i = lstk_find(contract)) < imax) {
-		return true;
-	}
-	return false;
+	return i < imax;
 }
 
 static __attribute__((unused)) void
@@ -251,6 +250,40 @@ static const struct co_pop_res_s {
 		yield(res);
 	}
 	return 0;
+}
+
+
+/* auxils between coru and beef routines */
+static void
+pr_rdr_res(const struct co_rdr_res_s *ln)
+{
+	char buf[256U];
+	char *bp;
+	const char *const ep = buf + sizeof(buf);
+
+	bp = buf;
+	bp += dt_strf(bp, ep - bp, ln->t);
+	*bp++ = '\t';
+	xstrlcpy(bp, ln->ln, ln->lz - 1);
+	puts(buf);
+	return;
+}
+
+static void
+pr_last(echs_instant_t i, struct lstk_s last)
+{
+	char buf[256U];
+	char *bp;
+	const char *const ep = buf + sizeof(buf);
+
+	bp = buf;
+	bp += dt_strf(bp, ep - bp, i);
+	*bp++ = '\t';
+	bp += truf_mmy_wr(bp, ep - bp, last.d.sym);
+	*bp++ = '\t';
+	d32tostr(bp, ep - bp, last.last);
+	puts(buf);
+	return;
 }
 
 
@@ -348,21 +381,22 @@ truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 	const struct co_pop_res_s *ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
-		char buf[256U];
-		char *bp;
-		const char *const ep = buf + sizeof(buf);
-
 		/* sum up caevs in between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->edge.sym;
+			size_t i;
 
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ev->t.y);
 			}
 			if (ev->edge.exp == 0.df) {
+				if (ctx->edgp && relevantp(i = lstk_find(c))) {
+					/* print last price */
+					pr_last(ev->t, lstk[i]);
+				}
 				lstk_kick((truf_trod_t){c, ev->edge.exp});
 			} else {
 				lstk_join((truf_trod_t){c, ev->edge.exp});
@@ -373,16 +407,25 @@ truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 		do {
 			char *on;
 			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
+			size_t i;
 
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ln->t.y);
 			}
-			if (relevantp(c)) {
-				bp = buf;
-				bp += dt_strf(bp, ep - bp, ln->t);
-				*bp++ = '\t';
-				bp += xstrlcpy(bp, ln->ln, ln->lz - 1);
-				puts(buf);
+			if (relevantp(i = lstk_find(c))) {
+				if (!ctx->edgp) {
+					/* just print the line as is */
+					pr_rdr_res(ln);
+				} else if (*on++ == '\t') {
+					/* keep track of last price */
+					_Decimal32 p = strtod32(on, &on);
+					bool prntp = isnand32(lstk[i].last);
+
+					lstk[i].last = p;
+					if (UNLIKELY(prntp)) {
+						pr_last(ln->t, lstk[i]);
+					}
+				}
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
@@ -642,6 +685,10 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
+	}
+
+	if (argi->edge_given) {
+		ctx->edgp = 1U;
 	}
 
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {

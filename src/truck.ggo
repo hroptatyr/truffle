@@ -10,9 +10,11 @@ COMMAND may be one of:
 "
 
 text "
-Options affecting the filter command:
+Options affecting the filter command:"
 
-"
+option "edge" -
+	"Only print edge lines"
+	optional
 
 text "
 Options affecting the print command:
