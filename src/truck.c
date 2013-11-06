@@ -254,11 +254,14 @@ static const struct co_rdr_res_s {
 		} else if (echs_instant_0_p(res.t = dt_strp(line, &p))) {
 			continue;
 		} else if (*p != '\t') {
-			continue;
+			;
+		} else {
+			/* fast forward a bit */
+			p++;
 		}
 		/* pack the result structure */
-		res.ln = p + 1U;
-		res.lz = nrd - (p + 1U - line);
+		res.ln = p;
+		res.lz = nrd - (p - line);
 		yield(res);
 	}
 
