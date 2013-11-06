@@ -144,8 +144,9 @@ lstk_kick(truf_trod_t directive)
 			}
 		}
 	}
-	/* condense imin/imax */
-	if (imin) {
+	/* condense imin/imax, only if imin or imax reach into
+	 * the other half of the lstack */
+	if (imin >= countof(lstk) / 2U || imin && imax >= countof(lstk) / 2U) {
 		memmove(lstk + 0U, lstk + imin, (imax - imin) * sizeof(*lstk));
 		imax -= imin;
 		imin = 0;
