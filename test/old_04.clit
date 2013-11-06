@@ -1,0 +1,15 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truffle --series "${srcdir}/toy2.series" --schema "${srcdir}/toy2.schema" -f
+2011-01-04	0
+2011-01-05	10
+2011-01-06	10
+2011-01-07	10
+2011-01-08	10
+2011-01-09	10
+2011-01-10	10
+2011-01-11	10
+2011-01-12	5
+$
+
+## old_04.clit ends here

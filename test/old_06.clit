@@ -1,0 +1,14 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truffle --series "${srcdir}/toy3.series" --schema "${srcdir}/toy3.schema" -f
+1988-04-25	0
+1988-04-26	0
+1988-04-27	0.06
+1988-04-28	-0.01
+1988-04-29	-0.02
+$
+
+##2|cut as of 1988-04-21 contained U1988 with an exposure of 1 but no quotes
+##2|cut as of 1988-04-22 contained U1988 with an exposure of 1 but no quotes
+
+## old_05.clit ends here
