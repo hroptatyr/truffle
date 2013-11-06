@@ -29,7 +29,8 @@ AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
 
 check_PROGRAMS += truf-test
 truf_test_LDADD = ../src/libtruffle.a
-BUILT_SOURCES += truf-test-clo.c truf-test-clo.h
+EXTRA_truf_test_SOURCES = truf-test.ggo
+BUILT_SOURCES += truf-test.x truf-test.xh
 EXTRA_DIST += truf-test.sh
 
 TESTS += toy1.1.truftest

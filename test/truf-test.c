@@ -10,8 +10,8 @@
 # pragma warning (disable:593)
 # pragma warning (disable:181)
 #endif	/* __INTEL_COMPILER */
-#include "truf-test-clo.h"
-#include "truf-test-clo.c"
+#include "truf-test.xh"
+#include "truf-test.x"
 #if defined __INTEL_COMPILER
 # pragma warning (default:593)
 # pragma warning (default:181)
