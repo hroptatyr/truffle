@@ -161,7 +161,7 @@ truf_mmy_oco(truf_mmy_t ym, unsigned int year)
 	if (!d) {
 		d = -1U;
 	}
-	return make_truf_mmy(y + year, m, d ?: -1U);
+	return make_truf_mmy(y, m, d);
 }
 
 static inline __attribute__((pure, const)) bool
