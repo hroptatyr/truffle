@@ -123,7 +123,10 @@ truf_mmy_rel(truf_mmy_t ym, unsigned int year)
 	if (truf_mmy_abs_p(ym)) {
 		register unsigned int m = truf_mmy_mon(ym);
 		register unsigned int d = truf_mmy_day(ym);
-		return make_truf_mmy(yr - year, m, d);
+		if (!d || d >= 32U) {
+			/* only allow ocos or classic mmys to be conv'd */
+			return make_truf_mmy(yr - year, m, d);
+		}
 	}
 	return ym;
 }
