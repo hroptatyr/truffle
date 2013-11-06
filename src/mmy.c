@@ -161,7 +161,7 @@ truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym)
 
 	if (truf_mmy_abs_p(ym) && d) {
 		if (d < 32U) {
-			return snprintf(buf, bsz, "%d-%02u-%02u", y, m, d);
+			return snprintf(buf, bsz, "%d%02u%02u", y, m, d);
 		}
 		/* oco? */
 		return snprintf(buf, bsz, "%d%02u", y, m);
