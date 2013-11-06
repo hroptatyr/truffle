@@ -1,0 +1,11 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truck position "${srcdir}/print_01.trod" <<EOF
+2006-01-01T20:00:00
+2006-01-01T20:30:00
+EOF
+2006-01-01T20:00:00	F0	1.0
+2006-01-01T20:30:00	G0	1.0
+$
+
+## position_03.clit ends here
