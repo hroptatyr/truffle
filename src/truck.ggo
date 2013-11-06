@@ -4,9 +4,10 @@ usage "truffle [OPTION]... COMMAND [ARG]..."
 description "Tool to apply roll-over directives (trod) to time series.
 
 COMMAND may be one of:
-  filter   Filter relevant price lines with given directives.
-  print    Print resulting actors of trod echse messages.
-  migrate  Read recurrence schemas and roll them out.
+  filter    Filter relevant price lines with given directives.
+  position  Print portfolio positions at given dates/times.
+  print     Print resulting actors of trod echse messages.
+  migrate   Read recurrence schemas and roll them out.
 "
 
 text "
