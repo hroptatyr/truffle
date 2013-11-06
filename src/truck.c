@@ -144,8 +144,9 @@ lstk_kick(truf_trod_t directive)
 			}
 		}
 	}
-	/* condense imin/imax */
-	if (imin) {
+	/* condense imin/imax, only if imin or imax reach into
+	 * the other half of the lstack */
+	if (imin >= countof(lstk) / 2U || imin && imax >= countof(lstk) / 2U) {
 		memmove(lstk + 0U, lstk + imin, (imax - imin) * sizeof(*lstk));
 		imax -= imin;
 		imin = 0;
@@ -253,11 +254,14 @@ static const struct co_rdr_res_s {
 		} else if (echs_instant_0_p(res.t = dt_strp(line, &p))) {
 			continue;
 		} else if (*p != '\t') {
-			continue;
+			;
+		} else {
+			/* fast forward a bit */
+			p++;
 		}
 		/* pack the result structure */
-		res.ln = p + 1U;
-		res.lz = nrd - (p + 1U - line);
+		res.ln = p;
+		res.lz = nrd - (p - line);
 		yield(res);
 	}
 
@@ -284,6 +288,30 @@ static const struct co_pop_res_s {
 		/* assume it's a truf_trod_t */
 		uintptr_t tmp = truf_wheap_pop(c->q);
 		res.edge = trods[tmp];
+		yield(res);
+	}
+	return 0;
+}
+
+declcoru(co_inst_rdr, {
+		const char *const *dt;
+		size_t ndt;
+	}, {});
+
+static const struct co_rdr_res_s*
+defcoru(co_inst_rdr, c, UNUSED(arg))
+{
+/* coroutine for the reader of the tseries */
+	const char *const *dt = c->dt;
+	const char *const *const edt = c->dt + c->ndt;
+	/* we'll yield a rdr_res */
+	struct co_rdr_res_s res;
+
+	for (; dt < edt; dt++) {
+		char *on;
+		res.t = dt_strp(*dt, &on);
+		res.ln = *dt;
+		res.lz = on - *dt;
 		yield(res);
 	}
 	return 0;
@@ -460,6 +488,62 @@ truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 	free_coru(pop);
 	fini_coru();
 	fclose(f);
+	return 0;
+}
+
+static int
+truf_prnt_poss(struct truf_ctx_s ctx[static 1U], char *const dt[], size_t ndt)
+{
+	coru_t rdr;
+	coru_t pop;
+
+	init_coru();
+	if (ndt == 0U) {
+		/* read date/times from stdin */
+		rdr = make_coru(co_echs_rdr, stdin);
+	} else {
+		rdr = make_coru(co_inst_rdr, dt, ndt);
+	}
+	pop = make_coru(co_echs_pop, ctx->q);
+
+	const struct co_pop_res_s *ev;
+	const struct co_rdr_res_s *ln;
+	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+		/* in between date/times from the RDR find trods */
+		for (;
+		     LIKELY(ev != NULL) &&
+			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
+		     ev = next(pop)) {
+			truf_mmy_t c = ev->edge.sym;
+
+			if (ev->edge.exp == 0.df) {
+				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			} else {
+				lstk_join((truf_trod_t){c, ev->edge.exp});
+			}
+		}
+
+		do {
+			char buf[1024U];
+			char *bp = buf;
+			const char *const ep = buf + sizeof(buf);
+
+			bp += dt_strf(bp, ep - bp, ln->t);
+			*bp++ = '\t';
+			for (size_t i = imin; i < imax; i++) {
+				if (lstk[i].d.sym) {
+					truf_trod_wr(bp, ep - bp, lstk[i].d);
+					puts(buf);
+				}
+			}
+		} while (LIKELY((ln = next(rdr)) != NULL) &&
+			 (UNLIKELY(ev == NULL) ||
+			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
+	}
+
+	free_coru(rdr);
+	free_coru(pop);
+	fini_coru();
 	return 0;
 }
 
@@ -743,6 +827,42 @@ out:
 	return res;
 }
 
+static int
+cmd_position(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle position TROD-FILE [DATE/TIME]...\n";
+	static struct truf_ctx_s ctx[1];
+	int res = 0;
+
+	if (argi->inputs_num < 2U) {
+		fputs(usg, stderr);
+		res = 1;
+		goto out;
+	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	with (const char *fn = argi->inputs[1U]) {
+		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+			error("cannot open trod file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	/* just print them now */
+	truf_prnt_poss(ctx, argi->inputs + 2U, argi->inputs_num - 2U);
+
+out:
+	if (LIKELY(ctx->q != NULL)) {
+		free_truf_wheap(ctx->q);
+	}
+	truf_free_trods();
+	return res;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -767,6 +887,8 @@ main(int argc, char *argv[])
 			res = cmd_migrate(argi);
 		} else if (!strcmp(cmd, "filter")) {
 			res = cmd_filter(argi);
+		} else if (!strcmp(cmd, "position")) {
+			res = cmd_position(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
