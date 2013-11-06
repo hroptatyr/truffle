@@ -40,6 +40,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#define NAND32_U		(0x7c000000U)
+
 extern int d32tostr(char *restrict buf, size_t bsz, _Decimal32);
 extern _Decimal32 strtod32(const char*, char**);
 
@@ -63,7 +65,6 @@ inline __attribute__((pure, const)) _Decimal32 bobs(uint32_t u);
 inline __attribute__((pure, const)) int quantexpbid32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpdpd32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpd32(_Decimal32 x);
-inline __attribute__((pure, const)) _Decimal32 nand32(char *__tagp);
 
 inline __attribute__((pure, const)) uint32_t
 bits(_Decimal32 x)
@@ -118,17 +119,16 @@ quantexpd32(_Decimal32 x)
 	return quantexpbid32(x);
 }
 
-inline __attribute__((pure, const)) _Decimal32
+static inline __attribute__((pure, const)) _Decimal32
 nand32(char *__tagp __attribute__((unused)))
 {
-	/* we just deliver one type of nans */
-	return bobs(-1);
+	return (bobs(NAND32_U));
 }
 
 static inline __attribute__((pure, const)) int
 isnand32(_Decimal32 x)
 {
-	return (bits(x) & 0x7c000000) == 0x7c000000;
+	return (bits(x) & NAND32_U) == NAND32_U;
 }
 
 #endif	/* INCLUDED_truf_dfp754_h_ */

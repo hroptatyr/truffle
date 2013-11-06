@@ -269,7 +269,7 @@ static bcd32_t
 strtobcd32(const char *src, char **on)
 {
 	const char *sp = src;
-	uint_least32_t mant = 0;
+	uint_least32_t mant = 0U;
 	int expo = 0;
 	int sign = 0;
 	int roff = 0;
