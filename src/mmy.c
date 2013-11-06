@@ -107,6 +107,7 @@ truf_mmy_rd(const char *str, char **ptr)
 	const char *sp = str;
 	const char *sq;
 	unsigned int ym;
+	unsigned int dd;
 	unsigned int mo;
 	unsigned int yr;
 	truf_mmy_t res;
@@ -123,6 +124,7 @@ truf_mmy_rd(const char *str, char **ptr)
 	} else if (ym < TRUF_MMY_ABSYR) {
 		/* something like G0 or F4 or so */
 		yr = ym;
+		dd = 0U;
 	} else if (ym < 4096U) {
 		/* absolute year, G2032 or H2102*/
 		if (!mo && *sq == '-') {
@@ -135,16 +137,20 @@ truf_mmy_rd(const char *str, char **ptr)
 			}
 		}
 		yr = ym;
+		/* no days mentioned in this one */
+		dd = 0U;
 	} else if (ym < 299913U) {
 		/* that's %Y%m syntax innit? */
 		yr = ym / 100U;
 		mo = ym % 100U;
+		dd = -1U;
 	} else if (ym < 29991232U) {
-		/* %Y%m%d syntax but we can't deal with d */
+		/* %Y%m%d syntax */
 		yr = (ym / 100U) / 100U;
 		mo = (ym / 100U) % 100U;
+		dd = (ym % 100U);
 	}
-	res = make_truf_mmy(yr, mo, 0U);
+	res = make_truf_mmy(yr, mo, dd);
 	/* assign end pointer */
 	if (ptr) {
 		*ptr = deconst(sq);
@@ -160,7 +166,11 @@ truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym)
 	register signed int y = truf_mmy_year(ym);
 
 	if (truf_mmy_abs_p(ym) && d) {
-		return snprintf(buf, bsz, "%d-%02u-%02u", y, m, d);
+		if (d < 32U) {
+			return snprintf(buf, bsz, "%d%02u%02u", y, m, d);
+		}
+		/* oco? */
+		return snprintf(buf, bsz, "%d%02u", y, m);
 	}
 	/* kick d as it doesn't work with relative mmys */
 	return snprintf(buf, bsz, "%c%d", i_to_m(m), y);

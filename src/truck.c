@@ -62,6 +62,9 @@ struct truf_ctx_s {
 	truf_wheap_t q;
 
 	unsigned int edgp:1U;
+	unsigned int relp:1U;
+	unsigned int absp:1U;
+	unsigned int ocop:1U;
 };
 
 
@@ -366,6 +369,13 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 
 		bp += dt_strf(bp, ep - bp, t);
 		*bp++ = '\t';
+		if (ctx->ocop) {
+			this.sym = truf_mmy_oco(this.sym, t.y);
+		} else if (ctx->absp) {
+			this.sym = truf_mmy_abs(this.sym, t.y);
+		} else if (ctx->relp) {
+			this.sym = truf_mmy_rel(this.sym, t.y);
+		}
 		bp += truf_trod_wr(bp, ep - bp, this);
 		*bp++ = '\n';
 		*bp = '\0';
@@ -599,6 +609,14 @@ cmd_print(struct truf_args_info argi[static 1U])
 	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
+	}
+
+	if (argi->oco_given) {
+		ctx->ocop = 1U;
+	} else if (argi->abs_given) {
+		ctx->absp = 1U;
+	} else if (argi->rel_given) {
+		ctx->relp = 1U;
 	}
 
 	for (unsigned int i = 1U; i < argi->inputs_num; i++) {
