@@ -424,8 +424,8 @@ truf_trod_rd(const char *str, char **on)
 		}
 		break;
 	default:
-		/* get the exposure sorted */
-		res.exp = strtod32(brk, on);
+		/* get the exposure sorted (hopefully just 1 separator) */
+		res.exp = strtod32(brk + 1U, on);
 		break;
 	}
 	/* before blindly strdup()ing the symbol check if it's not by
