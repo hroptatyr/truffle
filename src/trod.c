@@ -403,7 +403,7 @@ truf_trod_t
 truf_trod_rd(const char *str, char **on)
 {
 	static const char sep[] = " \t\n";
-	truf_trod_t res = truf_nul_trod();
+	truf_trod_t res;
 	const char *brk;
 
 	switch (*(brk += strcspn(brk = str, sep))) {
@@ -415,6 +415,7 @@ truf_trod_rd(const char *str, char **on)
 			res.exp = 1.df;
 		} else {
 			/* could be ~FOO notation */
+			res.exp = 0.df;
 			str++;
 		}
 		/* also set ON pointer */
