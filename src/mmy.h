@@ -121,8 +121,8 @@ truf_mmy_rel(truf_mmy_t ym, unsigned int year)
  * or leave as is if YM is relative already. */
 	register signed int yr = truf_mmy_year(ym);
 	if (truf_mmy_abs_p(ym)) {
-		register signed int m = truf_mmy_mon(ym);
-		register signed int d = truf_mmy_day(ym);
+		register unsigned int m = truf_mmy_mon(ym);
+		register unsigned int d = truf_mmy_day(ym);
 		return make_truf_mmy(yr - year, m, d);
 	}
 	return ym;
@@ -136,8 +136,8 @@ truf_mmy_abs(truf_mmy_t ym, unsigned int year)
  * or leave as is if YM is absolute already. */
 	register signed int yr = truf_mmy_year(ym);
 	if (!truf_mmy_abs_p(ym)) {
-		register signed int m = truf_mmy_mon(ym);
-		register signed int d = truf_mmy_day(ym);
+		register unsigned int m = truf_mmy_mon(ym);
+		register unsigned int d = truf_mmy_day(ym);
 		return make_truf_mmy(yr + year, m, d);
 	}
 	return ym;
