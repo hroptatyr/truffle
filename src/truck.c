@@ -617,6 +617,7 @@ out:
 	if (LIKELY(ctx->q != NULL)) {
 		free_truf_wheap(ctx->q);
 	}
+	truf_free_trods();
 	return res;
 }
 
@@ -677,10 +678,7 @@ out:
 	if (LIKELY(ctx->q != NULL)) {
 		free_truf_wheap(ctx->q);
 	}
-	if (LIKELY(trodi > 0U)) {
-		free(trods);
-		trodi = ntrods = 0U;
-	}
+	truf_free_trods();
 	return res;
 }
 
@@ -723,6 +721,7 @@ out:
 	if (LIKELY(ctx->q != NULL)) {
 		free_truf_wheap(ctx->q);
 	}
+	truf_free_trods();
 	return res;
 }
 
