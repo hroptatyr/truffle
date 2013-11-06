@@ -1,0 +1,10 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truck print "${srcdir}/print_01.trod"
+2006-01-01T20:00:00	F0	1.0
+2006-01-01T20:24:00	G0	1.0
+2006-01-01T20:24:00	F0	0.0
+2006-01-01T20:44:00	G0	0.0
+$
+
+## print_01.clit ends here

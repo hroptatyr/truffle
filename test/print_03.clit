@@ -1,0 +1,10 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truck print --abs "${srcdir}/print_02.trod"
+2006-01-01T20:00:00	F2006	1
+2006-01-01T20:24:00	G2006	1
+2006-01-01T20:24:00	F2006	0
+2006-01-01T20:44:00	G2006	0
+$
+
+## print_03.clit ends here
