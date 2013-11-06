@@ -14,12 +14,18 @@ EXTRA_DIST = $(TESTS)
 EXTRA_DIST += $(BUILT_SOURCES)
 check_PROGRAMS =
 TESTS =
+TEST_EXTENSIONS =
 BUILT_SOURCES =
 
-TEST_EXTENSIONS = .truftest
+TEST_EXTENSIONS += .truftest
 TRUFTEST_LOG_COMPILER = $(builddir)/truf-test
 AM_TRUFTEST_LOG_FLAGS = --builddir $(top_builddir)/src --hash sha1sum
 LOG_COMPILER = echo
+
+TEST_EXTENSIONS += .clit
+TESTS_ENVIRONMENT = root=$(top_srcdir)
+CLIT_LOG_COMPILER = $(builddir)/clitoris
+AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
 
 check_PROGRAMS += truf-test
 truf_test_LDADD = ../src/libtruffle.a
@@ -113,15 +119,21 @@ TESTS += truffle_trod_contracts.1.deflt.truftest
 TESTS += truffle_trod_contracts.1.abs.truftest
 TESTS += truffle_trod_contracts.1.oco.truftest
 
-## gengetopt rule with sed hack to avoid using VERSION and config.h
-## depend on Makefile.am to survive a git pull
-%.c %.h: %.ggo Makefile.am
-	gengetopt -l -i $< -F $* \
-	&& sed \
-	  -e 's,config.h,version.h,g' \
-	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION $(PACKAGE)_version_string,g' \
-	  $*.h >$*.h-t \
-	&& mv $*.h-t $*.h
+## our friendly helpers
+check_PROGRAMS += clitoris
+clitoris_CPPFLAGS = $(AM_CPPFLAGS)
+clitoris_CPPFLAGS += -D_GNU_SOURCE
+clitoris_LDFLAGS = $(AM_LDFLAGS) -static
+clitoris_LDADD = -lutil
+BUILT_SOURCES += clitoris.x clitoris.xh
+
+
+## ggo rule
+%.x %.xh: %.ggo
+	$(AM_V_GEN) gengetopt -F $* -c x -H xh -i $<
+	@sed -e 's,_PARSER_VERSION VERSION,_PARSER_VERSION "$(VERSION)",g' \
+	     $*.xh > $*.xh-t \
+	&& mv $*.xh-t $*.xh
 
 clean-local:
 	-rm -rf *.tmpd
