@@ -95,6 +95,35 @@ dnl SXE_CHECK_CPP_FLAG([flag], [action-if-found], [action-if-not-found])
 	fi
 ])dnl SXE_CHECK_PREPROC_FLAG
 
+AC_DEFUN([SXE_CHECK_CCLD_FLAG], [dnl
+dnl SXE_CHECK_CCLD_FLAG([flag], [action-if-accepted], [action-if-not-accepted])
+	AC_MSG_CHECKING([whether _AC_LANG linker accepts $1])
+
+	## store werror status, then turn -Werror on
+	save_ac_[]_AC_LANG_ABBREV[]_werror_flag="${ac_[]_AC_LANG_ABBREV[]_werror_flag}"
+	AC_LANG_WERROR
+
+	AC_CACHE_VAL(AS_TR_SH(sxe_cv_[]_AC_LANG_ABBREV[]_flag_$1), [dnl
+		sxe_save_FLAGS="${[]_AC_LANG_PREFIX[]FLAGS}"
+		_AC_LANG_PREFIX[]FLAGS="$1"
+		AC_LINK_IFELSE([AC_LANG_PROGRAM()],
+			eval AS_TR_SH(sxe_cv_[]_AC_LANG_ABBREV[]_flag_$1)="yes",
+			eval AS_TR_SH(sxe_cv_[]_AC_LANG_ABBREV[]_flag_$1)="no")
+		_AC_LANG_PREFIX[]FLAGS="${sxe_save_FLAGS}"
+	])
+	eval sxe_check_flag=$AS_TR_SH(sxe_cv_[]_AC_LANG_ABBREV[]_flag_$1)
+	ac_[]_AC_LANG_ABBREV[]_werror_flag="${save_ac_[]_AC_LANG_ABBREV[]_werror_flag}"
+
+	AC_MSG_RESULT([${sxe_check_flag}])
+	if test "${sxe_check_flag}" = "yes"; then
+		:
+		$2
+	else
+		:
+		$3
+	fi
+])dnl SXE_CHECK_CCLD_FLAG
+
 
 AC_DEFUN([SXE_DEBUGFLAGS], [dnl
 	## distinguish between different compilers, no?
@@ -237,8 +266,8 @@ AC_DEFUN([SXE_WARNFLAGS], [dnl
 	## for gcc, see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=50422
 	## we used to have -Wswitch-default and -Wswitch-enum but that
 	## set gcc off quite badly in the nested switch case
-	SXE_CHECK_COMPILER_FLAG([-Wswitch], [
-		warnflags="$warnflags -Wswitch"])
+	SXE_CHECK_COMPILER_FLAG([-Wno-switch], [
+		warnflags="$warnflags -Wno-switch"])
 
 	SXE_CHECK_COMPILER_FLAG([-Wunused-function], [
 		warnflags="$warnflags -Wunused-function"])
@@ -268,8 +297,8 @@ AC_DEFUN([SXE_WARNFLAGS], [dnl
 	SXE_CHECK_COMPILER_FLAG([-Wdeprecated], [
 		warnflags="$warnflags -Wdeprecated"])
 
-	SXE_CHECK_COMPILER_FLAG([-Wparentheses], [
-		warnflags="${warnflags} -Wparentheses"])
+	SXE_CHECK_COMPILER_FLAG([-Wno-parentheses], [
+		warnflags="${warnflags} -Wno-parentheses"])
 
 	## icc specific
 	SXE_CHECK_COMPILER_FLAG([-Wcheck], [
@@ -289,11 +318,11 @@ AC_DEFUN([SXE_WARNFLAGS], [dnl
 		SXE_CHECK_COMPILER_FLAG([-wd 10237], [dnl
 			warnflags="${warnflags} -wd 10237"])])
 
-	dnl SXE_CHECK_COMPILER_FLAG([-diag-disable 2259], [dnl
-	dnl 	warnflags="${warnflags} -diag-disable 2259"], [
-	dnl 	SXE_CHECK_COMPILER_FLAG([-wd 2259], [dnl
-	dnl 		warnflags="${warnflags} -wd 2259"])])
+	SXE_CHECK_COMPILER_FLAG([-debug inline-debug-info], [
+		warnflags="${warnflags} -debug inline-debug-info"])
 
+	SXE_CHECK_COMPILER_FLAG([-diag-enable remark,vec,par], [
+		warnflags="${warnflags} -diag-enable remark,vec,par"])
 
 	AC_MSG_CHECKING([for preferred warning flags])
 	AC_MSG_RESULT([${warnflags}])
@@ -342,16 +371,19 @@ AC_DEFUN([SXE_FEATFLAGS], [dnl
 		XCCLDFLAGS="${XCCLDFLAGS} \${XCCFLAG} -static-libgcc"], [:],
 		[${SXE_CFLAGS}])
 
+	SXE_CHECK_COMPILER_FLAG([-intel-extensions], [dnl
+		featflags="${featflags} -intel-extensions"])
+
 	AC_SUBST([XCCLDFLAGS])
 	AC_SUBST([XCCFLAG])
 ])dnl SXE_FEATFLAGS
 
 AC_DEFUN([SXE_CHECK_COMPILER_XFLAG], [dnl
 	if test "${XFLAG}" = ""; then
-		SXE_CHECK_COMPILER_FLAG([-XCClinker -foo], [XFLAG="-XCClinker"])
+		SXE_CHECK_CCLD_FLAG([-XCClinker -foo], [XFLAG="-XCClinker"])
 	fi
 	if test "${XFLAG}" = ""; then
-		SXE_CHECK_COMPILER_FLAG([-Xlinker -foo], [XFLAG="-Xlinker"])
+		SXE_CHECK_CCLD_FLAG([-Xlinker -foo], [XFLAG="-Xlinker"])
 	fi
 
 	AC_SUBST([XFLAG])
