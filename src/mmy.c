@@ -160,7 +160,11 @@ truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym)
 	register signed int y = truf_mmy_year(ym);
 
 	if (truf_mmy_abs_p(ym) && d) {
-		return snprintf(buf, bsz, "%d-%02u-%02u", y, m, d);
+		if (d < 32U) {
+			return snprintf(buf, bsz, "%d-%02u-%02u", y, m, d);
+		}
+		/* oco? */
+		return snprintf(buf, bsz, "%d%02u", y, m);
 	}
 	/* kick d as it doesn't work with relative mmys */
 	return snprintf(buf, bsz, "%c%d", i_to_m(m), y);

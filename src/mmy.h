@@ -56,7 +56,8 @@
  * If the maturity lacks a date (classic mmy) the day slot shall
  * be zeroed out.
  *
- * In either case */
+ * For classic MMY symbology the day field should be left empty (all 0s)
+ * or if OCO notation is desired all bits should be set. */
 typedef intptr_t truf_mmy_t;
 
 /* first year interpreted as absolute */
@@ -138,6 +139,20 @@ truf_mmy_abs(truf_mmy_t ym, unsigned int year)
 		register signed int m = truf_mmy_mon(ym);
 		register signed int d = truf_mmy_day(ym);
 		return make_truf_mmy(yr + year, m, d);
+	}
+	return ym;
+}
+
+static inline __attribute__((pure, const)) truf_mmy_t
+truf_mmy_oco(truf_mmy_t ym, unsigned int year)
+{
+/* return a trym relative to YEAR, i.e. F0 for F2000 for year == 2000
+ * or leave as is if YM is relative already. */
+	register signed int yr = truf_mmy_year(ym);
+	if (!truf_mmy_abs_p(ym)) {
+		register signed int m = truf_mmy_mon(ym);
+		register signed int d = truf_mmy_day(ym);
+		return make_truf_mmy(yr + year, m, d ?: -1U);
 	}
 	return ym;
 }
