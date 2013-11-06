@@ -134,13 +134,17 @@ truf_mmy_abs(truf_mmy_t ym, unsigned int year)
 /* return the absolute version of YM relative to YEAR,
  * i.e. F0 goes to F2000 for year == 2000
  * or leave as is if YM is absolute already. */
-	register signed int yr = truf_mmy_year(ym);
+	register signed int y = truf_mmy_year(ym);
+	register unsigned int m = truf_mmy_mon(ym);
+	register unsigned int d = truf_mmy_day(ym);
 	if (!truf_mmy_abs_p(ym)) {
-		register unsigned int m = truf_mmy_mon(ym);
-		register unsigned int d = truf_mmy_day(ym);
-		return make_truf_mmy(yr + year, m, d);
+		y += year;
 	}
-	return ym;
+	if (d >= 32U) {
+		/* wipe out oco */
+		d = 0U;
+	}
+	return make_truf_mmy(y, m, d);
 }
 
 static inline __attribute__((pure, const)) truf_mmy_t
