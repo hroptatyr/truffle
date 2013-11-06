@@ -64,10 +64,6 @@ struct truf_ctx_s {
 	unsigned int edgp:1U;
 };
 
-static truf_trod_t *trods;
-static size_t ntrods;
-static size_t trodi;
-
 
 static void
 __attribute__((format(printf, 1, 2)))
@@ -191,6 +187,44 @@ lstk_prnt(void)
 }
 
 
+/* trod directives cache */
+static truf_trod_t *trods;
+static size_t ntrods;
+static size_t trodi;
+
+static int
+truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
+{
+	uintptr_t qmsg;
+
+	/* resize check */
+	if (trodi >= ntrods) {
+		size_t nu = ntrods + 64U;
+		trods = realloc(trods, nu * sizeof(*trods));
+		ntrods = nu;
+	}
+
+	/* `clone' D */
+	qmsg = (uintptr_t)trodi;
+	trods[trodi++] = d;
+	/* insert to heap */
+	truf_wheap_add_deferred(ctx->q, t, qmsg);
+	return 0;
+}
+
+static void
+truf_free_trods(void)
+{
+	if (trods != NULL) {
+		free(trods);
+	}
+	trods = NULL;
+	ntrods = 0U;
+	trodi = 0U;
+	return;
+}
+
+
 declcoru(co_echs_rdr, {
 		FILE *f;
 	}, {});
@@ -288,26 +322,6 @@ pr_last(echs_instant_t i, struct lstk_s last)
 
 
 /* public api, might go to libtruffle one day */
-static int
-truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
-{
-	uintptr_t qmsg;
-
-	/* resize check */
-	if (trodi >= ntrods) {
-		size_t nu = ntrods + 64U;
-		trods = realloc(trods, nu * sizeof(*trods));
-		ntrods = nu;
-	}
-
-	/* `clone' D */
-	qmsg = (uintptr_t)trodi;
-	trods[trodi++] = d;
-	/* insert to heap */
-	truf_wheap_add_deferred(ctx->q, t, qmsg);
-	return 0;
-}
-
 static int
 truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 {
