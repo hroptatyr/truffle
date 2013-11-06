@@ -119,6 +119,21 @@ TESTS += truffle_trod_contracts.1.deflt.truftest
 TESTS += truffle_trod_contracts.1.abs.truftest
 TESTS += truffle_trod_contracts.1.oco.truftest
 
+TESTS += print_01.clit
+TESTS += print_02.clit
+TESTS += print_03.clit
+TESTS += print_04.clit
+TESTS += print_05.clit
+TESTS += print_06.clit
+TESTS += print_07.clit
+TESTS += print_08.clit
+TESTS += print_09.clit
+TESTS += print_10.clit
+EXTRA_DIST += print_01.trod
+EXTRA_DIST += print_02.trod
+EXTRA_DIST += print_03.trod
+EXTRA_DIST += print_04.trod
+
 ## our friendly helpers
 check_PROGRAMS += clitoris
 clitoris_CPPFLAGS = $(AM_CPPFLAGS)
