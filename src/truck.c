@@ -317,6 +317,101 @@ defcoru(co_inst_rdr, c, UNUSED(arg))
 	return 0;
 }
 
+declcoru(co_tser_edg, {
+		truf_wheap_t q;
+		FILE *tser;
+	}, {});
+
+static const struct co_edg_res_s {
+	echs_instant_t t;
+	truf_mmy_t c;
+	_Decimal32 exp_ol;
+	_Decimal32 exp_nu;
+	_Decimal32 last;
+} *defcoru(co_tser_edg, ia, UNUSED(arg))
+{
+/* yields a co_edg_res when exposure changes */
+	coru_t rdr;
+	coru_t pop;
+	struct co_edg_res_s res;
+
+	init_coru();
+	rdr = make_coru(co_echs_rdr, ia->tser);
+	pop = make_coru(co_echs_pop, ia->q);
+
+	const struct co_pop_res_s *ev;
+	const struct co_rdr_res_s *ln;
+	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+		/* sum up caevs in between price lines */
+		for (;
+		     LIKELY(ev != NULL) &&
+			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
+		     ev = next(pop)) {
+			truf_mmy_t c = ev->edge.sym;
+			size_t i;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ev->t.y);
+			}
+			if (ev->edge.exp == 0.df) {
+				if (relevantp(i = lstk_find(c))) {
+					/* yield edge and exposure */
+					res.t = ev->t;
+					res.c = c;
+					res.exp_ol = lstk[i].d.exp;
+					res.exp_nu = 0.df;
+					res.last = lstk[i].last;
+					yield(res);
+				}
+				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			} else {
+				lstk_join((truf_trod_t){c, ev->edge.exp});
+				if (relevantp(i = lstk_find(c))) {
+					/* yield edge and exposure */
+					res.t = ev->t;
+					res.c = c;
+					res.exp_ol = lstk[i].d.exp;
+					res.exp_nu = ev->edge.exp;
+					res.last = lstk[i].last;
+					yield(res);
+				}
+			}
+		}
+
+		/* apply roll-over directives to price lines */
+		do {
+			char *on;
+			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
+			size_t i;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ln->t.y);
+			}
+			if (relevantp(i = lstk_find(c))) {
+				/* keep track of last price */
+				_Decimal32 p = strtod32(on, &on);
+
+				/* yield edge and exposure */
+				if (UNLIKELY(isnand32(lstk[i].last))) {
+					res.t = ln->t;
+					res.c = c;
+					res.exp_ol = lstk[i].d.exp;
+					res.exp_nu = lstk[i].d.exp;
+					res.last = lstk[i].last = p;
+					yield(res);
+				}
+			}
+		} while (LIKELY((ln = next(rdr)) != NULL) &&
+			 (UNLIKELY(ev == NULL) ||
+			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
+	}
+
+	free_coru(rdr);
+	free_coru(pop);
+	fini_coru();
+	return 0;
+}
+
 
 /* auxils between coru and beef routines */
 static void
@@ -828,6 +923,64 @@ out:
 }
 
 static int
+cmd_testflt(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
+	static struct truf_ctx_s ctx[1];
+	int res = 0;
+
+	if (argi->inputs_num < 2U) {
+		fputs(usg, stderr);
+		res = 1;
+		goto out;
+	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
+		const char *fn = argi->inputs[i];
+
+		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+			error("cannot open trod file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	with (const char *fn = argi->inputs[1U]) {
+		coru_t edg;
+		FILE *f;
+
+		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
+			error("cannot open time series file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+
+		init_coru();
+		edg = make_coru(co_tser_edg, ctx->q, f);
+
+		for (const struct co_edg_res_s *e; (e = next(edg)) != NULL;) {
+			if (UNLIKELY(isnand32(e->last))) {
+				continue;
+			}
+			pr_last(e->t, e->c, e->last);
+		}
+
+		free_coru(edg);
+		fini_coru();
+	}
+out:
+	if (LIKELY(ctx->q != NULL)) {
+		free_truf_wheap(ctx->q);
+	}
+	truf_free_trods();
+	return res;
+}
+
+static int
 cmd_position(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
@@ -889,6 +1042,8 @@ main(int argc, char *argv[])
 			res = cmd_filter(argi);
 		} else if (!strcmp(cmd, "position")) {
 			res = cmd_position(argi);
+		} else if (!strcmp(cmd, "testflt")) {
+			res = cmd_testflt(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
