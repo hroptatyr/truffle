@@ -58,20 +58,41 @@
 
 typedef struct cocore *coru_t;
 
-static __thread coru_t ____caller;
+static __thread size_t ____cdepth;
+static __thread coru_t ____caller[CORU_DEPTH];
 
 #define init_coru_core(args...)	initialise_cocore()
-#define init_coru()		____caller = initialise_cocore_thread()
-#define fini_coru()		terminate_cocore_thread(), ____caller = NULL
+#define init_coru()							\
+	({								\
+		coru_t TMP(current);					\
+									\
+		if (____cdepth == 0U) {					\
+			TMP(current) = initialise_cocore_thread();	\
+		} else {						\
+			TMP(current) = get_current_cocore();		\
+		}							\
+		____caller[____cdepth] = TMP(current);			\
+	})
+#define fini_coru()							\
+	({								\
+		switch (____cdepth) {					\
+		case 0U:						\
+			terminate_cocore_thread();			\
+		default:						\
+			____caller[____cdepth] = NULL;			\
+			break;						\
+		}							\
+	})
 
 #define make_coru(x, init...)						\
 	({								\
 		struct x##_initargs_s TMP(initargs) = {init};		\
+		coru_t TMP(current) = ____caller[____cdepth];		\
 		create_cocore(						\
-			____caller, (cocore_action_t)(x),		\
+			TMP(current), (cocore_action_t)(x),		\
 			&TMP(initargs), sizeof(TMP(initargs)),		\
-			____caller, 0U, false, 0);			\
-	})								\
+			TMP(current), 0U, false, 0);			\
+	})
 
 #define free_coru(x)
 
@@ -84,14 +105,21 @@ static __thread coru_t ____caller;
 		____next(x, &TMP(res));			\
 	})
 #define ____next(x, ptr)				\
-	(check_cocore(x)				\
-	 ? switch_cocore((x), ptr)			\
-	 : NULL)
+	({							\
+		const void *TMP(res) = NULL;			\
+								\
+		if (check_cocore(x)) {				\
+			____cdepth++;				\
+			TMP(res) = switch_cocore((x), ptr);	\
+			____cdepth--;				\
+		}						\
+		TMP(res);					\
+	})
 
-#define yield(yld)				\
-	({					\
-		coru_t TMP(tmp) = ____caller;	\
-		yield_to(TMP(tmp), yld);	\
+#define yield(yld)						\
+	({							\
+		coru_t TMP(tmp) = ____caller[____cdepth - 1U];	\
+		yield_to(TMP(tmp), yld);			\
 	})
 #define yield_to(x, yld)				\
 	({						\
