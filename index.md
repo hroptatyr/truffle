@@ -1,8 +1,7 @@
 ---
 title: truffle
 project: truffle
-layout: default
-latest: truffle-0.1.3.tar.xz
+layout: project
 ---
 
 truffle
