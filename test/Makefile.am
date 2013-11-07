@@ -129,6 +129,9 @@ TESTS += position_01.clit
 TESTS += position_02.clit
 TESTS += position_03.clit
 TESTS += position_04.clit
+TESTS += position_05.clit
+TESTS += position_06.clit
+EXTRA_DIST += print_05.trod
 
 ## our friendly helpers
 check_PROGRAMS += clitoris
