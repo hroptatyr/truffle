@@ -1,0 +1,10 @@
+#!/usr/bin/clitoris  ## -*-shell-script -*-
+
+$ truffle --schema "${srcdir}/toy1.trod" 2011-01-02 2011-01-03 2011-01-04 2011-01-05
+2011-01-02
+2011-01-03	F0
+2011-01-04	F0 G0
+2011-01-05	G0
+$
+
+## truffle_trod_contracts.1.deflt.clit ends here

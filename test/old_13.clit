@@ -1,0 +1,12 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truffle --schema "${srcdir}/toy8.schema" 2000-02-27 2000-02-28 2000-02-29 2000-03-01
+2000-02-27	H0	1
+2000-02-28	H0	1
+2000-02-29	H0	1
+2000-02-29	J0	0
+2000-03-01	H0	0
+2000-03-01	J0	1
+$
+
+## old_13.clit ends here

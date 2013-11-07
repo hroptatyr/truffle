@@ -1,0 +1,7 @@
+#!/usr/bin/clitoris  ## -*-shell-script -*-
+
+$ trod "${srcdir}/toy5.trod"
+< "${srcdir}/toy5.trod"
+$
+
+## trod_to_trod.5.deflt.clit ends here

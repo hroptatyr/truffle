@@ -17,9 +17,6 @@ TESTS =
 TEST_EXTENSIONS =
 BUILT_SOURCES =
 
-TEST_EXTENSIONS += .truftest
-TRUFTEST_LOG_COMPILER = $(builddir)/truf-test
-AM_TRUFTEST_LOG_FLAGS = --builddir $(top_builddir)/src --hash sha1sum
 LOG_COMPILER = echo
 
 TEST_EXTENSIONS += .clit
@@ -27,98 +24,91 @@ TESTS_ENVIRONMENT = root=$(top_srcdir)
 CLIT_LOG_COMPILER = $(builddir)/clitoris
 AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
 
-check_PROGRAMS += truf-test
-truf_test_LDADD = ../src/libtruffle.a
-EXTRA_truf_test_SOURCES = truf-test.ggo
-BUILT_SOURCES += truf-test.x truf-test.xh
-EXTRA_DIST += truf-test.sh
-
-TESTS += toy1.1.truftest
-TESTS += toy1.2.truftest
+TESTS += old_01.clit
+TESTS += old_02.clit
 EXTRA_DIST += toy1.schema toy1.series
 
-TESTS += toy2.1.truftest
-TESTS += toy2.2.truftest
+TESTS += old_03.clit
+TESTS += old_04.clit
 EXTRA_DIST += toy2.schema toy2.series
 
-TESTS += toy3.1.truftest
-TESTS += toy3.2.truftest
+TESTS += old_05.clit
+TESTS += old_06.clit
 EXTRA_DIST += toy3.schema toy3.series
 
-TESTS += toy4.1.truftest
-TESTS += toy4.2.truftest
+TESTS += old_07.clit
+TESTS += old_08.clit
 EXTRA_DIST += toy4.schema toy4.series
 
-TESTS += toy5.1.truftest
-TESTS += toy5.2.truftest
+TESTS += old_09.clit
+TESTS += old_10.clit
 EXTRA_DIST += toy5.schema toy5.series
 
-TESTS += toy6.1.truftest
+TESTS += old_11.clit
+TESTS += old_12.clit
 EXTRA_DIST += toy6.schema
-
-TESTS += toy7.1.truftest
 EXTRA_DIST += toy7.schema
 
-TESTS += toy8.1.truftest
-TESTS += toy8.2.truftest
+TESTS += old_13.clit
+TESTS += old_14.clit
 EXTRA_DIST += toy8.schema
 
-TESTS += schema_to_trod.1.deflt.truftest
-TESTS += schema_to_trod.1.abs.truftest
-TESTS += schema_to_trod.1.oco.truftest
+TESTS += schema_to_trod.1.deflt.clit
+TESTS += schema_to_trod.1.abs.clit
+TESTS += schema_to_trod.1.oco.clit
 
-TESTS += schema_to_trod.2.deflt.truftest
-TESTS += schema_to_trod.2.abs.truftest
-TESTS += schema_to_trod.2.oco.truftest
+TESTS += schema_to_trod.2.deflt.clit
+TESTS += schema_to_trod.2.abs.clit
+TESTS += schema_to_trod.2.oco.clit
 
-TESTS += schema_to_trod.3.deflt.truftest
-TESTS += schema_to_trod.3.abs.truftest
-TESTS += schema_to_trod.3.oco.truftest
+TESTS += schema_to_trod.3.deflt.clit
+TESTS += schema_to_trod.3.abs.clit
+TESTS += schema_to_trod.3.oco.clit
 
-TESTS += schema_to_trod.4.deflt.truftest
+TESTS += schema_to_trod.4.deflt.clit
 EXTRA_DIST += toy4.trod
 
-TESTS += schema_to_trod.5.deflt.truftest
+TESTS += schema_to_trod.5.deflt.clit
 EXTRA_DIST += toy5.trod
 
-TESTS += schema_to_trod.6.deflt.truftest
-TESTS += schema_to_trod.6.abs.truftest
+TESTS += schema_to_trod.6.deflt.clit
+TESTS += schema_to_trod.6.abs.clit
 
-TESTS += schema_to_trod.7.deflt.truftest
-TESTS += schema_to_trod.7.abs.truftest
+TESTS += schema_to_trod.7.deflt.clit
+TESTS += schema_to_trod.7.abs.clit
 
-TESTS += trod_to_trod.5.deflt.truftest
-TESTS += trod_to_trod.5.abs.truftest
-TESTS += trod_to_trod.5.oco.truftest
+TESTS += trod_to_trod.5.deflt.clit
+TESTS += trod_to_trod.5.abs.clit
+TESTS += trod_to_trod.5.oco.clit
 EXTRA_DIST += toy5.trod
 
-TESTS += toy1.1.mmy.truftest
-TESTS += toy1.2.mmy.truftest
+TESTS += toy1.1.mmy.clit
+TESTS += toy1.2.mmy.clit
 EXTRA_DIST += toy1.mmy.series
 
-TESTS += trod.1.truftest
-TESTS += trod.1.f.truftest
+TESTS += trod.1.clit
+TESTS += trod.1.f.clit
 EXTRA_DIST += toy1.trod
 
-TESTS += trod.2.truftest
-TESTS += trod.2.f.truftest
+TESTS += trod.2.clit
+TESTS += trod.2.f.clit
 EXTRA_DIST += toy2.trod
 
-TESTS += trod.2.abs.truftest
-TESTS += trod.2.abs.f.truftest
+TESTS += trod.2.abs.clit
+TESTS += trod.2.abs.f.clit
 EXTRA_DIST += toy2.abs.trod
 
-TESTS += trod.2.oco.truftest
-TESTS += trod.2.oco.f.truftest
+TESTS += trod.2.oco.clit
+TESTS += trod.2.oco.f.clit
 EXTRA_DIST += toy2.oco.trod
 
-TESTS += truffle_schema_contracts.1.deflt.truftest
-TESTS += truffle_schema_contracts.1.abs.truftest
-TESTS += truffle_schema_contracts.1.oco.truftest
+TESTS += truffle_schema_contracts.1.deflt.clit
+TESTS += truffle_schema_contracts.1.abs.clit
+TESTS += truffle_schema_contracts.1.oco.clit
 
-TESTS += truffle_trod_contracts.1.deflt.truftest
-TESTS += truffle_trod_contracts.1.abs.truftest
-TESTS += truffle_trod_contracts.1.oco.truftest
+TESTS += truffle_trod_contracts.1.deflt.clit
+TESTS += truffle_trod_contracts.1.abs.clit
+TESTS += truffle_trod_contracts.1.oco.clit
 
 TESTS += print_01.clit
 TESTS += print_02.clit
@@ -145,7 +135,6 @@ check_PROGRAMS += clitoris
 clitoris_CPPFLAGS = $(AM_CPPFLAGS)
 clitoris_CPPFLAGS += -D_GNU_SOURCE
 clitoris_LDFLAGS = $(AM_LDFLAGS) -static
-clitoris_LDADD = -lutil
 BUILT_SOURCES += clitoris.x clitoris.xh
 
 
