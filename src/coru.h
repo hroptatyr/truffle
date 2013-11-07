@@ -43,6 +43,8 @@
 
 #define declcoru(name, init...)	struct name##_initargs_s init
 
+#define CORU_DEPTH		4U
+
 #if !defined _paste
 # define _paste(x, y)		x ## y
 #endif	/* !_paste */
@@ -116,8 +118,9 @@ typedef struct {
 #define init_coru()
 #define fini_coru()
 
-static __thread coru_t ____caller;
-static __thread coru_t ____callee;
+static __thread size_t ____cdepth;
+static __thread coru_t ____caller[CORU_DEPTH];
+static __thread coru_t ____callee[CORU_DEPTH];
 static intptr_t ____glob;
 
 #if !defined _setjmp
@@ -153,7 +156,8 @@ trampoline(int i0, int i1, int i2, int i3)
 	/* and do our thing here */
 	tr->action((void*)____glob, tr->initargs);
 	____glob = (intptr_t)NULL;
-	_longjmp(*____caller.jb, 1);
+	____cdepth--;
+	_longjmp(*____caller[____cdepth].jb, 1);
 	assert(0);
 }
 
@@ -206,10 +210,10 @@ trampoline(int i0, int i1, int i2, int i3)
 		x.ssz = 0U;			\
 	})
 
-#define yield(yld)				\
-	({					\
-		coru_t TMP(tmp) = ____caller;	\
-		yield_to(TMP(tmp), yld);	\
+#define yield(yld)						\
+	({							\
+		coru_t TMP(tmp) = ____caller[____cdepth - 1U];	\
+		yield_to(TMP(tmp), yld);			\
 	})
 
 #define yield_to(x, yld)					\
@@ -218,11 +222,11 @@ trampoline(int i0, int i1, int i2, int i3)
 								\
 		TMP(res) = yld;					\
 		____glob = (intptr_t)&TMP(res);			\
-		if (!_setjmp(*____callee.jb)) {			\
-			char *TMP(brth) = alloca(0x2000U);	\
-			asm volatile ("" :: "m" (TMP(brth)));	\
-			____caller = ____callee;		\
-			____callee = x;				\
+		--____cdepth;					\
+		if (!_setjmp(*____callee[____cdepth].jb)) {	\
+			____caller[____cdepth] =		\
+				____callee[____cdepth];		\
+			____callee[____cdepth] = x;		\
 			_longjmp(*x.jb, 1);			\
 		}						\
 		(void*)____glob;				\
@@ -243,8 +247,10 @@ trampoline(int i0, int i1, int i2, int i3)
 							\
 		____glob = (intptr_t)ptr;		\
 		if (!_setjmp(__##x##sb)) {		\
-			____caller.jb = &__##x##sb;	\
-			____callee = x;			\
+			____caller[____cdepth].jb =	\
+				&__##x##sb;		\
+			____callee[____cdepth] = x;	\
+			____cdepth++;			\
 			_longjmp(*x.jb, 1);		\
 		}					\
 		(void*)____glob;			\
