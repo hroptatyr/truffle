@@ -391,13 +391,15 @@ static const struct co_edg_res_s {
 				/* keep track of last price */
 				_Decimal32 p = strtod32(on, &on);
 
+				/* keep track of last price */
+				lstk[i].last = p;
 				/* yield edge and exposure */
 				if (UNLIKELY(isnand32(lstk[i].last))) {
 					res.t = ln->t;
 					res.c = c;
 					res.exp_ol = lstk[i].d.exp;
 					res.exp_nu = lstk[i].d.exp;
-					res.last = lstk[i].last = p;
+					res.last = p;
 					yield(res);
 				}
 			}
