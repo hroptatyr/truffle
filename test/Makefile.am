@@ -17,21 +17,12 @@ TESTS =
 TEST_EXTENSIONS =
 BUILT_SOURCES =
 
-TEST_EXTENSIONS += .truftest
-TRUFTEST_LOG_COMPILER = $(builddir)/truf-test
-AM_TRUFTEST_LOG_FLAGS = --builddir $(top_builddir)/src --hash sha1sum
 LOG_COMPILER = echo
 
 TEST_EXTENSIONS += .clit
 TESTS_ENVIRONMENT = root=$(top_srcdir)
 CLIT_LOG_COMPILER = $(builddir)/clitoris
 AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
-
-check_PROGRAMS += truf-test
-truf_test_LDADD = ../src/libtruffle.a
-EXTRA_truf_test_SOURCES = truf-test.ggo
-BUILT_SOURCES += truf-test.x truf-test.xh
-EXTRA_DIST += truf-test.sh
 
 TESTS += old_01.clit
 TESTS += old_02.clit
