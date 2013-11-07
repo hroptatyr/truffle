@@ -133,6 +133,12 @@ TESTS += position_05.clit
 TESTS += position_06.clit
 EXTRA_DIST += print_05.trod
 
+TESTS += filter_01.clit
+TESTS += filter_02.clit
+EXTRA_DIST += filt_01.tser
+EXTRA_DIST += filt_01.trod
+
+
 ## our friendly helpers
 check_PROGRAMS += clitoris
 clitoris_CPPFLAGS = $(AM_CPPFLAGS)
