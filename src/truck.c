@@ -335,7 +335,7 @@ pr_rdr_res(const struct co_rdr_res_s *ln)
 }
 
 static void
-pr_last(echs_instant_t i, struct lstk_s last)
+pr_last(echs_instant_t i, truf_mmy_t sym, _Decimal32 last)
 {
 	char buf[256U];
 	char *bp;
@@ -344,9 +344,9 @@ pr_last(echs_instant_t i, struct lstk_s last)
 	bp = buf;
 	bp += dt_strf(bp, ep - bp, i);
 	*bp++ = '\t';
-	bp += truf_mmy_wr(bp, ep - bp, last.d.sym);
+	bp += truf_mmy_wr(bp, ep - bp, sym);
 	*bp++ = '\t';
-	d32tostr(bp, ep - bp, last.last);
+	d32tostr(bp, ep - bp, last);
 	puts(buf);
 	return;
 }
@@ -447,7 +447,7 @@ truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 			if (ev->edge.exp == 0.df) {
 				if (ctx->edgp && relevantp(i = lstk_find(c))) {
 					/* print last price */
-					pr_last(ev->t, lstk[i]);
+					pr_last(ev->t, c, lstk[i].last);
 				}
 				lstk_kick((truf_trod_t){c, ev->edge.exp});
 			} else {
@@ -475,7 +475,7 @@ truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 
 					lstk[i].last = p;
 					if (UNLIKELY(prntp)) {
-						pr_last(ln->t, lstk[i]);
+						pr_last(ln->t, c, p);
 					}
 				}
 			}
