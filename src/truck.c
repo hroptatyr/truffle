@@ -412,6 +412,75 @@ static const struct co_edg_res_s {
 	return 0;
 }
 
+declcoru(co_tser_lev, {
+		truf_wheap_t q;
+		FILE *tser;
+	}, {});
+
+static const struct co_edg_res_s*
+defcoru(co_tser_lev, ia, UNUSED(arg))
+{
+/* yields a co_edg_res whenever a tick in the time series occurs */
+	coru_t rdr;
+	coru_t pop;
+	struct co_edg_res_s res;
+
+	init_coru();
+	rdr = make_coru(co_echs_rdr, ia->tser);
+	pop = make_coru(co_echs_pop, ia->q);
+
+	const struct co_pop_res_s *ev;
+	const struct co_rdr_res_s *ln;
+	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+		/* sum up caevs in between price lines */
+		for (;
+		     LIKELY(ev != NULL) &&
+			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
+		     ev = next(pop)) {
+			truf_mmy_t c = ev->edge.sym;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ev->t.y);
+			}
+			if (ev->edge.exp == 0.df) {
+				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			} else {
+				lstk_join((truf_trod_t){c, ev->edge.exp});
+			}
+		}
+
+		/* apply roll-over directives to price lines */
+		do {
+			char *on;
+			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
+			size_t i;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ln->t.y);
+			}
+			if (relevantp(i = lstk_find(c))) {
+				/* keep track of last price */
+				_Decimal32 p = strtod32(on, &on);
+
+				/* yield edge and exposure */
+				res.t = ln->t;
+				res.c = c;
+				res.exp_ol = lstk[i].d.exp;
+				res.exp_nu = lstk[i].d.exp;
+				res.last = p;
+				yield(res);
+			}
+		} while (LIKELY((ln = next(rdr)) != NULL) &&
+			 (UNLIKELY(ev == NULL) ||
+			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
+	}
+
+	free_coru(rdr);
+	free_coru(pop);
+	fini_coru();
+	return 0;
+}
+
 
 /* auxils between coru and beef routines */
 static void
@@ -960,7 +1029,11 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		}
 
 		init_coru();
-		edg = make_coru(co_tser_edg, ctx->q, f);
+		if (argi->edge_given) {
+			edg = make_coru(co_tser_edg, ctx->q, f);
+		} else {
+			edg = make_coru(co_tser_lev, ctx->q, f);
+		}
 
 		for (const struct co_edg_res_s *e; (e = next(edg)) != NULL;) {
 			if (UNLIKELY(isnand32(e->last))) {
