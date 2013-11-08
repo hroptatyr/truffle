@@ -536,6 +536,74 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 	return 0;
 }
 
+declcoru(co_echs_pos, {
+		truf_wheap_t q;
+		const char *const *dt;
+		size_t ndt;
+	}, {});
+
+static coru_argp(co_echs_out)
+defcoru(co_echs_pos, ia, UNUSED(arg))
+{
+/* yields something that co_echs_out can use directly */
+	coru_t rdr;
+	coru_t pop;
+	coru_args(co_echs_out) res;
+
+	init_coru();
+	if (ia->ndt == 0U) {
+		/* read date/times from stdin */
+		rdr = make_coru(co_echs_rdr, stdin);
+	} else {
+		rdr = make_coru(co_inst_rdr, ia->dt, ia->ndt);
+	}
+	pop = make_coru(co_echs_pop, ia->q);
+
+	const struct co_pop_res_s *ev;
+	const struct co_rdr_res_s *ln;
+	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+		/* in between date/times from the RDR find trods */
+		for (;
+		     LIKELY(ev != NULL) &&
+			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
+		     ev = next(pop)) {
+			truf_mmy_t c = ev->edge.sym;
+
+			if (ev->edge.exp == 0.df) {
+				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			} else {
+				lstk_join((truf_trod_t){c, ev->edge.exp});
+			}
+		}
+
+		do {
+			char buf[1024U];
+			char *bp = buf;
+			const char *const ep = buf + sizeof(buf);
+
+			bp += dt_strf(bp, ep - bp, ln->t);
+			*bp++ = '\t';
+			for (size_t i = imin; i < imax; i++) {
+				if (lstk[i].d.sym == 0U) {
+					continue;
+				}
+				/* otherwise prep the yield */
+				res.dt = ln->t;
+				res.sym = lstk[i].d.sym;
+				res.val = lstk[i].d.exp;
+				yield(res);
+			}
+		} while (LIKELY((ln = next(rdr)) != NULL) &&
+			 (UNLIKELY(ev == NULL) ||
+			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
+	}
+
+	free_coru(rdr);
+	free_coru(pop);
+	fini_coru();
+	return 0;
+}
+
 
 /* public api, might go to libtruffle one day */
 static int
@@ -598,62 +666,6 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 		}
 	}
 	return;
-}
-
-static int
-truf_prnt_poss(struct truf_ctx_s ctx[static 1U], char *const dt[], size_t ndt)
-{
-	coru_t rdr;
-	coru_t pop;
-
-	init_coru();
-	if (ndt == 0U) {
-		/* read date/times from stdin */
-		rdr = make_coru(co_echs_rdr, stdin);
-	} else {
-		rdr = make_coru(co_inst_rdr, dt, ndt);
-	}
-	pop = make_coru(co_echs_pop, ctx->q);
-
-	const struct co_pop_res_s *ev;
-	const struct co_rdr_res_s *ln;
-	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
-		/* in between date/times from the RDR find trods */
-		for (;
-		     LIKELY(ev != NULL) &&
-			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
-		     ev = next(pop)) {
-			truf_mmy_t c = ev->edge.sym;
-
-			if (ev->edge.exp == 0.df) {
-				lstk_kick((truf_trod_t){c, ev->edge.exp});
-			} else {
-				lstk_join((truf_trod_t){c, ev->edge.exp});
-			}
-		}
-
-		do {
-			char buf[1024U];
-			char *bp = buf;
-			const char *const ep = buf + sizeof(buf);
-
-			bp += dt_strf(bp, ep - bp, ln->t);
-			*bp++ = '\t';
-			for (size_t i = imin; i < imax; i++) {
-				if (lstk[i].d.sym) {
-					truf_trod_wr(bp, ep - bp, lstk[i].d);
-					puts(buf);
-				}
-			}
-		} while (LIKELY((ln = next(rdr)) != NULL) &&
-			 (UNLIKELY(ev == NULL) ||
-			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
-	}
-
-	free_coru(rdr);
-	free_coru(pop);
-	fini_coru();
-	return 0;
 }
 
 
@@ -965,20 +977,21 @@ cmd_position(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
 Usage: truffle position TROD-FILE [DATE/TIME]...\n";
-	static struct truf_ctx_s ctx[1];
+	truf_wheap_t q;
 	int res = 0;
 
 	if (argi->inputs_num < 2U) {
 		fputs(usg, stderr);
 		res = 1;
 		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
-		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+		struct truf_ctx_s ctx = {q};
+		if (UNLIKELY(truf_read_trod_file(&ctx, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
@@ -986,11 +999,30 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 	}
 
 	/* just print them now */
-	truf_prnt_poss(ctx, argi->inputs + 2U, argi->inputs_num - 2U);
+	{
+		const char *const *dt = argi->inputs + 2U;
+		const size_t ndt = argi->inputs_num - 2U;
+		coru_t pos;
+		coru_t out;
+
+		init_coru();
+		pos = make_coru(co_echs_pos, q, dt, ndt);
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given);
+
+		for (const struct co_edg_out_s *e; (e = next(pos)) != NULL;) {
+			____next(out, e);
+		}
+
+		free_coru(edg);
+		free_coru(out);
+		fini_coru();
+	}
 
 out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
 	}
 	truf_free_trods();
 	return res;
