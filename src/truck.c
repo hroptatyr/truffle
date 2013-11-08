@@ -974,6 +974,67 @@ out:
 	return res;
 }
 
+static int
+cmd_glue(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
+	truf_wheap_t q;
+	int res = 0;
+
+	if (argi->inputs_num < 2U) {
+		fputs(usg, stderr);
+		res = 1;
+		goto out;
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
+		const char *fn = argi->inputs[i];
+
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+			error("cannot open trod file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	with (const char *fn = argi->inputs[1U]) {
+		coru_t flt;
+		coru_t out;
+		FILE *f;
+
+		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
+			error("cannot open time series file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+
+		init_coru();
+		flt = make_coru(co_tser_flt, q, f, .edgp = true, .levp = false);
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given,
+			.prnt_expp = true, .prnt_prcp = true);
+
+		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
+			____next(out, e);
+		}
+
+		free_coru(edg);
+		free_coru(out);
+		fini_coru();
+	}
+out:
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
+	}
+	truf_free_trods();
+	return res;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1000,6 +1061,8 @@ main(int argc, char *argv[])
 			res = cmd_filter(argi);
 		} else if (!strcmp(cmd, "position")) {
 			res = cmd_position(argi);
+		} else if (!strcmp(cmd, "glue")) {
+			res = cmd_glue(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
