@@ -50,5 +50,6 @@
 #include "cut.h"
 
 typedef _Decimal32 truf_price_t;
+typedef _Decimal32 truf_expos_t;
 
 #endif	/* INCLUDED_truffle_h_ */
