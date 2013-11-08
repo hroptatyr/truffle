@@ -817,7 +817,7 @@ cmd_print(struct truf_args_info argi[static 1U])
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given);
 
-		for (const struct co_pop_res_s *e; (e = next(pop)) != NULL;) {
+		for (truf_tsv_t e; (e = next(pop)) != NULL;) {
 			____next(out, e);
 		}
 
@@ -896,7 +896,7 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given);
 
-		for (const struct co_pop_res_s *e; (e = next(pop)) != NULL;) {
+		for (truf_tsv_t e; (e = next(pop)) != NULL;) {
 			____next(out, e);
 		}
 
@@ -1024,7 +1024,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given);
 
-		for (const struct co_edg_out_s *e; (e = next(pos)) != NULL;) {
+		for (truf_tsv_t e; (e = next(pos)) != NULL;) {
 			____next(out, e);
 		}
 
