@@ -109,10 +109,10 @@ static __thread coru_t ____caller[CORU_DEPTH];
 #define next(x)			____next(x, NULL)
 #define next_with(x, val)				\
 	({						\
-		static typeof((val)) TMP(res);		\
+		static typeof((val)) TMP(arg);		\
 							\
-		TMP(res) = val;				\
-		____next(x, &TMP(res));			\
+		TMP(arg) = val;				\
+		____next(x, &TMP(arg));			\
 	})
 #define ____next(x, ptr)				\
 	({							\
