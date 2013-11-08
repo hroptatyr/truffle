@@ -949,6 +949,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		}
 
 		free_coru(edg);
+		free_coru(out);
 		fini_coru();
 	}
 out:
