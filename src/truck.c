@@ -328,6 +328,8 @@ declcoru(co_echs_out, {
 		unsigned int relp:1U;
 		unsigned int absp:1U;
 		unsigned int ocop:1U;
+		unsigned int prnt_prcp:1U;
+		unsigned int prnt_expp:1U;
 	}, {});
 
 static const void*
@@ -360,21 +362,25 @@ _defcoru(co_echs_out, ia, truf_tsv_t arg)
 			}
 			bp += truf_mmy_wr(bp, ep - bp, sym);
 		}
-		if (!isnand32(arg->prc[0U])) {
-			*bp++ = '\t';
-			bp += d32tostr(bp, ep - bp, arg->prc[0U]);
+		if (ia->prnt_prcp) {
+			if (!isnand32(arg->prc[0U])) {
+				*bp++ = '\t';
+				bp += d32tostr(bp, ep - bp, arg->prc[0U]);
+			}
+			if (!isnand32(arg->prc[1U])) {
+				*bp++ = '\t';
+				bp += d32tostr(bp, ep - bp, arg->prc[1U]);
+			}
 		}
-		if (!isnand32(arg->prc[1U])) {
-			*bp++ = '\t';
-			bp += d32tostr(bp, ep - bp, arg->prc[1U]);
-		}
-		if (!isnand32(arg->exp[0U])) {
-			*bp++ = '\t';
-			bp += d32tostr(bp, ep - bp, arg->exp[0U]);
-		}
-		if (!isnand32(arg->exp[1U])) {
-			*bp++ = '\t';
-			bp += d32tostr(bp, ep - bp, arg->exp[1U]);
+		if (ia->prnt_expp) {
+			if (!isnand32(arg->exp[0U])) {
+				*bp++ = '\t';
+				bp += d32tostr(bp, ep - bp, arg->exp[0U]);
+			}
+			if (!isnand32(arg->exp[1U])) {
+				*bp++ = '\t';
+				bp += d32tostr(bp, ep - bp, arg->exp[1U]);
+			}
 		}
 		*bp++ = '\n';
 		*bp = '\0';
@@ -751,7 +757,8 @@ cmd_print(struct truf_args_info argi[static 1U])
 		pop = make_coru(co_echs_pop, q);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given);
+			argi->rel_given, argi->abs_given, argi->oco_given,
+			.prnt_expp = true);
 
 		for (truf_tsv_t e; (e = next(pop)) != NULL;) {
 			____next(out, e);
@@ -830,7 +837,8 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 		pop = make_coru(co_echs_pop, q);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given);
+			argi->rel_given, argi->abs_given, argi->oco_given,
+			.prnt_expp = true);
 
 		for (truf_tsv_t e; (e = next(pop)) != NULL;) {
 			____next(out, e);
@@ -891,19 +899,14 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		flt = make_coru(co_tser_flt, q, f, argi->edge_given);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given);
+			argi->rel_given, argi->abs_given, argi->oco_given,
+			.prnt_prcp = true);
 
 		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
-			struct truf_tsv_s o;
-
 			if (UNLIKELY(isnand32(*e->prc))) {
 				continue;
 			}
-			/* prep and print */
-			o = *e;
-			o.exp[0U] = nand32(NULL);
-			o.exp[1U] = nand32(NULL);
-			next_with(out, o);
+			____next(out, e);
 		}
 
 		free_coru(edg);
@@ -954,7 +957,8 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 		pos = make_coru(co_echs_pos, q, dt, ndt);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given);
+			argi->rel_given, argi->abs_given, argi->oco_given,
+			.prnt_expp = true);
 
 		for (truf_tsv_t e; (e = next(pos)) != NULL;) {
 			____next(out, e);
