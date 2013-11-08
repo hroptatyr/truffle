@@ -449,7 +449,7 @@ defcoru(co_tser_edg, ia, UNUSED(arg))
 			}
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
-				truf_price_t p = strtod32(on, &on);
+				truf_price_t p = strtod32(on + 1U, &on);
 				bool prntp = isnand32(lstk[i].last);
 
 				/* keep track of last price */
@@ -523,7 +523,7 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 			}
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
-				truf_price_t p = strtod32(on, &on);
+				truf_price_t p = strtod32(on + 1U, &on);
 
 				/* yield edge and exposure */
 				res.t = ln->t;
