@@ -130,13 +130,20 @@ static __thread coru_t ____caller[CORU_DEPTH];
 		coru_t TMP(tmp) = ____caller[____cdepth - 1U];	\
 		yield_to(TMP(tmp), yld);			\
 	})
+#define yield_ptr(ptr)						\
+	({							\
+		coru_t TMP(tmp) = ____caller[____cdepth - 1U];	\
+		____yield(TMP(tmp), (ptr));			\
+	})
 #define yield_to(x, yld)				\
 	({						\
 		static typeof((yld)) TMP(res);		\
 							\
 		TMP(res) = yld;				\
-		switch_cocore((x), (void*)&TMP(res));	\
+		____yield((x), (void*)&TMP(res));	\
 	})
+#define ____yield(x, ptr)	switch_cocore((x), (ptr))
+
 
 
 #else  /* !USE_ASM_CORUS */
@@ -252,13 +259,21 @@ trampoline(int i0, int i1, int i2, int i3)
 		coru_t TMP(tmp) = ____caller[____cdepth - 1U];	\
 		yield_to(TMP(tmp), yld);			\
 	})
-
+#define yield_ptr(ptr)						\
+	({							\
+		coru_t TMP(tmp) = ____caller[____cdepth - 1U];	\
+		____yield(TMP(tmp), (ptr));			\
+	})
 #define yield_to(x, yld)					\
 	({							\
 		static typeof((yld)) TMP(res);			\
 								\
 		TMP(res) = yld;					\
-		____glob = (intptr_t)&TMP(res);			\
+		____yield(x, (intptr_t)&TMP(res));		\
+	})
+#define ____yield(x, ptr)					\
+	({							\
+		____glob = (ptr);				\
 		--____cdepth;					\
 		if (!_setjmp(*____callee[____cdepth].jb)) {	\
 			____caller[____cdepth] =		\

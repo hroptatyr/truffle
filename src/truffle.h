@@ -49,4 +49,6 @@
 #include "trod.h"
 #include "cut.h"
 
+typedef _Decimal32 truf_price_t;
+
 #endif	/* INCLUDED_truffle_h_ */

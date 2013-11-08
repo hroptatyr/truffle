@@ -101,7 +101,7 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 /* last price stacks */
 static struct lstk_s {
 	truf_trod_t d;
-	_Decimal32 last;
+	truf_price_t last;
 } lstk[64U];
 static size_t imin;
 static size_t imax;
@@ -317,6 +317,58 @@ defcoru(co_inst_rdr, c, UNUSED(arg))
 	return 0;
 }
 
+declcoru(co_echs_out, {
+		FILE *f;
+		unsigned int relp:1U;
+		unsigned int absp:1U;
+		unsigned int ocop:1U;
+	}, {
+		echs_instant_t dt;
+		uintptr_t sym;
+		_Decimal32 val;
+	});
+
+static const void*
+defcoru(co_echs_out, ia, arg)
+{
+	char buf[256U];
+	const char *const ep = buf + sizeof(buf);
+
+	while (arg != NULL) {
+		char *bp = buf;
+		echs_instant_t t = arg->dt;
+
+		bp += dt_strf(bp, ep - bp, t);
+		*bp++ = '\t';
+		if (UNLIKELY(arg->sym == 0U)) {
+			;
+		} else if (!truf_mmy_p(arg->sym)) {
+			bp += xstrlcpy(bp, (const void*)arg->sym, ep - bp);
+		} else {
+			truf_mmy_t sym;
+
+			if (ia->ocop) {
+				sym = truf_mmy_oco(arg->sym, t.y);
+			} else if (ia->absp) {
+				sym = truf_mmy_abs(arg->sym, t.y);
+			} else if (ia->relp) {
+				sym = truf_mmy_rel(arg->sym, t.y);
+			} else {
+				sym = arg->sym;
+			}
+			bp += truf_mmy_wr(bp, ep - bp, sym);
+		}
+		*bp++ = '\t';
+		bp += d32tostr(bp, ep - bp, arg->val);
+		*bp++ = '\n';
+		*bp = '\0';
+		fputs(buf, ia->f);
+
+		arg = yield_ptr(NULL);
+	}
+	return 0;
+}
+
 declcoru(co_tser_edg, {
 		truf_wheap_t q;
 		FILE *tser;
@@ -325,9 +377,9 @@ declcoru(co_tser_edg, {
 static const struct co_edg_res_s {
 	echs_instant_t t;
 	truf_mmy_t c;
+	truf_price_t last;
 	_Decimal32 exp_ol;
 	_Decimal32 exp_nu;
-	_Decimal32 last;
 } *defcoru(co_tser_edg, ia, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes */
@@ -389,7 +441,7 @@ static const struct co_edg_res_s {
 			}
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
-				_Decimal32 p = strtod32(on, &on);
+				truf_price_t p = strtod32(on, &on);
 				bool prntp = isnand32(lstk[i].last);
 
 				/* keep track of last price */
@@ -463,7 +515,7 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 			}
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
-				_Decimal32 p = strtod32(on, &on);
+				truf_price_t p = strtod32(on, &on);
 
 				/* yield edge and exposure */
 				res.t = ln->t;
@@ -482,40 +534,6 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 	free_coru(pop);
 	fini_coru();
 	return 0;
-}
-
-
-/* auxils between coru and beef routines */
-static void
-pr_rdr_res(const struct co_rdr_res_s *ln)
-{
-	char buf[256U];
-	char *bp;
-	const char *const ep = buf + sizeof(buf);
-
-	bp = buf;
-	bp += dt_strf(bp, ep - bp, ln->t);
-	*bp++ = '\t';
-	xstrlcpy(bp, ln->ln, ln->lz - 1);
-	puts(buf);
-	return;
-}
-
-static void
-pr_last(echs_instant_t i, truf_mmy_t sym, _Decimal32 last)
-{
-	char buf[256U];
-	char *bp;
-	const char *const ep = buf + sizeof(buf);
-
-	bp = buf;
-	bp += dt_strf(bp, ep - bp, i);
-	*bp++ = '\t';
-	bp += truf_mmy_wr(bp, ep - bp, sym);
-	*bp++ = '\t';
-	d32tostr(bp, ep - bp, last);
-	puts(buf);
-	return;
 }
 
 
@@ -580,82 +598,6 @@ truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
 		}
 	}
 	return;
-}
-
-static int
-truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
-{
-	coru_t rdr;
-	coru_t pop;
-	FILE *f;
-
-	if (UNLIKELY((f = fopen(tser, "r")) == NULL)) {
-		return -1;
-	}
-
-	init_coru();
-	rdr = make_coru(co_echs_rdr, f);
-	pop = make_coru(co_echs_pop, ctx->q);
-
-	const struct co_pop_res_s *ev;
-	const struct co_rdr_res_s *ln;
-	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
-		/* sum up caevs in between price lines */
-		for (;
-		     LIKELY(ev != NULL) &&
-			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
-		     ev = next(pop)) {
-			truf_mmy_t c = ev->edge.sym;
-			size_t i;
-
-			if (!truf_mmy_abs_p(c)) {
-				c = truf_mmy_abs(c, ev->t.y);
-			}
-			if (ev->edge.exp == 0.df) {
-				if (ctx->edgp && relevantp(i = lstk_find(c))) {
-					/* print last price */
-					pr_last(ev->t, c, lstk[i].last);
-				}
-				lstk_kick((truf_trod_t){c, ev->edge.exp});
-			} else {
-				lstk_join((truf_trod_t){c, ev->edge.exp});
-			}
-		}
-
-		/* apply roll-over directives to price lines */
-		do {
-			char *on;
-			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
-			size_t i;
-
-			if (!truf_mmy_abs_p(c)) {
-				c = truf_mmy_abs(c, ln->t.y);
-			}
-			if (relevantp(i = lstk_find(c))) {
-				if (!ctx->edgp) {
-					/* just print the line as is */
-					pr_rdr_res(ln);
-				} else if (*on++ == '\t') {
-					/* keep track of last price */
-					_Decimal32 p = strtod32(on, &on);
-					bool prntp = isnand32(lstk[i].last);
-
-					lstk[i].last = p;
-					if (UNLIKELY(prntp)) {
-						pr_last(ln->t, c, p);
-					}
-				}
-			}
-		} while (LIKELY((ln = next(rdr)) != NULL) &&
-			 (UNLIKELY(ev == NULL) ||
-			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
-	}
-
-	free_coru(rdr);
-	free_coru(pop);
-	fini_coru();
-	fclose(f);
-	return 0;
 }
 
 static int
@@ -968,49 +910,6 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		goto out;
 	}
 
-	if (argi->edge_given) {
-		ctx->edgp = 1U;
-	}
-
-	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
-		const char *fn = argi->inputs[i];
-
-		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
-			error("cannot open trod file `%s'", fn);
-			res = 1;
-			goto out;
-		}
-	}
-
-	with (const char *fn = argi->inputs[1U]) {
-		truf_filt_tser_file(ctx, fn);
-	}
-
-out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
-	}
-	truf_free_trods();
-	return res;
-}
-
-static int
-cmd_testflt(struct truf_args_info argi[static 1U])
-{
-	static const char usg[] = "\
-Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
-	static struct truf_ctx_s ctx[1];
-	int res = 0;
-
-	if (argi->inputs_num < 2U) {
-		fputs(usg, stderr);
-		res = 1;
-		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
-		res = 1;
-		goto out;
-	}
-
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
@@ -1023,6 +922,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 
 	with (const char *fn = argi->inputs[1U]) {
 		coru_t edg;
+		coru_t out;
 		FILE *f;
 
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
@@ -1037,15 +937,19 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		} else {
 			edg = make_coru(co_tser_lev, ctx->q, f);
 		}
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given);
 
 		for (const struct co_edg_res_s *e; (e = next(edg)) != NULL;) {
 			if (UNLIKELY(isnand32(e->last))) {
 				continue;
 			}
-			pr_last(e->t, e->c, e->last);
+			____next(out, e);
 		}
 
 		free_coru(edg);
+		free_coru(out);
 		fini_coru();
 	}
 out:
@@ -1118,8 +1022,6 @@ main(int argc, char *argv[])
 			res = cmd_filter(argi);
 		} else if (!strcmp(cmd, "position")) {
 			res = cmd_position(argi);
-		} else if (!strcmp(cmd, "testflt")) {
-			res = cmd_testflt(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
