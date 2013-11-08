@@ -58,13 +58,13 @@
 # pragma warning (disable:1572)
 #endif /* __INTEL_COMPILER */
 
-struct truf_ctx_s {
-	truf_wheap_t q;
+typedef const struct truf_tsv_s *truf_tsv_t;
 
-	unsigned int edgp:1U;
-	unsigned int relp:1U;
-	unsigned int absp:1U;
-	unsigned int ocop:1U;
+struct truf_tsv_s {
+	echs_instant_t t;
+	uintptr_t sym;
+	truf_price_t prc[2U];
+	truf_expos_t exp[2U];
 };
 
 
@@ -197,7 +197,7 @@ static size_t ntrods;
 static size_t trodi;
 
 static int
-truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
+truf_add_trod(truf_wheap_t q, echs_instant_t t, truf_trod_t d)
 {
 	uintptr_t qmsg;
 
@@ -212,7 +212,7 @@ truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
 	qmsg = (uintptr_t)trodi;
 	trods[trodi++] = d;
 	/* insert to heap */
-	truf_wheap_add_deferred(ctx->q, t, qmsg);
+	truf_wheap_add_deferred(q, t, qmsg);
 	return 0;
 }
 
@@ -275,20 +275,26 @@ declcoru(co_echs_pop, {
 		truf_wheap_t q;
 	}, {});
 
-static const struct co_pop_res_s {
-	echs_instant_t t;
-	truf_trod_t edge;
-} *defcoru(co_echs_pop, c, UNUSED(arg))
+static truf_tsv_t
+defcoru(co_echs_pop, c, UNUSED(arg))
 {
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
-	struct co_pop_res_s res;
+	struct truf_tsv_s res = {
+		.prc[0U] = nand32(NULL),
+		.prc[1U] = nand32(NULL),
+		.exp[1U] = nand32(NULL),
+	};
 
 	while (!echs_instant_0_p(res.t = truf_wheap_top_rank(c->q))) {
 		/* assume it's a truf_trod_t */
 		uintptr_t tmp = truf_wheap_pop(c->q);
-		res.edge = trods[tmp];
+		res.sym = trods[tmp].sym;
+		*res.exp = trods[tmp].exp;
 		yield(res);
+		if (!truf_mmy_p(res.sym) && res.sym) {
+			free((char*)res.sym);
+		}
 	}
 	return 0;
 }
@@ -322,21 +328,17 @@ declcoru(co_echs_out, {
 		unsigned int relp:1U;
 		unsigned int absp:1U;
 		unsigned int ocop:1U;
-	}, {
-		echs_instant_t dt;
-		uintptr_t sym;
-		_Decimal32 val;
-	});
+	}, {});
 
 static const void*
-defcoru(co_echs_out, ia, arg)
+_defcoru(co_echs_out, ia, truf_tsv_t arg)
 {
 	char buf[256U];
 	const char *const ep = buf + sizeof(buf);
 
 	while (arg != NULL) {
 		char *bp = buf;
-		echs_instant_t t = arg->dt;
+		echs_instant_t t = arg->t;
 
 		bp += dt_strf(bp, ep - bp, t);
 		*bp++ = '\t';
@@ -358,8 +360,22 @@ defcoru(co_echs_out, ia, arg)
 			}
 			bp += truf_mmy_wr(bp, ep - bp, sym);
 		}
-		*bp++ = '\t';
-		bp += d32tostr(bp, ep - bp, arg->val);
+		if (!isnand32(arg->prc[0U])) {
+			*bp++ = '\t';
+			bp += d32tostr(bp, ep - bp, arg->prc[0U]);
+		}
+		if (!isnand32(arg->prc[1U])) {
+			*bp++ = '\t';
+			bp += d32tostr(bp, ep - bp, arg->prc[1U]);
+		}
+		if (!isnand32(arg->exp[0U])) {
+			*bp++ = '\t';
+			bp += d32tostr(bp, ep - bp, arg->exp[0U]);
+		}
+		if (!isnand32(arg->exp[1U])) {
+			*bp++ = '\t';
+			bp += d32tostr(bp, ep - bp, arg->exp[1U]);
+		}
 		*bp++ = '\n';
 		*bp = '\0';
 		fputs(buf, ia->f);
@@ -374,24 +390,19 @@ declcoru(co_tser_edg, {
 		FILE *tser;
 	}, {});
 
-static const struct co_edg_res_s {
-	echs_instant_t t;
-	truf_mmy_t c;
-	truf_price_t last;
-	_Decimal32 exp_ol;
-	_Decimal32 exp_nu;
-} *defcoru(co_tser_edg, ia, UNUSED(arg))
+static truf_tsv_t
+defcoru(co_tser_edg, ia, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes */
 	coru_t rdr;
 	coru_t pop;
-	struct co_edg_res_s res;
+	struct truf_tsv_s res = {.prc[1U] = nand32(NULL)};
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
 	pop = make_coru(co_echs_pop, ia->q);
 
-	const struct co_pop_res_s *ev;
+	truf_tsv_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
 		/* sum up caevs in between price lines */
@@ -399,35 +410,32 @@ static const struct co_edg_res_s {
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			truf_mmy_t c = ev->edge.sym;
+			truf_mmy_t c = ev->sym;
 			size_t i;
 
+			/* prep yield */
+			res.t = ev->t;
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ev->t.y);
 			}
-			if (ev->edge.exp == 0.df) {
-				if (relevantp(i = lstk_find(c))) {
-					/* yield edge and exposure */
-					res.t = ev->t;
-					res.c = c;
-					res.exp_ol = lstk[i].d.exp;
-					res.exp_nu = 0.df;
-					res.last = lstk[i].last;
-					yield(res);
-				}
-				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			res.sym = c;
+			if (relevantp(i = lstk_find(c))) {
+				res.prc[0U] = lstk[i].last;
+				res.exp[0U] = lstk[i].d.exp;
 			} else {
-				lstk_join((truf_trod_t){c, ev->edge.exp});
-				if (relevantp(i = lstk_find(c))) {
-					/* yield edge and exposure */
-					res.t = ev->t;
-					res.c = c;
-					res.exp_ol = lstk[i].d.exp;
-					res.exp_nu = ev->edge.exp;
-					res.last = lstk[i].last;
-					yield(res);
-				}
+				res.prc[0U] = nand32(NULL);
+				res.exp[0U] = 0.df;
 			}
+			res.exp[1U] = *ev->exp;
+
+			/* make sure we massage the lstk */
+			if (ev->exp[0U] == 0.df) {
+				lstk_kick((truf_trod_t){c, *ev->exp});
+			} else {
+				lstk_join((truf_trod_t){c, *ev->exp});
+			}
+
+			yield(res);
 		}
 
 		/* apply roll-over directives to price lines */
@@ -449,10 +457,10 @@ static const struct co_edg_res_s {
 				/* yield edge and exposure */
 				if (UNLIKELY(prntp)) {
 					res.t = ln->t;
-					res.c = c;
-					res.exp_ol = lstk[i].d.exp;
-					res.exp_nu = lstk[i].d.exp;
-					res.last = p;
+					res.sym = c;
+					res.prc[0U] = p;
+					res.exp[0U] = lstk[i].d.exp;
+					res.exp[1U] = lstk[i].d.exp;
 					yield(res);
 				}
 			}
@@ -472,19 +480,19 @@ declcoru(co_tser_lev, {
 		FILE *tser;
 	}, {});
 
-static const struct co_edg_res_s*
+static truf_tsv_t
 defcoru(co_tser_lev, ia, UNUSED(arg))
 {
 /* yields a co_edg_res whenever a tick in the time series occurs */
 	coru_t rdr;
 	coru_t pop;
-	struct co_edg_res_s res;
+	struct truf_tsv_s res = {.prc[1U] = nand32(NULL)};
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
 	pop = make_coru(co_echs_pop, ia->q);
 
-	const struct co_pop_res_s *ev;
+	truf_tsv_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
 		/* sum up caevs in between price lines */
@@ -492,15 +500,15 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			truf_mmy_t c = ev->edge.sym;
+			truf_mmy_t c = ev->sym;
 
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ev->t.y);
 			}
-			if (ev->edge.exp == 0.df) {
-				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			if (*ev->exp == 0.df) {
+				lstk_kick((truf_trod_t){c, *ev->exp});
 			} else {
-				lstk_join((truf_trod_t){c, ev->edge.exp});
+				lstk_join((truf_trod_t){c, *ev->exp});
 			}
 		}
 
@@ -519,10 +527,10 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 
 				/* yield edge and exposure */
 				res.t = ln->t;
-				res.c = c;
-				res.exp_ol = lstk[i].d.exp;
-				res.exp_nu = lstk[i].d.exp;
-				res.last = p;
+				res.sym = c;
+				res.prc[0U] = p;
+				res.exp[0U] = lstk[i].d.exp;
+				res.exp[1U] = lstk[i].d.exp;
 				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
@@ -542,13 +550,17 @@ declcoru(co_echs_pos, {
 		size_t ndt;
 	}, {});
 
-static coru_argp(co_echs_out)
+static truf_tsv_t
 defcoru(co_echs_pos, ia, UNUSED(arg))
 {
 /* yields something that co_echs_out can use directly */
 	coru_t rdr;
 	coru_t pop;
-	coru_args(co_echs_out) res;
+	struct truf_tsv_s res = {
+		.prc[0U] = nand32(NULL),
+		.prc[1U] = nand32(NULL),
+		.exp[1U] = nand32(NULL),
+	};
 
 	init_coru();
 	if (ia->ndt == 0U) {
@@ -559,7 +571,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 	}
 	pop = make_coru(co_echs_pop, ia->q);
 
-	const struct co_pop_res_s *ev;
+	truf_tsv_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
 		/* in between date/times from the RDR find trods */
@@ -567,12 +579,12 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			truf_mmy_t c = ev->edge.sym;
+			truf_mmy_t c = ev->sym;
 
-			if (ev->edge.exp == 0.df) {
-				lstk_kick((truf_trod_t){c, ev->edge.exp});
+			if (*ev->exp == 0.df) {
+				lstk_kick((truf_trod_t){c, *ev->exp});
 			} else {
-				lstk_join((truf_trod_t){c, ev->edge.exp});
+				lstk_join((truf_trod_t){c, *ev->exp});
 			}
 		}
 
@@ -588,9 +600,9 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 					continue;
 				}
 				/* otherwise prep the yield */
-				res.dt = ln->t;
+				res.t = ln->t;
 				res.sym = lstk[i].d.sym;
-				res.val = lstk[i].d.exp;
+				res.exp[0U] = lstk[i].d.exp;
 				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
@@ -607,7 +619,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 
 /* public api, might go to libtruffle one day */
 static int
-truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
+truf_read_trod_file(truf_wheap_t q, const char *fn)
 {
 /* wants a const char *fn */
 	coru_t rdr;
@@ -626,46 +638,15 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 		/* try to read the whole shebang */
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
 		/* ... and add it */
-		truf_add_trod(ctx, ln->t, c);
+		truf_add_trod(q, ln->t, c);
 	}
 	/* now sort the guy */
-	truf_wheap_fix_deferred(ctx->q);
+	truf_wheap_fix_deferred(q);
 
 	free_coru(rdr);
 	fini_coru();
 	fclose(f);
 	return 0;
-}
-
-static void
-truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
-{
-	for (echs_instant_t t;
-	     !echs_instant_0_p(t = truf_wheap_top_rank(ctx->q));) {
-		uintptr_t tmp = truf_wheap_pop(ctx->q);
-		truf_trod_t this = trods[tmp];
-		char buf[256U];
-		char *bp = buf;
-		const char *const ep = buf + sizeof(buf);
-
-		bp += dt_strf(bp, ep - bp, t);
-		*bp++ = '\t';
-		if (ctx->ocop) {
-			this.sym = truf_mmy_oco(this.sym, t.y);
-		} else if (ctx->absp) {
-			this.sym = truf_mmy_abs(this.sym, t.y);
-		} else if (ctx->relp) {
-			this.sym = truf_mmy_rel(this.sym, t.y);
-		}
-		bp += truf_trod_wr(bp, ep - bp, this);
-		*bp++ = '\n';
-		*bp = '\0';
-		fputs(buf, f);
-		if (!truf_mmy_p(this.sym) && this.sym) {
-			free((char*)this.sym);
-		}
-	}
-	return;
 }
 
 
@@ -765,7 +746,7 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 }
 
 static void
-bang_schema(struct truf_ctx_s ctx[static 1], trsch_t sch, daisy_t when)
+bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 {
 	echs_instant_t t = daisy_to_instant(when);
 
@@ -782,11 +763,11 @@ bang_schema(struct truf_ctx_s ctx[static 1], trsch_t sch, daisy_t when)
 			;
 		} else {
 			/* just add the guy */
-			truf_add_trod(ctx, t, d);
+			truf_add_trod(q, t, d);
 		}
 	}
 	/* and sort the guy */
-	truf_wheap_fix_deferred(ctx->q);
+	truf_wheap_fix_deferred(q);
 	return;
 }
 
@@ -804,41 +785,50 @@ static int
 cmd_print(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "Usage: truffle print [TROD-FILE]...\n";
-	static struct truf_ctx_s ctx[1];
+	truf_wheap_t q;
 	int res = 0;
 
 	if (argi->inputs_num < 1U) {
 		fputs(usg, stderr);
 		res = 1;
 		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
-	}
-
-	if (argi->oco_given) {
-		ctx->ocop = 1U;
-	} else if (argi->abs_given) {
-		ctx->absp = 1U;
-	} else if (argi->rel_given) {
-		ctx->relp = 1U;
 	}
 
 	for (unsigned int i = 1U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
-		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
 		}
 	}
 	/* and print him */
-	truf_prnt_trod_file(ctx, stdout);
+	{
+		coru_t pop;
+		coru_t out;
+
+		init_coru();
+		pop = make_coru(co_echs_pop, q);
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given);
+
+		for (const struct co_pop_res_s *e; (e = next(pop)) != NULL;) {
+			____next(out, e);
+		}
+
+		free_coru(pop);
+		free_coru(out);
+		fini_coru();
+	}
 
 out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
 	}
 	truf_free_trods();
 	return res;
@@ -848,7 +838,7 @@ static int
 cmd_migrate(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "Usage: truffle migrate [SCHEMA-FILE]...\n";
-	static struct truf_ctx_s ctx[1];
+	truf_wheap_t q;
 	daisy_t from;
 	daisy_t till;
 	int res = 0;
@@ -857,7 +847,7 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 		fputs(usg, stderr);
 		res = 1;
 		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
@@ -883,23 +873,41 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 
 		if ((sch = read_schema(fn)) == NULL) {
 			/* try the normal trod reader */
-			(void)truf_read_trod_file(ctx, fn);
+			(void)truf_read_trod_file(q, fn);
 			continue;
 		}
 		/* bang into wheap */
 		for (daisy_t now = from; now <= till; now++) {
-			bang_schema(ctx, sch, now);
+			bang_schema(q, sch, now);
 		}
 		/* and out again */
 		free_schema(sch);
 	}
 
 	/* and print the whole wheap now */
-	truf_prnt_trod_file(ctx, stdout);
+	/* and print him */
+	{
+		coru_t pop;
+		coru_t out;
+
+		init_coru();
+		pop = make_coru(co_echs_pop, q);
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given);
+
+		for (const struct co_pop_res_s *e; (e = next(pop)) != NULL;) {
+			____next(out, e);
+		}
+
+		free_coru(pop);
+		free_coru(out);
+		fini_coru();
+	}
 
 out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
 	}
 	truf_free_trods();
 	return res;
@@ -910,14 +918,14 @@ cmd_filter(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
 Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
-	static struct truf_ctx_s ctx[1];
+	truf_wheap_t q;
 	int res = 0;
 
 	if (argi->inputs_num < 2U) {
 		fputs(usg, stderr);
 		res = 1;
 		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
@@ -925,7 +933,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
-		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
@@ -945,19 +953,25 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 
 		init_coru();
 		if (argi->edge_given) {
-			edg = make_coru(co_tser_edg, ctx->q, f);
+			edg = make_coru(co_tser_edg, q, f);
 		} else {
-			edg = make_coru(co_tser_lev, ctx->q, f);
+			edg = make_coru(co_tser_lev, q, f);
 		}
 		out = make_coru(
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given);
 
-		for (const struct co_edg_res_s *e; (e = next(edg)) != NULL;) {
-			if (UNLIKELY(isnand32(e->last))) {
+		for (truf_tsv_t e; (e = next(edg)) != NULL;) {
+			struct truf_tsv_s o;
+
+			if (UNLIKELY(isnand32(*e->prc))) {
 				continue;
 			}
-			____next(out, e);
+			/* prep and print */
+			o = *e;
+			o.exp[0U] = nand32(NULL);
+			o.exp[1U] = nand32(NULL);
+			next_with(out, o);
 		}
 
 		free_coru(edg);
@@ -965,8 +979,8 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		fini_coru();
 	}
 out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
 	}
 	truf_free_trods();
 	return res;
@@ -990,8 +1004,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
-		struct truf_ctx_s ctx = {q};
-		if (UNLIKELY(truf_read_trod_file(&ctx, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;

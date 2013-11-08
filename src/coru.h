@@ -51,6 +51,7 @@
 #define coru_argp(name)		const coru_args(name)*
 #define coru_initargp(name)	const coru_initargs(name)*
 #define defcoru(name, ia, in)	name(coru_argp(name) in, coru_initargp(name) ia)
+#define _defcoru(name, ia, xin)	name(xin, coru_initargp(name) ia)
 
 #define CORU_DEPTH		4U
 
@@ -108,10 +109,10 @@ static __thread coru_t ____caller[CORU_DEPTH];
 #define next(x)			____next(x, NULL)
 #define next_with(x, val)				\
 	({						\
-		static typeof((val)) TMP(res);		\
+		static typeof((val)) TMP(arg);		\
 							\
-		TMP(res) = val;				\
-		____next(x, &TMP(res));			\
+		TMP(arg) = val;				\
+		____next(x, &TMP(arg));			\
 	})
 #define ____next(x, ptr)				\
 	({							\
