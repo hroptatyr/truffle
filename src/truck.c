@@ -58,15 +58,6 @@
 # pragma warning (disable:1572)
 #endif /* __INTEL_COMPILER */
 
-struct truf_ctx_s {
-	truf_wheap_t q;
-
-	unsigned int edgp:1U;
-	unsigned int relp:1U;
-	unsigned int absp:1U;
-	unsigned int ocop:1U;
-};
-
 
 static void
 __attribute__((format(printf, 1, 2)))
@@ -197,7 +188,7 @@ static size_t ntrods;
 static size_t trodi;
 
 static int
-truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
+truf_add_trod(truf_wheap_t q, echs_instant_t t, truf_trod_t d)
 {
 	uintptr_t qmsg;
 
@@ -212,7 +203,7 @@ truf_add_trod(struct truf_ctx_s ctx[static 1U], echs_instant_t t, truf_trod_t d)
 	qmsg = (uintptr_t)trodi;
 	trods[trodi++] = d;
 	/* insert to heap */
-	truf_wheap_add_deferred(ctx->q, t, qmsg);
+	truf_wheap_add_deferred(q, t, qmsg);
 	return 0;
 }
 
@@ -610,7 +601,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 
 /* public api, might go to libtruffle one day */
 static int
-truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
+truf_read_trod_file(truf_wheap_t q, const char *fn)
 {
 /* wants a const char *fn */
 	coru_t rdr;
@@ -629,46 +620,15 @@ truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
 		/* try to read the whole shebang */
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
 		/* ... and add it */
-		truf_add_trod(ctx, ln->t, c);
+		truf_add_trod(q, ln->t, c);
 	}
 	/* now sort the guy */
-	truf_wheap_fix_deferred(ctx->q);
+	truf_wheap_fix_deferred(q);
 
 	free_coru(rdr);
 	fini_coru();
 	fclose(f);
 	return 0;
-}
-
-static void
-truf_prnt_trod_file(struct truf_ctx_s ctx[static 1U], FILE *f)
-{
-	for (echs_instant_t t;
-	     !echs_instant_0_p(t = truf_wheap_top_rank(ctx->q));) {
-		uintptr_t tmp = truf_wheap_pop(ctx->q);
-		truf_trod_t this = trods[tmp];
-		char buf[256U];
-		char *bp = buf;
-		const char *const ep = buf + sizeof(buf);
-
-		bp += dt_strf(bp, ep - bp, t);
-		*bp++ = '\t';
-		if (ctx->ocop) {
-			this.sym = truf_mmy_oco(this.sym, t.y);
-		} else if (ctx->absp) {
-			this.sym = truf_mmy_abs(this.sym, t.y);
-		} else if (ctx->relp) {
-			this.sym = truf_mmy_rel(this.sym, t.y);
-		}
-		bp += truf_trod_wr(bp, ep - bp, this);
-		*bp++ = '\n';
-		*bp = '\0';
-		fputs(buf, f);
-		if (!truf_mmy_p(this.sym) && this.sym) {
-			free((char*)this.sym);
-		}
-	}
-	return;
 }
 
 
@@ -768,7 +728,7 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 }
 
 static void
-bang_schema(struct truf_ctx_s ctx[static 1], trsch_t sch, daisy_t when)
+bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 {
 	echs_instant_t t = daisy_to_instant(when);
 
@@ -785,11 +745,11 @@ bang_schema(struct truf_ctx_s ctx[static 1], trsch_t sch, daisy_t when)
 			;
 		} else {
 			/* just add the guy */
-			truf_add_trod(ctx, t, d);
+			truf_add_trod(q, t, d);
 		}
 	}
 	/* and sort the guy */
-	truf_wheap_fix_deferred(ctx->q);
+	truf_wheap_fix_deferred(q);
 	return;
 }
 
@@ -807,41 +767,50 @@ static int
 cmd_print(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "Usage: truffle print [TROD-FILE]...\n";
-	static struct truf_ctx_s ctx[1];
+	truf_wheap_t q;
 	int res = 0;
 
 	if (argi->inputs_num < 1U) {
 		fputs(usg, stderr);
 		res = 1;
 		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
-	}
-
-	if (argi->oco_given) {
-		ctx->ocop = 1U;
-	} else if (argi->abs_given) {
-		ctx->absp = 1U;
-	} else if (argi->rel_given) {
-		ctx->relp = 1U;
 	}
 
 	for (unsigned int i = 1U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
-		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
 		}
 	}
 	/* and print him */
-	truf_prnt_trod_file(ctx, stdout);
+	{
+		coru_t pop;
+		coru_t out;
+
+		init_coru();
+		pop = make_coru(co_echs_pop, q);
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given);
+
+		for (const struct co_pop_res_s *e; (e = next(pop)) != NULL;) {
+			____next(out, e);
+		}
+
+		free_coru(pop);
+		free_coru(out);
+		fini_coru();
+	}
 
 out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
 	}
 	truf_free_trods();
 	return res;
@@ -851,7 +820,7 @@ static int
 cmd_migrate(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "Usage: truffle migrate [SCHEMA-FILE]...\n";
-	static struct truf_ctx_s ctx[1];
+	truf_wheap_t q;
 	daisy_t from;
 	daisy_t till;
 	int res = 0;
@@ -860,7 +829,7 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 		fputs(usg, stderr);
 		res = 1;
 		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
@@ -886,23 +855,41 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 
 		if ((sch = read_schema(fn)) == NULL) {
 			/* try the normal trod reader */
-			(void)truf_read_trod_file(ctx, fn);
+			(void)truf_read_trod_file(q, fn);
 			continue;
 		}
 		/* bang into wheap */
 		for (daisy_t now = from; now <= till; now++) {
-			bang_schema(ctx, sch, now);
+			bang_schema(q, sch, now);
 		}
 		/* and out again */
 		free_schema(sch);
 	}
 
 	/* and print the whole wheap now */
-	truf_prnt_trod_file(ctx, stdout);
+	/* and print him */
+	{
+		coru_t pop;
+		coru_t out;
+
+		init_coru();
+		pop = make_coru(co_echs_pop, q);
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given);
+
+		for (const struct co_pop_res_s *e; (e = next(pop)) != NULL;) {
+			____next(out, e);
+		}
+
+		free_coru(pop);
+		free_coru(out);
+		fini_coru();
+	}
 
 out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
 	}
 	truf_free_trods();
 	return res;
@@ -913,14 +900,14 @@ cmd_filter(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
 Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
-	static struct truf_ctx_s ctx[1];
+	truf_wheap_t q;
 	int res = 0;
 
 	if (argi->inputs_num < 2U) {
 		fputs(usg, stderr);
 		res = 1;
 		goto out;
-	} else if (UNLIKELY((ctx->q = make_truf_wheap()) == NULL)) {
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
@@ -928,7 +915,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
-		if (UNLIKELY(truf_read_trod_file(ctx, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
@@ -948,9 +935,9 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 
 		init_coru();
 		if (argi->edge_given) {
-			edg = make_coru(co_tser_edg, ctx->q, f);
+			edg = make_coru(co_tser_edg, q, f);
 		} else {
-			edg = make_coru(co_tser_lev, ctx->q, f);
+			edg = make_coru(co_tser_lev, q, f);
 		}
 		out = make_coru(
 			co_echs_out, stdout,
@@ -968,8 +955,8 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		fini_coru();
 	}
 out:
-	if (LIKELY(ctx->q != NULL)) {
-		free_truf_wheap(ctx->q);
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
 	}
 	truf_free_trods();
 	return res;
@@ -993,8 +980,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
-		struct truf_ctx_s ctx = {q};
-		if (UNLIKELY(truf_read_trod_file(&ctx, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
