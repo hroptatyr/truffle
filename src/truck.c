@@ -317,6 +317,58 @@ defcoru(co_inst_rdr, c, UNUSED(arg))
 	return 0;
 }
 
+declcoru(co_echs_out, {
+		FILE *f;
+		unsigned int relp:1U;
+		unsigned int absp:1U;
+		unsigned int ocop:1U;
+	}, {
+		echs_instant_t dt;
+		uintptr_t sym;
+		_Decimal32 val;
+	});
+
+static const void*
+defcoru(co_echs_out, ia, arg)
+{
+	char buf[256U];
+	const char *const ep = buf + sizeof(buf);
+
+	while (arg != NULL) {
+		char *bp = buf;
+		echs_instant_t t = arg->dt;
+
+		bp += dt_strf(bp, ep - bp, t);
+		*bp++ = '\t';
+		if (UNLIKELY(arg->sym == 0U)) {
+			;
+		} else if (!truf_mmy_p(arg->sym)) {
+			bp += xstrlcpy(bp, (const void*)arg->sym, ep - bp);
+		} else {
+			truf_mmy_t sym;
+
+			if (ia->ocop) {
+				sym = truf_mmy_oco(arg->sym, t.y);
+			} else if (ia->absp) {
+				sym = truf_mmy_abs(arg->sym, t.y);
+			} else if (ia->relp) {
+				sym = truf_mmy_rel(arg->sym, t.y);
+			} else {
+				sym = arg->sym;
+			}
+			bp += truf_mmy_wr(bp, ep - bp, sym);
+		}
+		*bp++ = '\t';
+		bp += d32tostr(bp, ep - bp, arg->val);
+		*bp++ = '\n';
+		*bp = '\0';
+		fputs(buf, ia->f);
+
+		arg = yield(NULL);
+	}
+	return 0;
+}
+
 declcoru(co_tser_edg, {
 		truf_wheap_t q;
 		FILE *tser;
@@ -325,9 +377,9 @@ declcoru(co_tser_edg, {
 static const struct co_edg_res_s {
 	echs_instant_t t;
 	truf_mmy_t c;
+	truf_price_t last;
 	_Decimal32 exp_ol;
 	_Decimal32 exp_nu;
-	truf_price_t last;
 } *defcoru(co_tser_edg, ia, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes */
@@ -1023,6 +1075,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 
 	with (const char *fn = argi->inputs[1U]) {
 		coru_t edg;
+		coru_t out;
 		FILE *f;
 
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
@@ -1037,12 +1090,15 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		} else {
 			edg = make_coru(co_tser_lev, ctx->q, f);
 		}
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given);
 
 		for (const struct co_edg_res_s *e; (e = next(edg)) != NULL;) {
 			if (UNLIKELY(isnand32(e->last))) {
 				continue;
 			}
-			pr_last(e->t, e->c, e->last);
+			____next(out, e);
 		}
 
 		free_coru(edg);
