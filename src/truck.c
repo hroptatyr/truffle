@@ -422,33 +422,25 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
-			size_t i;
+			lstk_t i;
 
 			/* prep yield */
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ev->t.y);
 			}
-
+			/* make sure we massage the lstk */
+			if (ev->exp[0U] == 0.df) {
+				i = lstk_kick(c);
+			} else {
+				i = lstk_join(c, ev->exp[0U]);
+			}
 			if (ia->edgp) {
 				res.t = ev->t;
 				res.sym = c;
-				if (relevantp(i = lstk_find(c))) {
-					res.prc[0U] = lstk[i].last;
-					res.exp[0U] = lstk[i].d.exp;
-				} else {
-					res.prc[0U] = nand32(NULL);
-					res.exp[0U] = 0.df;
-				}
-				res.exp[1U] = *ev->exp;
-			}
-
-			/* make sure we massage the lstk */
-			if (ev->exp[0U] == 0.df) {
-				lstk_kick((truf_trod_t){c, *ev->exp});
-			} else {
-				lstk_join((truf_trod_t){c, *ev->exp});
-			}
-			if (ia->edgp) {
+				res.prc[0U] = lstk[i].bid;
+				res.prc[1U] = lstk[i].ask;
+				res.exp[0U] = lstk[i].exp;
+				res.exp[1U] = ev->exp[0U];
 				yield(res);
 			}
 		}
@@ -457,7 +449,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 		do {
 			char *on;
 			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
-			size_t i;
+			lstk_t i;
 
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ln->t.y);
@@ -465,17 +457,17 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
 				truf_price_t p = strtod32(on + 1U, &on);
-				bool prntp = isnand32(lstk[i].last);
+				bool prntp = isnand32(lstk[i].bid);
 
 				/* keep track of last price */
-				lstk[i].last = p;
+				lstk[i].bid = p;
 				/* yield edge and exposure */
 				if (ia->levp || UNLIKELY(prntp)) {
 					res.t = ln->t;
 					res.sym = c;
 					res.prc[0U] = p;
-					res.exp[0U] = lstk[i].d.exp;
-					res.exp[1U] = lstk[i].d.exp;
+					res.exp[0U] = lstk[i].exp;
+					res.exp[1U] = lstk[i].exp;
 					yield(res);
 				}
 			}
@@ -527,10 +519,10 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
 
-			if (*ev->exp == 0.df) {
-				lstk_kick((truf_trod_t){c, *ev->exp});
+			if (ev->exp[0U] == 0.df) {
+				lstk_kick(c);
 			} else {
-				lstk_join((truf_trod_t){c, *ev->exp});
+				lstk_join(c, ev->exp[0U]);
 			}
 		}
 
@@ -541,14 +533,14 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 
 			bp += dt_strf(bp, ep - bp, ln->t);
 			*bp++ = '\t';
-			for (size_t i = imin; i < imax; i++) {
-				if (lstk[i].d.sym == 0U) {
+			for (lstk_t i = imin; i < imax; i++) {
+				if (lstk_emptyp(i)) {
 					continue;
 				}
 				/* otherwise prep the yield */
 				res.t = ln->t;
-				res.sym = lstk[i].d.sym;
-				res.exp[0U] = lstk[i].d.exp;
+				res.sym = lstk[i].sym;
+				res.exp[0U] = lstk[i].exp;
 				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
