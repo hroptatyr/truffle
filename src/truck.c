@@ -450,8 +450,12 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 
 				/* keep track of last price */
 				lstk[i].bid = p;
-				/* yield edge and exposure */
-				if (ia->levp || UNLIKELY(prntp)) {
+
+				if (lstk[i].new == 0.df) {
+					/* just track the price, no yield */
+					;
+				} else if (ia->levp || UNLIKELY(prntp)) {
+					/* yield edge and exposure */
 					res = lstk[i];
 					res.t = ln->t;
 					yield(res);
