@@ -406,7 +406,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 /* yields a co_edg_res when exposure changes */
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res = {.ask = nand32(NULL)};
+	struct truf_tsv_s res;
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
@@ -486,7 +486,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 /* yields something that co_echs_out can use directly */
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res = {.old = nand32(NULL)};
+	struct truf_tsv_s res;
 
 	init_coru();
 	if (ia->ndt == 0U) {
@@ -528,6 +528,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 				/* otherwise prep the yield */
 				res = lstk[i];
 				res.t = ln->t;
+				res.old = nand32(NULL);
 				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
