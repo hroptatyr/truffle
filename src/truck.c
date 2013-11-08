@@ -63,8 +63,10 @@ typedef const struct truf_tsv_s *truf_tsv_t;
 struct truf_tsv_s {
 	echs_instant_t t;
 	truf_sym_t sym;
-	truf_price_t prc[2U];
-	truf_expos_t exp[2U];
+	truf_price_t bid;
+	truf_price_t ask;
+	truf_expos_t new;
+	truf_expos_t old;
 };
 
 
@@ -100,12 +102,7 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 
 /* last price stacks */
 typedef size_t lstk_t;
-static struct lstk_s {
-	truf_sym_t sym;
-	truf_expos_t exp;
-	truf_price_t bid;
-	truf_price_t ask;
-} lstk[64U];
+static struct truf_tsv_s lstk[64U];
 static size_t imin;
 static size_t imax;
 
@@ -118,7 +115,7 @@ relevantp(lstk_t i)
 static bool
 lstk_emptyp(lstk_t i)
 {
-	return lstk[i].exp == 0.df;
+	return lstk[i].new == 0.df;
 }
 
 static lstk_t
@@ -141,7 +138,8 @@ lstk_kick(truf_sym_t sym)
 		return i;
 	}
 	/* otherwise kick the i-th slot */
-	lstk[i].exp = 0.df;
+	lstk[i].old = lstk[i].new;
+	lstk[i].new = 0.df;
 	if (i == imin) {
 		/* up imin */
 		for (size_t j = ++imin; j < imax; imin++, j++) {
@@ -181,11 +179,13 @@ lstk_join(truf_sym_t sym, truf_expos_t x)
 
 	if (relevantp(i = lstk_find(sym))) {
 		/* already in there, just set new exposure */
-		lstk[i].exp = x;
+		lstk[i].old = lstk[i].new;
+		lstk[i].new = x;
 	} else /*if (i == imax)*/ {
 		/* otherwise add */
 		lstk[i].sym = sym;
-		lstk[i].exp = x;
+		lstk[i].old = 0.df;
+		lstk[i].new = x;
 		lstk[i].bid = nand32(NULL);
 		lstk[i].ask = nand32(NULL);
 		imax++;
@@ -284,16 +284,14 @@ defcoru(co_echs_pop, c, UNUSED(arg))
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
 	struct truf_tsv_s res = {
-		.prc[0U] = nand32(NULL),
-		.prc[1U] = nand32(NULL),
-		.exp[1U] = nand32(NULL),
+		.old = nand32(NULL),
 	};
 
 	while (!echs_instant_0_p(res.t = truf_wheap_top_rank(c->q))) {
 		/* assume it's a truf_trod_t */
 		uintptr_t tmp = truf_wheap_pop(c->q);
 		res.sym = trods[tmp].sym;
-		*res.exp = trods[tmp].exp;
+		res.new = trods[tmp].exp;
 		yield(res);
 		if (!truf_mmy_p(res.sym) && res.sym) {
 			free((char*)res.sym);
@@ -366,23 +364,24 @@ _defcoru(co_echs_out, ia, truf_tsv_t arg)
 			bp += truf_mmy_wr(bp, ep - bp, sym);
 		}
 		if (ia->prnt_prcp) {
-			if (!isnand32(arg->prc[0U])) {
+			if (!isnand32(arg->bid)) {
 				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->prc[0U]);
+				bp += d32tostr(bp, ep - bp, arg->bid);
 			}
-			if (!isnand32(arg->prc[1U])) {
+			if (!isnand32(arg->ask)) {
 				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->prc[1U]);
+				bp += d32tostr(bp, ep - bp, arg->ask);
 			}
 		}
 		if (ia->prnt_expp) {
-			if (!isnand32(arg->exp[0U])) {
-				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->exp[0U]);
+			*bp++ = '\t';
+			if (!isnand32(arg->old)) {
+				bp += d32tostr(bp, ep - bp, arg->old);
+				*bp++ = '-';
+				*bp++ = '>';
 			}
-			if (!isnand32(arg->exp[1U])) {
-				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->exp[1U]);
+			if (!isnand32(arg->new)) {
+				bp += d32tostr(bp, ep - bp, arg->new);
 			}
 		}
 		*bp++ = '\n';
@@ -407,7 +406,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 /* yields a co_edg_res when exposure changes */
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res = {.prc[1U] = nand32(NULL)};
+	struct truf_tsv_s res = {.ask = nand32(NULL)};
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
@@ -429,18 +428,14 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				c = truf_mmy_abs(c, ev->t.y);
 			}
 			/* make sure we massage the lstk */
-			if (ev->exp[0U] == 0.df) {
+			if (ev->new == 0.df) {
 				i = lstk_kick(c);
 			} else {
-				i = lstk_join(c, ev->exp[0U]);
+				i = lstk_join(c, ev->new);
 			}
 			if (ia->edgp) {
+				res = lstk[i];
 				res.t = ev->t;
-				res.sym = c;
-				res.prc[0U] = lstk[i].bid;
-				res.prc[1U] = lstk[i].ask;
-				res.exp[0U] = lstk[i].exp;
-				res.exp[1U] = ev->exp[0U];
 				yield(res);
 			}
 		}
@@ -463,11 +458,8 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				lstk[i].bid = p;
 				/* yield edge and exposure */
 				if (ia->levp || UNLIKELY(prntp)) {
+					res = lstk[i];
 					res.t = ln->t;
-					res.sym = c;
-					res.prc[0U] = p;
-					res.exp[0U] = lstk[i].exp;
-					res.exp[1U] = lstk[i].exp;
 					yield(res);
 				}
 			}
@@ -494,11 +486,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 /* yields something that co_echs_out can use directly */
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res = {
-		.prc[0U] = nand32(NULL),
-		.prc[1U] = nand32(NULL),
-		.exp[1U] = nand32(NULL),
-	};
+	struct truf_tsv_s res = {.old = nand32(NULL)};
 
 	init_coru();
 	if (ia->ndt == 0U) {
@@ -519,10 +507,10 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
 
-			if (ev->exp[0U] == 0.df) {
+			if (ev->new == 0.df) {
 				lstk_kick(c);
 			} else {
-				lstk_join(c, ev->exp[0U]);
+				lstk_join(c, ev->new);
 			}
 		}
 
@@ -538,9 +526,8 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 					continue;
 				}
 				/* otherwise prep the yield */
+				res = lstk[i];
 				res.t = ln->t;
-				res.sym = lstk[i].sym;
-				res.exp[0U] = lstk[i].exp;
 				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
@@ -900,7 +887,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 			.prnt_prcp = true);
 
 		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
-			if (UNLIKELY(isnand32(*e->prc))) {
+			if (UNLIKELY(isnand32(e->bid))) {
 				continue;
 			}
 			____next(out, e);
