@@ -130,14 +130,9 @@ lstk_find(truf_sym_t contract)
 }
 
 static lstk_t
-lstk_kick(truf_sym_t sym)
+lstk_kick(lstk_t i)
 {
-	lstk_t i;
-
-	if (!relevantp(i = lstk_find(sym))) {
-		return i;
-	}
-	/* otherwise kick the i-th slot */
+	/* kick the i-th slot */
 	lstk[i].old = lstk[i].new;
 	lstk[i].new = 0.df;
 	if (i == imin) {
@@ -173,11 +168,14 @@ lstk_kick(truf_sym_t sym)
 }
 
 static lstk_t
-lstk_join(truf_sym_t sym, truf_expos_t x)
+lstk_updt_exp(truf_sym_t sym, truf_expos_t x)
 {
 	lstk_t i;
 
-	if (relevantp(i = lstk_find(sym))) {
+	if (relevantp(i = lstk_find(sym)) && x == 0.df) {
+		/* kick him */
+		i = lstk_kick(i);
+	} else if (relevantp(i)) {
 		/* already in there, just set new exposure */
 		lstk[i].old = lstk[i].new;
 		lstk[i].new = x;
@@ -428,11 +426,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				c = truf_mmy_abs(c, ev->t.y);
 			}
 			/* make sure we massage the lstk */
-			if (ev->new == 0.df) {
-				i = lstk_kick(c);
-			} else {
-				i = lstk_join(c, ev->new);
-			}
+			i = lstk_updt_exp(c, ev->new);
 			if (ia->edgp) {
 				res = lstk[i];
 				res.t = ev->t;
@@ -507,11 +501,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
 
-			if (ev->new == 0.df) {
-				lstk_kick(c);
-			} else {
-				lstk_join(c, ev->new);
-			}
+			lstk_updt_exp(c, ev->new);
 		}
 
 		do {
