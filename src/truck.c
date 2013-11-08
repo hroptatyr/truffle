@@ -537,40 +537,6 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 }
 
 
-/* auxils between coru and beef routines */
-static void
-pr_rdr_res(const struct co_rdr_res_s *ln)
-{
-	char buf[256U];
-	char *bp;
-	const char *const ep = buf + sizeof(buf);
-
-	bp = buf;
-	bp += dt_strf(bp, ep - bp, ln->t);
-	*bp++ = '\t';
-	xstrlcpy(bp, ln->ln, ln->lz - 1);
-	puts(buf);
-	return;
-}
-
-static void
-pr_last(echs_instant_t i, truf_mmy_t sym, truf_price_t last)
-{
-	char buf[256U];
-	char *bp;
-	const char *const ep = buf + sizeof(buf);
-
-	bp = buf;
-	bp += dt_strf(bp, ep - bp, i);
-	*bp++ = '\t';
-	bp += truf_mmy_wr(bp, ep - bp, sym);
-	*bp++ = '\t';
-	d32tostr(bp, ep - bp, last);
-	puts(buf);
-	return;
-}
-
-
 /* public api, might go to libtruffle one day */
 static int
 truf_read_trod_file(struct truf_ctx_s ctx[static 1U], const char *fn)
