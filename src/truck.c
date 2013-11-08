@@ -62,9 +62,11 @@ typedef const struct truf_tsv_s *truf_tsv_t;
 
 struct truf_tsv_s {
 	echs_instant_t t;
-	uintptr_t sym;
-	truf_price_t prc[2U];
-	truf_expos_t exp[2U];
+	truf_sym_t sym;
+	truf_price_t bid;
+	truf_price_t ask;
+	truf_expos_t new;
+	truf_expos_t old;
 };
 
 
@@ -99,39 +101,49 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 
 
 /* last price stacks */
-static struct lstk_s {
-	truf_trod_t d;
-	truf_price_t last;
-} lstk[64U];
+typedef size_t lstk_t;
+static struct truf_tsv_s lstk[64U];
 static size_t imin;
 static size_t imax;
 
-static size_t
-lstk_find(truf_mmy_t contract)
+static bool
+relevantp(lstk_t i)
+{
+	return i < imax;
+}
+
+static bool
+lstk_emptyp(lstk_t i)
+{
+	return lstk[i].new == 0.df;
+}
+
+static lstk_t
+lstk_find(truf_sym_t contract)
 {
 	for (size_t i = imin; i < imax; i++) {
-		if (truf_mmy_eq_p(lstk[i].d.sym, contract)) {
+		if (truf_mmy_eq_p(lstk[i].sym, contract)) {
 			return i;
 		}
 	}
 	return imax;
 }
 
-static void
-lstk_kick(truf_trod_t directive)
+static lstk_t
+lstk_kick(truf_sym_t sym)
 {
-	size_t i;
+	lstk_t i;
 
-	if ((i = lstk_find(directive.sym)) >= imax) {
-		return;
+	if (!relevantp(i = lstk_find(sym))) {
+		return i;
 	}
 	/* otherwise kick the i-th slot */
-	lstk[i].d = truf_nul_trod();
-	lstk[i].last = 0.df;
+	lstk[i].old = lstk[i].new;
+	lstk[i].new = 0.df;
 	if (i == imin) {
 		/* up imin */
 		for (size_t j = ++imin; j < imax; imin++, j++) {
-			if (lstk[j].d.sym != 0U) {
+			if (!lstk_emptyp(j)) {
 				break;
 			}
 		}
@@ -139,7 +151,7 @@ lstk_kick(truf_trod_t directive)
 	if (i == imax - 1U) {
 		/* down imax */
 		for (size_t j = imax; --j >= imin; imax--) {
-			if (lstk[j].d.sym != 0U) {
+			if (!lstk_emptyp(j)) {
 				break;
 			}
 		}
@@ -147,47 +159,38 @@ lstk_kick(truf_trod_t directive)
 	/* condense imin/imax, only if imin or imax reach into
 	 * the other half of the lstack */
 	if (imin >= countof(lstk) / 2U || imin && imax >= countof(lstk) / 2U) {
+		if (i < imin)
+		/* copy kicked lstk item, so we can still access the
+		 * symbol et al */
+		lstk[imax] = lstk[i];
+		i = imax;
+		/* now do the actual condensing */
 		memmove(lstk + 0U, lstk + imin, (imax - imin) * sizeof(*lstk));
 		imax -= imin;
 		imin = 0;
 	}
-	return;
+	return i;
 }
 
-static void
-lstk_join(truf_trod_t directive)
+static lstk_t
+lstk_join(truf_sym_t sym, truf_expos_t x)
 {
-	size_t i;
+	lstk_t i;
 
-	if ((i = lstk_find(directive.sym)) < imax) {
-		/* already in there, just fuck off */
-		return;
-	}
-	/* otherwise add */
-	lstk[imax].d = directive;
-	lstk[imax].last = nand32(NULL);
-	imax++;
-	return;
-}
-
-static bool
-relevantp(size_t i)
-{
-	return i < imax;
-}
-
-static __attribute__((unused)) void
-lstk_prnt(void)
-{
-	char buf[256U];
-	const char *const ep = buf + sizeof(buf);
-
-	for (size_t i = imin; i < imax; i++) {
-		char *bp = buf;
-		truf_trod_wr(bp, ep - bp, lstk[i].d);
-		puts(buf);
-	}
-	return;
+	if (relevantp(i = lstk_find(sym))) {
+		/* already in there, just set new exposure */
+		lstk[i].old = lstk[i].new;
+		lstk[i].new = x;
+	} else /*if (i == imax)*/ {
+		/* otherwise add */
+		lstk[i].sym = sym;
+		lstk[i].old = 0.df;
+		lstk[i].new = x;
+		lstk[i].bid = nand32(NULL);
+		lstk[i].ask = nand32(NULL);
+		imax++;
+	};
+	return i;
 }
 
 
@@ -281,16 +284,14 @@ defcoru(co_echs_pop, c, UNUSED(arg))
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
 	struct truf_tsv_s res = {
-		.prc[0U] = nand32(NULL),
-		.prc[1U] = nand32(NULL),
-		.exp[1U] = nand32(NULL),
+		.old = nand32(NULL),
 	};
 
 	while (!echs_instant_0_p(res.t = truf_wheap_top_rank(c->q))) {
 		/* assume it's a truf_trod_t */
 		uintptr_t tmp = truf_wheap_pop(c->q);
 		res.sym = trods[tmp].sym;
-		*res.exp = trods[tmp].exp;
+		res.new = trods[tmp].exp;
 		yield(res);
 		if (!truf_mmy_p(res.sym) && res.sym) {
 			free((char*)res.sym);
@@ -363,23 +364,24 @@ _defcoru(co_echs_out, ia, truf_tsv_t arg)
 			bp += truf_mmy_wr(bp, ep - bp, sym);
 		}
 		if (ia->prnt_prcp) {
-			if (!isnand32(arg->prc[0U])) {
+			if (!isnand32(arg->bid)) {
 				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->prc[0U]);
+				bp += d32tostr(bp, ep - bp, arg->bid);
 			}
-			if (!isnand32(arg->prc[1U])) {
+			if (!isnand32(arg->ask)) {
 				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->prc[1U]);
+				bp += d32tostr(bp, ep - bp, arg->ask);
 			}
 		}
 		if (ia->prnt_expp) {
-			if (!isnand32(arg->exp[0U])) {
-				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->exp[0U]);
+			*bp++ = '\t';
+			if (!isnand32(arg->old)) {
+				bp += d32tostr(bp, ep - bp, arg->old);
+				*bp++ = '-';
+				*bp++ = '>';
 			}
-			if (!isnand32(arg->exp[1U])) {
-				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->exp[1U]);
+			if (!isnand32(arg->new)) {
+				bp += d32tostr(bp, ep - bp, arg->new);
 			}
 		}
 		*bp++ = '\n';
@@ -395,6 +397,7 @@ declcoru(co_tser_flt, {
 		truf_wheap_t q;
 		FILE *tser;
 		unsigned int edgp:1U;
+		unsigned int levp:1U;
 	}, {});
 
 static truf_tsv_t
@@ -403,7 +406,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 /* yields a co_edg_res when exposure changes */
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res = {.prc[1U] = nand32(NULL)};
+	struct truf_tsv_s res;
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
@@ -418,33 +421,21 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
-			size_t i;
+			lstk_t i;
 
 			/* prep yield */
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ev->t.y);
 			}
-
-			if (ia->edgp) {
-				res.t = ev->t;
-				res.sym = c;
-				if (relevantp(i = lstk_find(c))) {
-					res.prc[0U] = lstk[i].last;
-					res.exp[0U] = lstk[i].d.exp;
-				} else {
-					res.prc[0U] = nand32(NULL);
-					res.exp[0U] = 0.df;
-				}
-				res.exp[1U] = *ev->exp;
-			}
-
 			/* make sure we massage the lstk */
-			if (ev->exp[0U] == 0.df) {
-				lstk_kick((truf_trod_t){c, *ev->exp});
+			if (ev->new == 0.df) {
+				i = lstk_kick(c);
 			} else {
-				lstk_join((truf_trod_t){c, *ev->exp});
+				i = lstk_join(c, ev->new);
 			}
 			if (ia->edgp) {
+				res = lstk[i];
+				res.t = ev->t;
 				yield(res);
 			}
 		}
@@ -453,7 +444,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 		do {
 			char *on;
 			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
-			size_t i;
+			lstk_t i;
 
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ln->t.y);
@@ -461,17 +452,14 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
 				truf_price_t p = strtod32(on + 1U, &on);
-				bool prntp = isnand32(lstk[i].last);
+				bool prntp = isnand32(lstk[i].bid);
 
 				/* keep track of last price */
-				lstk[i].last = p;
+				lstk[i].bid = p;
 				/* yield edge and exposure */
-				if (!ia->edgp || UNLIKELY(prntp)) {
+				if (ia->levp || UNLIKELY(prntp)) {
+					res = lstk[i];
 					res.t = ln->t;
-					res.sym = c;
-					res.prc[0U] = p;
-					res.exp[0U] = lstk[i].d.exp;
-					res.exp[1U] = lstk[i].d.exp;
 					yield(res);
 				}
 			}
@@ -498,11 +486,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 /* yields something that co_echs_out can use directly */
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res = {
-		.prc[0U] = nand32(NULL),
-		.prc[1U] = nand32(NULL),
-		.exp[1U] = nand32(NULL),
-	};
+	struct truf_tsv_s res;
 
 	init_coru();
 	if (ia->ndt == 0U) {
@@ -523,10 +507,10 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
 
-			if (*ev->exp == 0.df) {
-				lstk_kick((truf_trod_t){c, *ev->exp});
+			if (ev->new == 0.df) {
+				lstk_kick(c);
 			} else {
-				lstk_join((truf_trod_t){c, *ev->exp});
+				lstk_join(c, ev->new);
 			}
 		}
 
@@ -537,14 +521,14 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 
 			bp += dt_strf(bp, ep - bp, ln->t);
 			*bp++ = '\t';
-			for (size_t i = imin; i < imax; i++) {
-				if (lstk[i].d.sym == 0U) {
+			for (lstk_t i = imin; i < imax; i++) {
+				if (lstk_emptyp(i)) {
 					continue;
 				}
 				/* otherwise prep the yield */
+				res = lstk[i];
 				res.t = ln->t;
-				res.sym = lstk[i].d.sym;
-				res.exp[0U] = lstk[i].d.exp;
+				res.old = nand32(NULL);
 				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
@@ -885,6 +869,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
+		const bool edgp = argi->edge_given;
 		coru_t flt;
 		coru_t out;
 		FILE *f;
@@ -896,14 +881,14 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		}
 
 		init_coru();
-		flt = make_coru(co_tser_flt, q, f, argi->edge_given);
+		flt = make_coru(co_tser_flt, q, f, edgp, !edgp);
 		out = make_coru(
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given,
 			.prnt_prcp = true);
 
 		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
-			if (UNLIKELY(isnand32(*e->prc))) {
+			if (UNLIKELY(isnand32(e->bid))) {
 				continue;
 			}
 			____next(out, e);
@@ -977,6 +962,67 @@ out:
 	return res;
 }
 
+static int
+cmd_glue(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
+	truf_wheap_t q;
+	int res = 0;
+
+	if (argi->inputs_num < 2U) {
+		fputs(usg, stderr);
+		res = 1;
+		goto out;
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
+		const char *fn = argi->inputs[i];
+
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+			error("cannot open trod file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	with (const char *fn = argi->inputs[1U]) {
+		coru_t flt;
+		coru_t out;
+		FILE *f;
+
+		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
+			error("cannot open time series file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+
+		init_coru();
+		flt = make_coru(co_tser_flt, q, f, .edgp = true, .levp = false);
+		out = make_coru(
+			co_echs_out, stdout,
+			argi->rel_given, argi->abs_given, argi->oco_given,
+			.prnt_expp = true, .prnt_prcp = true);
+
+		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
+			____next(out, e);
+		}
+
+		free_coru(edg);
+		free_coru(out);
+		fini_coru();
+	}
+out:
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
+	}
+	truf_free_trods();
+	return res;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1003,6 +1049,8 @@ main(int argc, char *argv[])
 			res = cmd_filter(argi);
 		} else if (!strcmp(cmd, "position")) {
 			res = cmd_position(argi);
+		} else if (!strcmp(cmd, "glue")) {
+			res = cmd_glue(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
