@@ -101,7 +101,7 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 /* last price stacks */
 static struct lstk_s {
 	truf_trod_t d;
-	_Decimal32 last;
+	truf_price_t last;
 } lstk[64U];
 static size_t imin;
 static size_t imax;
@@ -327,7 +327,7 @@ static const struct co_edg_res_s {
 	truf_mmy_t c;
 	_Decimal32 exp_ol;
 	_Decimal32 exp_nu;
-	_Decimal32 last;
+	truf_price_t last;
 } *defcoru(co_tser_edg, ia, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes */
@@ -389,7 +389,7 @@ static const struct co_edg_res_s {
 			}
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
-				_Decimal32 p = strtod32(on, &on);
+				truf_price_t p = strtod32(on, &on);
 				bool prntp = isnand32(lstk[i].last);
 
 				/* keep track of last price */
@@ -463,7 +463,7 @@ defcoru(co_tser_lev, ia, UNUSED(arg))
 			}
 			if (relevantp(i = lstk_find(c))) {
 				/* keep track of last price */
-				_Decimal32 p = strtod32(on, &on);
+				truf_price_t p = strtod32(on, &on);
 
 				/* yield edge and exposure */
 				res.t = ln->t;
@@ -502,7 +502,7 @@ pr_rdr_res(const struct co_rdr_res_s *ln)
 }
 
 static void
-pr_last(echs_instant_t i, truf_mmy_t sym, _Decimal32 last)
+pr_last(echs_instant_t i, truf_mmy_t sym, truf_price_t last)
 {
 	char buf[256U];
 	char *bp;
@@ -637,7 +637,7 @@ truf_filt_tser_file(struct truf_ctx_s ctx[static 1], const char *tser)
 					pr_rdr_res(ln);
 				} else if (*on++ == '\t') {
 					/* keep track of last price */
-					_Decimal32 p = strtod32(on, &on);
+					truf_price_t p = strtod32(on, &on);
 					bool prntp = isnand32(lstk[i].last);
 
 					lstk[i].last = p;
