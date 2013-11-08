@@ -289,6 +289,9 @@ static const struct co_pop_res_s {
 		uintptr_t tmp = truf_wheap_pop(c->q);
 		res.edge = trods[tmp];
 		yield(res);
+		if (!truf_mmy_p(res.edge.sym) && res.edge.sym) {
+			free((char*)res.edge.sym);
+		}
 	}
 	return 0;
 }
