@@ -385,13 +385,14 @@ _defcoru(co_echs_out, ia, truf_tsv_t arg)
 	return 0;
 }
 
-declcoru(co_tser_edg, {
+declcoru(co_tser_flt, {
 		truf_wheap_t q;
 		FILE *tser;
+		unsigned int edgp:1U;
 	}, {});
 
 static truf_tsv_t
-defcoru(co_tser_edg, ia, UNUSED(arg))
+defcoru(co_tser_flt, ia, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes */
 	coru_t rdr;
@@ -414,19 +415,22 @@ defcoru(co_tser_edg, ia, UNUSED(arg))
 			size_t i;
 
 			/* prep yield */
-			res.t = ev->t;
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ev->t.y);
 			}
-			res.sym = c;
-			if (relevantp(i = lstk_find(c))) {
-				res.prc[0U] = lstk[i].last;
-				res.exp[0U] = lstk[i].d.exp;
-			} else {
-				res.prc[0U] = nand32(NULL);
-				res.exp[0U] = 0.df;
+
+			if (ia->edgp) {
+				res.t = ev->t;
+				res.sym = c;
+				if (relevantp(i = lstk_find(c))) {
+					res.prc[0U] = lstk[i].last;
+					res.exp[0U] = lstk[i].d.exp;
+				} else {
+					res.prc[0U] = nand32(NULL);
+					res.exp[0U] = 0.df;
+				}
+				res.exp[1U] = *ev->exp;
 			}
-			res.exp[1U] = *ev->exp;
 
 			/* make sure we massage the lstk */
 			if (ev->exp[0U] == 0.df) {
@@ -434,8 +438,9 @@ defcoru(co_tser_edg, ia, UNUSED(arg))
 			} else {
 				lstk_join((truf_trod_t){c, *ev->exp});
 			}
-
-			yield(res);
+			if (ia->edgp) {
+				yield(res);
+			}
 		}
 
 		/* apply roll-over directives to price lines */
@@ -455,7 +460,7 @@ defcoru(co_tser_edg, ia, UNUSED(arg))
 				/* keep track of last price */
 				lstk[i].last = p;
 				/* yield edge and exposure */
-				if (UNLIKELY(prntp)) {
+				if (!ia->edgp || UNLIKELY(prntp)) {
 					res.t = ln->t;
 					res.sym = c;
 					res.prc[0U] = p;
@@ -463,75 +468,6 @@ defcoru(co_tser_edg, ia, UNUSED(arg))
 					res.exp[1U] = lstk[i].d.exp;
 					yield(res);
 				}
-			}
-		} while (LIKELY((ln = next(rdr)) != NULL) &&
-			 (UNLIKELY(ev == NULL) ||
-			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
-	}
-
-	free_coru(rdr);
-	free_coru(pop);
-	fini_coru();
-	return 0;
-}
-
-declcoru(co_tser_lev, {
-		truf_wheap_t q;
-		FILE *tser;
-	}, {});
-
-static truf_tsv_t
-defcoru(co_tser_lev, ia, UNUSED(arg))
-{
-/* yields a co_edg_res whenever a tick in the time series occurs */
-	coru_t rdr;
-	coru_t pop;
-	struct truf_tsv_s res = {.prc[1U] = nand32(NULL)};
-
-	init_coru();
-	rdr = make_coru(co_echs_rdr, ia->tser);
-	pop = make_coru(co_echs_pop, ia->q);
-
-	truf_tsv_t ev;
-	const struct co_rdr_res_s *ln;
-	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
-		/* sum up caevs in between price lines */
-		for (;
-		     LIKELY(ev != NULL) &&
-			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
-		     ev = next(pop)) {
-			truf_mmy_t c = ev->sym;
-
-			if (!truf_mmy_abs_p(c)) {
-				c = truf_mmy_abs(c, ev->t.y);
-			}
-			if (*ev->exp == 0.df) {
-				lstk_kick((truf_trod_t){c, *ev->exp});
-			} else {
-				lstk_join((truf_trod_t){c, *ev->exp});
-			}
-		}
-
-		/* apply roll-over directives to price lines */
-		do {
-			char *on;
-			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
-			size_t i;
-
-			if (!truf_mmy_abs_p(c)) {
-				c = truf_mmy_abs(c, ln->t.y);
-			}
-			if (relevantp(i = lstk_find(c))) {
-				/* keep track of last price */
-				truf_price_t p = strtod32(on + 1U, &on);
-
-				/* yield edge and exposure */
-				res.t = ln->t;
-				res.sym = c;
-				res.prc[0U] = p;
-				res.exp[0U] = lstk[i].d.exp;
-				res.exp[1U] = lstk[i].d.exp;
-				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
@@ -941,7 +877,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
-		coru_t edg;
+		coru_t flt;
 		coru_t out;
 		FILE *f;
 
@@ -952,16 +888,12 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		}
 
 		init_coru();
-		if (argi->edge_given) {
-			edg = make_coru(co_tser_edg, q, f);
-		} else {
-			edg = make_coru(co_tser_lev, q, f);
-		}
+		flt = make_coru(co_tser_flt, q, f, argi->edge_given);
 		out = make_coru(
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given);
 
-		for (truf_tsv_t e; (e = next(edg)) != NULL;) {
+		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
 			struct truf_tsv_s o;
 
 			if (UNLIKELY(isnand32(*e->prc))) {
