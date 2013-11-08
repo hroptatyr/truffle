@@ -395,6 +395,7 @@ declcoru(co_tser_flt, {
 		truf_wheap_t q;
 		FILE *tser;
 		unsigned int edgp:1U;
+		unsigned int levp:1U;
 	}, {});
 
 static truf_tsv_t
@@ -466,7 +467,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				/* keep track of last price */
 				lstk[i].last = p;
 				/* yield edge and exposure */
-				if (!ia->edgp || UNLIKELY(prntp)) {
+				if (ia->levp || UNLIKELY(prntp)) {
 					res.t = ln->t;
 					res.sym = c;
 					res.prc[0U] = p;
@@ -885,6 +886,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
+		const bool edgp = argi->edge_given;
 		coru_t flt;
 		coru_t out;
 		FILE *f;
@@ -896,7 +898,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		}
 
 		init_coru();
-		flt = make_coru(co_tser_flt, q, f, argi->edge_given);
+		flt = make_coru(co_tser_flt, q, f, edgp, !edgp);
 		out = make_coru(
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given,
