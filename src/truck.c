@@ -62,7 +62,7 @@ typedef const struct truf_tsv_s *truf_tsv_t;
 
 struct truf_tsv_s {
 	echs_instant_t t;
-	uintptr_t sym;
+	truf_sym_t sym;
 	truf_price_t prc[2U];
 	truf_expos_t exp[2U];
 };
@@ -99,39 +99,53 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 
 
 /* last price stacks */
+typedef size_t lstk_t;
 static struct lstk_s {
-	truf_trod_t d;
-	truf_price_t last;
+	truf_sym_t sym;
+	truf_expos_t exp;
+	truf_price_t bid;
+	truf_price_t ask;
 } lstk[64U];
 static size_t imin;
 static size_t imax;
 
-static size_t
-lstk_find(truf_mmy_t contract)
+static bool
+relevantp(lstk_t i)
+{
+	return i < imax;
+}
+
+static bool
+lstk_emptyp(lstk_t i)
+{
+	return lstk[i].exp == 0.df;
+}
+
+static lstk_t
+lstk_find(truf_sym_t contract)
 {
 	for (size_t i = imin; i < imax; i++) {
-		if (truf_mmy_eq_p(lstk[i].d.sym, contract)) {
+		if (truf_mmy_eq_p(lstk[i].sym, contract)) {
 			return i;
 		}
 	}
 	return imax;
 }
 
-static void
-lstk_kick(truf_trod_t directive)
+static lstk_t
+lstk_kick(truf_sym_t sym)
 {
-	size_t i;
+	lstk_t i;
 
-	if ((i = lstk_find(directive.sym)) >= imax) {
-		return;
+	if (!relevantp(i = lstk_find(sym))) {
+		return i;
 	}
 	/* otherwise kick the i-th slot */
-	lstk[i].d = truf_nul_trod();
-	lstk[i].last = 0.df;
+	lstk[i].exp = 0.df;
 	if (i == imin) {
 		/* up imin */
 		for (size_t j = ++imin; j < imax; imin++, j++) {
-			if (lstk[j].d.sym != 0U) {
+			if (!lstk_emptyp(j)) {
 				break;
 			}
 		}
@@ -139,7 +153,7 @@ lstk_kick(truf_trod_t directive)
 	if (i == imax - 1U) {
 		/* down imax */
 		for (size_t j = imax; --j >= imin; imax--) {
-			if (lstk[j].d.sym != 0U) {
+			if (!lstk_emptyp(j)) {
 				break;
 			}
 		}
@@ -147,47 +161,36 @@ lstk_kick(truf_trod_t directive)
 	/* condense imin/imax, only if imin or imax reach into
 	 * the other half of the lstack */
 	if (imin >= countof(lstk) / 2U || imin && imax >= countof(lstk) / 2U) {
+		if (i < imin)
+		/* copy kicked lstk item, so we can still access the
+		 * symbol et al */
+		lstk[imax] = lstk[i];
+		i = imax;
+		/* now do the actual condensing */
 		memmove(lstk + 0U, lstk + imin, (imax - imin) * sizeof(*lstk));
 		imax -= imin;
 		imin = 0;
 	}
-	return;
+	return i;
 }
 
-static void
-lstk_join(truf_trod_t directive)
+static lstk_t
+lstk_join(truf_sym_t sym, truf_expos_t x)
 {
-	size_t i;
+	lstk_t i;
 
-	if ((i = lstk_find(directive.sym)) < imax) {
-		/* already in there, just fuck off */
-		return;
-	}
-	/* otherwise add */
-	lstk[imax].d = directive;
-	lstk[imax].last = nand32(NULL);
-	imax++;
-	return;
-}
-
-static bool
-relevantp(size_t i)
-{
-	return i < imax;
-}
-
-static __attribute__((unused)) void
-lstk_prnt(void)
-{
-	char buf[256U];
-	const char *const ep = buf + sizeof(buf);
-
-	for (size_t i = imin; i < imax; i++) {
-		char *bp = buf;
-		truf_trod_wr(bp, ep - bp, lstk[i].d);
-		puts(buf);
-	}
-	return;
+	if (relevantp(i = lstk_find(sym))) {
+		/* already in there, just set new exposure */
+		lstk[i].exp = x;
+	} else /*if (i == imax)*/ {
+		/* otherwise add */
+		lstk[i].sym = sym;
+		lstk[i].exp = x;
+		lstk[i].bid = nand32(NULL);
+		lstk[i].ask = nand32(NULL);
+		imax++;
+	};
+	return i;
 }
 
 
