@@ -364,7 +364,7 @@ defcoru(co_echs_out, ia, arg)
 		*bp = '\0';
 		fputs(buf, ia->f);
 
-		arg = yield(NULL);
+		arg = yield_ptr(NULL);
 	}
 	return 0;
 }
