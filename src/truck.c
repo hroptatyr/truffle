@@ -553,6 +553,16 @@ truf_read_trod_file(truf_wheap_t q, const char *fn)
 	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
 		/* try to read the whole shebang */
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
+
+		/* put a modified version in */
+		if (c.exp != 0.df) {
+			truf_trod_t c_pre = {c.sym, 0.df};
+			echs_instant_t t_pre = ln->t;
+
+			t_pre.d -= 1U;
+			/* insert to heap */
+			truf_add_trod(q, t_pre, c_pre);
+		}
 		/* ... and add it */
 		truf_add_trod(q, ln->t, c);
 	}
