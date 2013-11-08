@@ -51,6 +51,7 @@
 #define coru_argp(name)		const coru_args(name)*
 #define coru_initargp(name)	const coru_initargs(name)*
 #define defcoru(name, ia, in)	name(coru_argp(name) in, coru_initargp(name) ia)
+#define _defcoru(name, ia, xin)	name(xin, coru_initargp(name) ia)
 
 #define CORU_DEPTH		4U
 
