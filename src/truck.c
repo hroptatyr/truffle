@@ -946,7 +946,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 			____next(out, e);
 		}
 
-		free_coru(edg);
+		free_coru(flt);
 		free_coru(out);
 		fini_coru();
 	}
@@ -1001,7 +1001,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 			____next(out, e);
 		}
 
-		free_coru(edg);
+		free_coru(pos);
 		free_coru(out);
 		fini_coru();
 	}
@@ -1063,7 +1063,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 			____next(out, e);
 		}
 
-		free_coru(edg);
+		free_coru(flt);
 		free_coru(out);
 		fini_coru();
 	}
