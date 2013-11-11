@@ -149,6 +149,10 @@ static __thread coru_t ____caller[CORU_DEPTH];
 
 #else  /* !USE_ASM_CORUS */
 /* my own take on things */
+#if defined _FORTIFY_SOURCE
+/* can't do with glibc's longjmp stack check */
+# undef _FORTIFY_SOURCE
+#endif	/* _FORTIFY_SOURCE */
 #include <setjmp.h>
 #include <stdint.h>
 #include <ucontext.h>
