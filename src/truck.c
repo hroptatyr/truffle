@@ -401,10 +401,13 @@ declcoru(co_tser_flt, {
 static truf_tsv_t
 defcoru(co_tser_flt, ia, UNUSED(arg))
 {
-/* yields a co_edg_res when exposure changes */
+/* yields a co_edg_res when exposure changes
+ * in edge mode we need to know the levels beforehand because we yield
+ * upon trod changes
+ * in level mode we need to know the trod changes before the levels */
+	static struct truf_tsv_s res[64U];
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res;
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
@@ -413,6 +416,8 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 	truf_tsv_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+		size_t nemit = 0;
+
 		/* sum up caevs in between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
@@ -428,9 +433,10 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			/* make sure we massage the lstk */
 			i = lstk_updt_exp(c, ev->new);
 			if (ia->edgp) {
-				res = lstk[i];
-				res.t = ev->t;
-				yield(res);
+				/* make sure we emit this guy later on */
+				res[nemit] = lstk[i];
+				res[nemit].t = ev->t;
+				nemit++;
 			}
 		}
 
@@ -456,14 +462,19 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 					;
 				} else if (ia->levp || UNLIKELY(prntp)) {
 					/* yield edge and exposure */
-					res = lstk[i];
-					res.t = ln->t;
-					yield(res);
+					res[nemit] = lstk[i];
+					res[nemit].t = ln->t;
+					nemit++;
 				}
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
 			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
+
+		/* do the emission */
+		for (size_t i = 0; i < nemit; i++) {
+			yield_ptr(res + i);
+		}
 	}
 
 	free_coru(rdr);
