@@ -127,4 +127,22 @@ echs_instant_eq_p(echs_instant_t x, echs_instant_t y)
 		x.ms == y.ms;
 }
 
+static inline __attribute__((pure, const)) bool
+echs_instant_gt_p(echs_instant_t x, echs_instant_t y)
+{
+	return !echs_instant_le_p(x, y);
+}
+
+static inline __attribute__((pure, const)) bool
+echs_instant_ge_p(echs_instant_t x, echs_instant_t y)
+{
+	return !echs_instant_lt_p(x, y);
+}
+
+static inline __attribute__((pure, const)) bool
+echs_instant_ne_p(echs_instant_t x, echs_instant_t y)
+{
+	return !echs_instant_eq_p(x, y);
+}
+
 #endif	/* INCLUDED_instant_h_ */
