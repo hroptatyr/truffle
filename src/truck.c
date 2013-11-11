@@ -432,11 +432,12 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			}
 			/* make sure we massage the lstk */
 			i = lstk_updt_exp(c, ev->new);
-			if (ia->edgp) {
+			if (ia->edgp || ev->new == 0.df) {
 				/* defer the yield a bit */
 				res[nemit] = lstk[i];
 				res[nemit].t = ev->t;
-				if (echs_instant_lt_p(ev->t, ln->t)) {
+				if (ia->edgp &&
+				    echs_instant_lt_p(ev->t, ln->t)) {
 					/* no chance of an update, is there? */
 					yield_ptr(res + nemit);
 				} else {
@@ -445,7 +446,9 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			}
 		}
 
-		/* update prices of corner cases (ev->t == ln->t) */
+		/* update prices of corner cases (ev->t == ln->t)
+		 * this is where we need the trod edge updates above even
+		 * in level mode. */
 		for (size_t j = 0U;
 		     j < nemit && echs_instant_eq_p(res[j].t, ln->t);) {
 			char *on;
@@ -476,10 +479,15 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			j = 0U;
 		}
 
-		/* print the rest of the deferred guys */
-		for (size_t j = 0U; j < nemit; j++) {
-			if (res[j].sym) {
-				yield_ptr(res + j);
+		/* print the rest of the deferred guys in edge mode,
+		 * in level mode there won't be any interesting updates here
+		 * because it's guaranteed that there's no tser line with
+		 * a matching date/time */
+		if (ia->edgp) {
+			for (size_t j = 0U; j < nemit; j++) {
+				if (res[j].sym) {
+					yield_ptr(res + j);
+				}
 			}
 		}
 
