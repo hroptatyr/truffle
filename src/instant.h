@@ -145,4 +145,43 @@ echs_instant_ne_p(echs_instant_t x, echs_instant_t y)
 	return !echs_instant_eq_p(x, y);
 }
 
+
+static inline __attribute__((pure, const)) bool
+echs_idiff_lt_p(echs_idiff_t dur1, echs_idiff_t dur2)
+{
+	return dur1.dd < dur2.dd ||
+		dur1.dd == dur2.dd && dur1.msd < dur2.msd;
+}
+
+static inline __attribute__((pure, const)) bool
+echs_idiff_le_p(echs_idiff_t dur1, echs_idiff_t dur2)
+{
+	return !(dur1.dd > dur2.dd ||
+		 dur1.dd == dur2.dd && dur1.msd > dur2.msd);
+}
+
+static inline __attribute__((pure, const)) bool
+echs_idiff_eq_p(echs_idiff_t dur1, echs_idiff_t dur2)
+{
+	return dur1.dd == dur2.dd && dur1.msd == dur2.msd;
+}
+
+static inline __attribute__((pure, const)) bool
+echs_idiff_gt_p(echs_idiff_t dur1, echs_idiff_t dur2)
+{
+	return !echs_idiff_le_p(dur1, dur2);
+}
+
+static inline __attribute__((pure, const)) bool
+echs_idiff_ge_p(echs_idiff_t dur1, echs_idiff_t dur2)
+{
+	return !echs_idiff_lt_p(dur1, dur2);
+}
+
+static inline __attribute__((pure, const)) bool
+echs_idiff_ne_p(echs_idiff_t dur1, echs_idiff_t dur2)
+{
+	return !echs_idiff_eq_p(dur1, dur2);
+}
+
 #endif	/* INCLUDED_instant_h_ */
