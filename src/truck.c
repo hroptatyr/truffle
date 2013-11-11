@@ -466,7 +466,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			j = dfrd_find(res, nemit, c);
 			if (!relevantp(i) && j >= nemit) {
 				/* completely irrelevant */
-				continue;
+				goto yld_dfrd;
 			}
 			/* keep track of last price */
 			p = strtod32(on + 1U, &on);
@@ -493,16 +493,20 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				yield_ptr(res + j);
 				res[j].sym = 0U;
 			}
+
+		yld_dfrd:
+			/* yield the deferred guys */
+			for (j = 0U;
+			     j < nemit &&
+				     echs_instant_lt_p(res[j].t, ln->t); j++) {
+				if (res[j].sym) {
+					yield_ptr(res + j);
+					res[j].sym = 0U;
+				}
+			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
 			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
-
-		/* yield the deferred guys */
-		for (size_t j = 0U; j < nemit; j++) {
-			if (res[j].sym) {
-				yield_ptr(res + j);
-			}
-		}
 	}
 
 	free_coru(rdr);
