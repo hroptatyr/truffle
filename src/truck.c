@@ -130,14 +130,9 @@ lstk_find(truf_sym_t contract)
 }
 
 static lstk_t
-lstk_kick(truf_sym_t sym)
+lstk_kick(lstk_t i)
 {
-	lstk_t i;
-
-	if (!relevantp(i = lstk_find(sym))) {
-		return i;
-	}
-	/* otherwise kick the i-th slot */
+	/* kick the i-th slot */
 	lstk[i].old = lstk[i].new;
 	lstk[i].new = 0.df;
 	if (i == imin) {
@@ -173,11 +168,14 @@ lstk_kick(truf_sym_t sym)
 }
 
 static lstk_t
-lstk_join(truf_sym_t sym, truf_expos_t x)
+lstk_updt_exp(truf_sym_t sym, truf_expos_t x)
 {
 	lstk_t i;
 
-	if (relevantp(i = lstk_find(sym))) {
+	if (relevantp(i = lstk_find(sym)) && x == 0.df) {
+		/* kick him */
+		i = lstk_kick(i);
+	} else if (relevantp(i)) {
 		/* already in there, just set new exposure */
 		lstk[i].old = lstk[i].new;
 		lstk[i].new = x;
@@ -403,10 +401,13 @@ declcoru(co_tser_flt, {
 static truf_tsv_t
 defcoru(co_tser_flt, ia, UNUSED(arg))
 {
-/* yields a co_edg_res when exposure changes */
+/* yields a co_edg_res when exposure changes
+ * in edge mode we need to know the levels beforehand because we yield
+ * upon trod changes
+ * in level mode we need to know the trod changes before the levels */
+	static struct truf_tsv_s res[64U];
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res;
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
@@ -415,10 +416,12 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 	truf_tsv_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
-		/* sum up caevs in between price lines */
+		size_t nemit = 0U;
+
+		/* aggregate trod directives between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
-			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
+			     UNLIKELY(echs_instant_ge_p(ln->t, ev->t));
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
 			lstk_t i;
@@ -428,19 +431,67 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				c = truf_mmy_abs(c, ev->t.y);
 			}
 			/* make sure we massage the lstk */
-			if (ev->new == 0.df) {
-				i = lstk_kick(c);
-			} else {
-				i = lstk_join(c, ev->new);
-			}
-			if (ia->edgp) {
-				res = lstk[i];
-				res.t = ev->t;
-				yield(res);
+			i = lstk_updt_exp(c, ev->new);
+			if (ia->edgp || ev->new == 0.df) {
+				/* defer the yield a bit */
+				res[nemit] = lstk[i];
+				res[nemit].t = ev->t;
+				if (ia->edgp &&
+				    echs_instant_lt_p(ev->t, ln->t)) {
+					/* no chance of an update, is there? */
+					yield_ptr(res + nemit);
+				} else {
+					nemit++;
+				}
 			}
 		}
 
-		/* apply roll-over directives to price lines */
+		/* update prices of corner cases (ev->t == ln->t)
+		 * this is where we need the trod edge updates above even
+		 * in level mode. */
+		for (size_t j = 0U;
+		     j < nemit && echs_instant_eq_p(res[j].t, ln->t);) {
+			char *on;
+			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ln->t.y);
+			}
+
+			/* fast forward to the j-th emission */
+			for (; j < nemit && !truf_mmy_eq_p(res[j].sym, c); j++);
+			if (j < nemit) {
+				/* keep track of last price */
+				truf_price_t p = strtod32(on + 1U, &on);
+				lstk_t i;
+
+				if (relevantp(i = lstk_find(c))) {
+					lstk[i].bid = p;
+				}
+
+				/* print that guy from the deferred stack */
+				res[j].bid = p;
+				yield_ptr(res + j);
+				res[j].sym = 0U;
+			}
+			/* read the next line */
+			ln = next(rdr);
+			j = 0U;
+		}
+
+		/* print the rest of the deferred guys in edge mode,
+		 * in level mode there won't be any interesting updates here
+		 * because it's guaranteed that there's no tser line with
+		 * a matching date/time */
+		if (ia->edgp) {
+			for (size_t j = 0U; j < nemit; j++) {
+				if (res[j].sym) {
+					yield_ptr(res + j);
+				}
+			}
+		}
+
+		/* yield time series lines in between trod edges */
 		do {
 			char *on;
 			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
@@ -456,11 +507,15 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 
 				/* keep track of last price */
 				lstk[i].bid = p;
-				/* yield edge and exposure */
-				if (ia->levp || UNLIKELY(prntp)) {
-					res = lstk[i];
-					res.t = ln->t;
-					yield(res);
+
+				if (lstk[i].new == 0.df) {
+					/* just track the price, no yield */
+					;
+				} else if (ia->levp || UNLIKELY(prntp)) {
+					/* yield edge and exposure */
+					*res = lstk[i];
+					res->t = ln->t;
+					yield_ptr(res);
 				}
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
@@ -507,11 +562,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
 
-			if (ev->new == 0.df) {
-				lstk_kick(c);
-			} else {
-				lstk_join(c, ev->new);
-			}
+			lstk_updt_exp(c, ev->new);
 		}
 
 		do {
@@ -563,6 +614,7 @@ truf_read_trod_file(truf_wheap_t q, const char *fn)
 	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
 		/* try to read the whole shebang */
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
+
 		/* ... and add it */
 		truf_add_trod(q, ln->t, c);
 	}
