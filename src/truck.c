@@ -418,7 +418,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
 		size_t nemit = 0U;
 
-		/* sum up caevs in between price lines */
+		/* aggregate trod directives between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(echs_instant_ge_p(ln->t, ev->t));
@@ -440,7 +440,6 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 					/* no chance of an update, is there? */
 					yield_ptr(res + nemit);
 				} else {
-					/* inspect further */
 					nemit++;
 				}
 			}
