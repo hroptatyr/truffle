@@ -451,28 +451,27 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 		     j < nemit && echs_instant_eq_p(res[j].t, ln->t);) {
 			char *on;
 			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
-			truf_price_t p;
-			lstk_t i;
 
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ln->t.y);
 			}
-			if (!truf_mmy_eq_p(res[j].sym, c)) {
-				j++;
-				continue;
+
+			/* fast forward to the j-th emission */
+			for (; j < nemit && !truf_mmy_eq_p(res[j].sym, c); j++);
+			if (j < nemit) {
+				/* keep track of last price */
+				truf_price_t p = strtod32(on + 1U, &on);
+				lstk_t i;
+
+				if (relevantp(i = lstk_find(c))) {
+					lstk[i].bid = p;
+				}
+
+				/* print that guy from the deferred stack */
+				res[j].bid = p;
+				yield_ptr(res + j);
+				res[j].sym = 0U;
 			}
-			/* keep track of last price */
-			p = strtod32(on + 1U, &on);
-
-			if (relevantp(i = lstk_find(c))) {
-				lstk[i].bid = p;
-			}
-
-			/* print that guy from the deferred stack */
-			res[j].bid = p;
-			yield_ptr(res + j);
-			res[j].sym = 0U;
-
 			/* read the next line */
 			ln = next(rdr);
 			j = 0U;
