@@ -135,6 +135,8 @@ EXTRA_DIST += print_05.trod
 
 TESTS += filter_01.clit
 TESTS += filter_02.clit
+TESTS += filter_03.clit
+TESTS += filter_04.clit
 EXTRA_DIST += filt_01.tser
 EXTRA_DIST += filt_01.trod
 
