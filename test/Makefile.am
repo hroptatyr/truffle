@@ -138,6 +138,11 @@ TESTS += filter_02.clit
 EXTRA_DIST += filt_01.tser
 EXTRA_DIST += filt_01.trod
 
+TESTS += glue_01.clit
+TESTS += glue_02.clit
+EXTRA_DIST += glue_01.tser
+EXTRA_DIST += glue_01.trod
+
 
 ## our friendly helpers
 check_PROGRAMS += clitoris
