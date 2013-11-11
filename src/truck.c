@@ -130,17 +130,6 @@ lstk_find(truf_sym_t contract)
 }
 
 static lstk_t
-dfrd_find(struct truf_tsv_s stk[static 1U], size_t nstk, truf_sym_t contract)
-{
-	for (size_t i = 0; i < nstk; i++) {
-		if (truf_mmy_eq_p(stk[i].sym, contract)) {
-			return i;
-		}
-	}
-	return nstk;
-}
-
-static lstk_t
 lstk_kick(lstk_t i)
 {
 	/* kick the i-th slot */
