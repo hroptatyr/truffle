@@ -61,8 +61,8 @@ union echs_instant_u {
 } __attribute__((transparent_union));
 
 struct echs_idiff_s {
-	unsigned int dd;
-	unsigned int msd;
+	signed int dd;
+	signed int msd;
 };
 
 /**

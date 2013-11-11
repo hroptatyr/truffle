@@ -67,20 +67,8 @@ echs_instant_fixup(echs_instant_t e)
 	if (UNLIKELY(echs_instant_all_day_p(e))) {
 		/* just fix up the day, dom and year portion */
 		goto fixup_d;
-	} else if (UNLIKELY(echs_instant_all_day_p(e))) {
-		/* just fix up the sec, min, ... portions */
-		goto fixup_S;
 	}
 
-	if (UNLIKELY(e.ms >= 1000U)) {
-		unsigned int dS = e.ms / 1000U;
-		unsigned int ms = e.ms % 1000U;
-
-		e.ms = ms;
-		e.S += dS;
-	}
-
-fixup_S:
 	if (UNLIKELY(e.S >= 60U)) {
 		/* leap seconds? */
 		unsigned int dM = e.S / 60U;
@@ -105,8 +93,16 @@ fixup_S:
 	}
 
 fixup_d:
+	if (UNLIKELY((int32_t)e.d <= 0)) {
+		e.m--;
+	}
 refix_ym:
-	if (UNLIKELY(e.m > 12U)) {
+	if (UNLIKELY((int32_t)e.m <= 0)) {
+		unsigned int m = (e.m + 11) % 12U + 1U;
+
+		e.m = m;
+		e.y--;
+	} else if (UNLIKELY(e.m > 12U)) {
 		unsigned int dy = (e.m - 1) / 12U;
 		unsigned int m = (e.m - 1) % 12U + 1U;
 
@@ -114,12 +110,19 @@ refix_ym:
 		e.y += dy;
 	}
 
-	if (UNLIKELY(e.d > (md = mdays[e.m]))) {
+	if (UNLIKELY((int32_t)e.d <= 0)) {
+		/* at least e.m should be fixed up now */
+		e.d += mdays[e.m];
+		/* leap year handling */
+		if (UNLIKELY(e.m == 2U && (e.y % 4U) == 0U)) {
+			e.d++;
+		}
+	} else if (UNLIKELY(e.d > (md = mdays[e.m]))) {
 		/* leap year handling */
 		if (UNLIKELY(e.m == 2U && (e.y % 4U) == 0U)) {
 			md++;
 		}
-		if (LIKELY((e.d -= md) > 0U)) {
+		if (LIKELY((e.d -= md) > 0)) {
 			e.m++;
 			goto refix_ym;
 		}
@@ -185,7 +188,7 @@ echs_instant_add(echs_instant_t bas, echs_idiff_t add)
 	int df_y;
 	int df_m;
 
-	res.y = bas.y + dd / 365U;
+	res.y = bas.y + dd / 365;
 	if ((df_y = res.y - bas.y)) {
 		dd -= df_y * 365 + (df_y - 1) / 4;
 	}
@@ -197,16 +200,36 @@ echs_instant_add(echs_instant_t bas, echs_idiff_t add)
 
 	res.d = bas.d + dd;
 
-	res.ms = bas.ms + msd % 1000;
-	msd /= 1000;
-	res.S = bas.S + msd % 60;
-	msd /= 60;
+	if (echs_instant_all_day_p(bas)) {
+		res.H = ECHS_ALL_DAY;
+		goto out;
+	} else if (msd < 0) {
+		res.d--;
+		msd += 86400000;
+	}
+
+	if (echs_instant_all_sec_p(bas)) {
+		res.ms = ECHS_ALL_SEC;
+		msd /= 1000;
+	} else {
+		int carry = (bas.ms + msd) / 1000;
+		res.ms = (bas.ms + msd) % 1000;
+		msd /= 1000;
+		msd += carry;
+	}
+	{
+		int carry = (bas.S + msd) / 60;
+		res.S = (bas.S + msd) % 60;
+		msd /= 60;
+		msd += carry;
+	}
 	res.M = bas.M + msd % 60;
 	msd /= 60;
 	res.H = bas.H + msd % 24;
 	msd /= 24;
 
 	res.d += msd;
+out:
 	return echs_instant_fixup(res);
 }
 
