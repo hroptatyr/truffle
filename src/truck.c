@@ -447,31 +447,67 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				/* defer the yield a bit */
 				res[nemit] = lstk[i];
 				res[nemit].t = ev->t;
-				nemit++;
+				if (echs_instant_lt_p(ev->t, ln->t)) {
+					/* no chance of an update, is there? */
+					yield_ptr(res + nemit);
+				} else {
+					/* inspect further */
+					nemit++;
+				}
 			}
 		}
 
 		/* update prices of corner cases (ev->t == ln->t) */
-		do {
+		for (size_t j = 0U;
+		     j < nemit && echs_instant_eq_p(res[j].t, ln->t);) {
 			char *on;
 			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
 			truf_price_t p;
 			lstk_t i;
-			lstk_t j;
 
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ln->t.y);
 			}
-			i = lstk_find(c);
-			j = dfrd_find(res, nemit, c);
-			if (!relevantp(i) && j >= nemit) {
-				/* completely irrelevant */
-				goto yld_dfrd;
+			if (!truf_mmy_eq_p(res[j].sym, c)) {
+				j++;
+				continue;
 			}
 			/* keep track of last price */
 			p = strtod32(on + 1U, &on);
 
-			if (relevantp(i)) {
+			if (relevantp(i = lstk_find(c))) {
+				lstk[i].bid = p;
+			}
+
+			/* print that guy from the deferred stack */
+			res[j].bid = p;
+			yield_ptr(res + j);
+			res[j].sym = 0U;
+
+			/* read the next line */
+			ln = next(rdr);
+			j = 0U;
+		}
+
+		/* print the rest of the deferred guys */
+		for (size_t j = 0U; j < nemit; j++) {
+			if (res[j].sym) {
+				yield_ptr(res + j);
+			}
+		}
+
+		/* yield time series lines in between trod edges */
+		do {
+			char *on;
+			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
+			lstk_t i;
+
+			if (!truf_mmy_abs_p(c)) {
+				c = truf_mmy_abs(c, ln->t.y);
+			}
+			if (relevantp(i = lstk_find(c))) {
+				/* keep track of last price */
+				truf_price_t p = strtod32(on + 1U, &on);
 				bool prntp = isnand32(lstk[i].bid);
 
 				/* keep track of last price */
@@ -482,26 +518,9 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 					;
 				} else if (ia->levp || UNLIKELY(prntp)) {
 					/* yield edge and exposure */
-					res[nemit] = lstk[i];
-					res[nemit].t = ln->t;
-					yield_ptr(res + nemit);
-					res[j].sym = 0U;
-				}
-			} else if (echs_instant_le_p(ln->t, res[j].t)) {
-				/* was on the deferred stack */
-				res[j].bid = p;
-				yield_ptr(res + j);
-				res[j].sym = 0U;
-			}
-
-		yld_dfrd:
-			/* yield the deferred guys */
-			for (j = 0U;
-			     j < nemit &&
-				     echs_instant_lt_p(res[j].t, ln->t); j++) {
-				if (res[j].sym) {
-					yield_ptr(res + j);
-					res[j].sym = 0U;
+					*res = lstk[i];
+					res->t = ln->t;
+					yield_ptr(res);
 				}
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
