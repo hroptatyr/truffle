@@ -113,6 +113,12 @@ relevantp(lstk_t i)
 }
 
 static bool
+tracerp(lstk_t i)
+{
+	return lstk[i].new == 0.df && lstk[i].old == 0.df;
+}
+
+static bool
 lstk_emptyp(lstk_t i)
 {
 	return lstk[i].new == 0.df;
@@ -172,10 +178,7 @@ lstk_updt_exp(truf_sym_t sym, truf_expos_t x)
 {
 	lstk_t i;
 
-	if (relevantp(i = lstk_find(sym)) && x == 0.df) {
-		/* kick him */
-		i = lstk_kick(i);
-	} else if (relevantp(i)) {
+	if (relevantp(i = lstk_find(sym))) {
 		/* already in there, just set new exposure */
 		lstk[i].old = lstk[i].new;
 		lstk[i].new = x;
@@ -187,7 +190,7 @@ lstk_updt_exp(truf_sym_t sym, truf_expos_t x)
 		lstk[i].bid = nand32(NULL);
 		lstk[i].ask = nand32(NULL);
 		imax++;
-	};
+	}
 	return i;
 }
 
@@ -394,6 +397,8 @@ _defcoru(co_echs_out, ia, truf_tsv_t arg)
 declcoru(co_tser_flt, {
 		truf_wheap_t q;
 		FILE *tser;
+		/* max quote age */
+		echs_idiff_t mqa;
 		unsigned int edgp:1U;
 		unsigned int levp:1U;
 	}, {});
@@ -424,6 +429,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			     UNLIKELY(echs_instant_ge_p(ln->t, ev->t));
 		     ev = next(pop)) {
 			truf_mmy_t c = ev->sym;
+			echs_idiff_t age;
 			lstk_t i;
 
 			/* prep yield */
@@ -432,62 +438,19 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			}
 			/* make sure we massage the lstk */
 			i = lstk_updt_exp(c, ev->new);
-			if (ia->edgp || ev->new == 0.df) {
-				/* defer the yield a bit */
+			age = echs_instant_diff(ev->t, lstk[i].t);
+			if (echs_idiff_ge_p(age, ia->mqa)) {
+				/* max quote age exceeded */
+				lstk[i].bid = nand32(NULL);
+				lstk[i].ask = nand32(NULL);
+			}
+			if (ia->edgp && !tracerp(i)) {
+				/* defer the yield a bit,
+				 * there's technically the chance that in the
+				 * next few lines the price gets updated */
 				res[nemit] = lstk[i];
 				res[nemit].t = ev->t;
-				if (ia->edgp &&
-				    echs_instant_lt_p(ev->t, ln->t)) {
-					/* no chance of an update, is there? */
-					yield_ptr(res + nemit);
-				} else {
-					nemit++;
-				}
-			}
-		}
-
-		/* update prices of corner cases (ev->t == ln->t)
-		 * this is where we need the trod edge updates above even
-		 * in level mode. */
-		for (size_t j = 0U;
-		     j < nemit && echs_instant_eq_p(res[j].t, ln->t);) {
-			char *on;
-			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
-
-			if (!truf_mmy_abs_p(c)) {
-				c = truf_mmy_abs(c, ln->t.y);
-			}
-
-			/* fast forward to the j-th emission */
-			for (; j < nemit && !truf_mmy_eq_p(res[j].sym, c); j++);
-			if (j < nemit) {
-				/* keep track of last price */
-				truf_price_t p = strtod32(on + 1U, &on);
-				lstk_t i;
-
-				if (relevantp(i = lstk_find(c))) {
-					lstk[i].bid = p;
-				}
-
-				/* print that guy from the deferred stack */
-				res[j].bid = p;
-				yield_ptr(res + j);
-				res[j].sym = 0U;
-			}
-			/* read the next line */
-			ln = next(rdr);
-			j = 0U;
-		}
-
-		/* print the rest of the deferred guys in edge mode,
-		 * in level mode there won't be any interesting updates here
-		 * because it's guaranteed that there's no tser line with
-		 * a matching date/time */
-		if (ia->edgp) {
-			for (size_t j = 0U; j < nemit; j++) {
-				if (res[j].sym) {
-					yield_ptr(res + j);
-				}
+				nemit++;
 			}
 		}
 
@@ -497,6 +460,26 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
 			lstk_t i;
 
+			/* print left over deferred events,
+			 * conditionalise on timestamp to maintain
+			 * chronologicity */
+			for (size_t j = 0U; j < nemit; j++) {
+				if (res[j].sym &&
+				    echs_instant_lt_p(res[j].t, ln->t)) {
+					yield_ptr(res + j);
+
+					if (!truf_mmy_abs_p(res[j].sym)) {
+						res[j].sym = truf_mmy_abs(
+							res[j].sym, res[j].t.y);
+					}
+					i = lstk_find(res[j].sym);
+					if (lstk[i].new == 0.df) {
+						lstk_kick(i);
+					}
+					res[j].sym = 0U;
+				}
+			}
+
 			if (!truf_mmy_abs_p(c)) {
 				c = truf_mmy_abs(c, ln->t.y);
 			}
@@ -504,18 +487,31 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				/* keep track of last price */
 				truf_price_t p = strtod32(on + 1U, &on);
 				bool prntp = isnand32(lstk[i].bid);
+				lstk_t j;
 
 				/* keep track of last price */
+				lstk[i].t = ln->t;
 				lstk[i].bid = p;
 
-				if (lstk[i].new == 0.df) {
-					/* just track the price, no yield */
+				for (j = 0U; j < nemit; j++) {
+					if (truf_mmy_eq_p(res[j].sym, c)) {
+						prntp = true;
+						break;
+					}
+				}
+
+				if (tracerp(i)) {
+					/* just a tracker edge */
 					;
 				} else if (ia->levp || UNLIKELY(prntp)) {
 					/* yield edge and exposure */
-					*res = lstk[i];
-					res->t = ln->t;
-					yield_ptr(res);
+					res[j] = lstk[i];
+					res[j].t = ln->t;
+					yield_ptr(res + j);
+					if (lstk[i].new == 0.df) {
+						lstk_kick(i);
+					}
+					res[j].sym = 0U;
 				}
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
@@ -596,7 +592,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 
 /* public api, might go to libtruffle one day */
 static int
-truf_read_trod_file(truf_wheap_t q, const char *fn)
+truf_read_trod_file(truf_wheap_t q, const char *fn, echs_idiff_t mqa)
 {
 /* wants a const char *fn */
 	coru_t rdr;
@@ -608,6 +604,10 @@ truf_read_trod_file(truf_wheap_t q, const char *fn)
 		return -1;
 	}
 
+	/* negate max-quote-age */
+	mqa.dd = -mqa.dd;
+	mqa.msd = -mqa.msd;
+
 	init_coru();
 	rdr = make_coru(co_echs_rdr, f);
 
@@ -616,13 +616,17 @@ truf_read_trod_file(truf_wheap_t q, const char *fn)
 		truf_trod_t c = truf_trod_rd(ln->ln, NULL);
 
 		/* put a modified version in */
-		if (c.exp != 0.df) {
-			truf_trod_t c_pre = {c.sym, 0.df};
-			echs_instant_t t_pre = ln->t;
-
-			t_pre.d -= 1U;
-			/* insert to heap */
-			truf_add_trod(q, t_pre, c_pre);
+		if (mqa.dd || mqa.msd) {
+			/* absolutify symbol */
+			truf_sym_t csym = c.sym;
+			if (!truf_mmy_abs_p(csym)) {
+				csym = truf_mmy_abs(csym, ln->t.y);
+			}
+			/* insert watcher to heap */
+			truf_add_trod(
+				q,
+				echs_instant_add(ln->t, mqa),
+				(truf_trod_t){csym, 0.df});
 		}
 		/* ... and add it */
 		truf_add_trod(q, ln->t, c);
@@ -768,6 +772,8 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 # pragma warning (default:593)
 #endif	/* __INTEL_COMPILER */
 
+static echs_idiff_t nul_idiff;
+
 static int
 cmd_print(struct truf_args_info argi[static 1U])
 {
@@ -787,7 +793,7 @@ cmd_print(struct truf_args_info argi[static 1U])
 	for (unsigned int i = 1U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
-		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn, nul_idiff) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
@@ -861,7 +867,7 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 
 		if ((sch = read_schema(fn)) == NULL) {
 			/* try the normal trod reader */
-			(void)truf_read_trod_file(q, fn);
+			(void)truf_read_trod_file(q, fn, nul_idiff);
 			continue;
 		}
 		/* bang into wheap */
@@ -907,6 +913,7 @@ cmd_filter(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
 Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
+	echs_idiff_t max_quote_age = {0U};
 	truf_wheap_t q;
 	int res = 0;
 
@@ -922,7 +929,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
-		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn, max_quote_age) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
@@ -985,7 +992,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 	}
 
 	with (const char *fn = argi->inputs[1U]) {
-		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn, nul_idiff) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
@@ -1028,6 +1035,7 @@ cmd_glue(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
 Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
+	echs_idiff_t max_quote_age = {1U};
 	truf_wheap_t q;
 	int res = 0;
 
@@ -1043,7 +1051,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
 
-		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+		if (UNLIKELY(truf_read_trod_file(q, fn, max_quote_age) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
 			goto out;
@@ -1062,7 +1070,10 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		}
 
 		init_coru();
-		flt = make_coru(co_tser_flt, q, f, .edgp = true, .levp = false);
+		flt = make_coru(
+			co_tser_flt, q, f,
+			.edgp = true, .levp = false,
+			.mqa = max_quote_age);
 		out = make_coru(
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given,
