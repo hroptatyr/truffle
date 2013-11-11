@@ -263,7 +263,7 @@ trampoline(int i0, int i1, int i2, int i3)
 #define yield_ptr(ptr)						\
 	({							\
 		coru_t TMP(tmp) = ____caller[____cdepth - 1U];	\
-		____yield(TMP(tmp), (ptr));			\
+		____yield(TMP(tmp), (intptr_t)(ptr));		\
 	})
 #define yield_to(x, yld)					\
 	({							\
