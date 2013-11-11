@@ -131,6 +131,8 @@ TESTS += position_03.clit
 TESTS += position_04.clit
 TESTS += position_05.clit
 TESTS += position_06.clit
+TESTS += position_07.clit
+TESTS += position_08.clit
 EXTRA_DIST += print_05.trod
 
 TESTS += filter_01.clit
