@@ -17,6 +17,12 @@ option "edge" -
 	"Only print edge lines"
 	optional
 
+option "max-quote-age" -
+	"Allow quotes outside of the exposure range younger than AGE.
+AGE can be specified using suffixes d, h, m, s for days, hours, \
+minutes, or seconds respectively."
+	optional string typestr="AGE"
+
 text "
 Options affecting the print command:"
 option "abs" -

@@ -913,7 +913,7 @@ cmd_filter(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
 Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
-	echs_idiff_t max_quote_age = {0U};
+	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
 	int res = 0;
 
@@ -925,6 +925,8 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		res = 1;
 		goto out;
 	}
+
+	max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
 
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
@@ -1035,7 +1037,7 @@ cmd_glue(struct truf_args_info argi[static 1U])
 {
 	static const char usg[] = "\
 Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
-	echs_idiff_t max_quote_age = {1U};
+	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
 	int res = 0;
 
@@ -1047,6 +1049,8 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		res = 1;
 		goto out;
 	}
+
+	max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
 
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
