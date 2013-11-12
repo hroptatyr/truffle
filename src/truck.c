@@ -52,22 +52,14 @@
 #include "coru.h"
 #include "trod.h"
 #include "mmy.h"
+#include "step.h"
 #include "truf-dfp754.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
 #endif /* __INTEL_COMPILER */
 
-typedef const struct truf_tsv_s *truf_tsv_t;
-
-struct truf_tsv_s {
-	echs_instant_t t;
-	truf_sym_t sym;
-	truf_price_t bid;
-	truf_price_t ask;
-	truf_expos_t new;
-	truf_expos_t old;
-};
+typedef const struct truf_step_s *truf_step_cell_t;
 
 
 static void
@@ -97,101 +89,6 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 	memcpy(dst, src, ssz);
 	dst[ssz] = '\0';
 	return ssz;
-}
-
-
-/* last price stacks */
-typedef size_t lstk_t;
-static struct truf_tsv_s lstk[64U];
-static size_t imin;
-static size_t imax;
-
-static bool
-relevantp(lstk_t i)
-{
-	return i < imax;
-}
-
-static bool
-tracerp(lstk_t i)
-{
-	return lstk[i].new == 0.df && lstk[i].old == 0.df;
-}
-
-static bool
-lstk_emptyp(lstk_t i)
-{
-	return lstk[i].new == 0.df;
-}
-
-static lstk_t
-lstk_find(truf_sym_t contract)
-{
-	for (size_t i = imin; i < imax; i++) {
-		if (truf_mmy_eq_p(lstk[i].sym, contract)) {
-			return i;
-		}
-	}
-	return imax;
-}
-
-static lstk_t
-lstk_kick(lstk_t i)
-{
-	/* kick the i-th slot */
-	lstk[i].old = lstk[i].new;
-	lstk[i].new = 0.df;
-	if (i == imin) {
-		/* up imin */
-		for (size_t j = ++imin; j < imax; imin++, j++) {
-			if (!lstk_emptyp(j)) {
-				break;
-			}
-		}
-	}
-	if (i == imax - 1U) {
-		/* down imax */
-		for (size_t j = imax; --j >= imin; imax--) {
-			if (!lstk_emptyp(j)) {
-				break;
-			}
-		}
-	}
-	/* condense imin/imax, only if imin or imax reach into
-	 * the other half of the lstack */
-	if (imin >= countof(lstk) / 2U || imin && imax >= countof(lstk) / 2U) {
-		if (i < imin)
-		/* copy kicked lstk item, so we can still access the
-		 * symbol et al */
-		lstk[imax] = lstk[i];
-		i = imax;
-		/* now do the actual condensing */
-		memmove(lstk + 0U, lstk + imin, (imax - imin) * sizeof(*lstk));
-		imax -= imin;
-		imin = 0;
-	}
-	return i;
-}
-
-static lstk_t
-lstk_updt_exp(truf_sym_t sym, truf_expos_t x)
-{
-	lstk_t i;
-
-	if (relevantp(i = lstk_find(sym))) {
-		/* already in there, just set new exposure */
-		lstk[i].old = lstk[i].new;
-		lstk[i].new = x;
-	} else /*if (i == imax)*/ {
-		/* otherwise add */
-		lstk[i].sym = sym;
-		lstk[i].old = 0.df;
-		lstk[i].new = x;
-		lstk[i].bid = nand32(NULL);
-		lstk[i].ask = nand32(NULL);
-		imax++;
-	}
-	return i;
 }
 
 
@@ -279,12 +176,12 @@ declcoru(co_echs_pop, {
 		truf_wheap_t q;
 	}, {});
 
-static truf_tsv_t
+static truf_step_cell_t
 defcoru(co_echs_pop, c, UNUSED(arg))
 {
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
-	struct truf_tsv_s res = {
+	struct truf_step_s res = {
 		.old = nand32(NULL),
 	};
 
@@ -335,7 +232,7 @@ declcoru(co_echs_out, {
 	}, {});
 
 static const void*
-_defcoru(co_echs_out, ia, truf_tsv_t arg)
+_defcoru(co_echs_out, ia, truf_step_cell_t arg)
 {
 	char buf[256U];
 	const char *const ep = buf + sizeof(buf);
@@ -403,116 +300,91 @@ declcoru(co_tser_flt, {
 		unsigned int levp:1U;
 	}, {});
 
-static truf_tsv_t
+static truf_step_cell_t
 defcoru(co_tser_flt, ia, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes
  * in edge mode we need to know the levels beforehand because we yield
  * upon trod changes
  * in level mode we need to know the trod changes before the levels */
-	static struct truf_tsv_s res[64U];
 	coru_t rdr;
 	coru_t pop;
+	struct truf_step_s res;
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->tser);
 	pop = make_coru(co_echs_pop, ia->q);
 
-	truf_tsv_t ev;
+	truf_step_cell_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
-		size_t nemit = 0U;
-
 		/* aggregate trod directives between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(echs_instant_ge_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			truf_mmy_t c = ev->sym;
-			echs_idiff_t age;
-			lstk_t i;
+			truf_sym_t sym = ev->sym;
+			truf_step_t st;
 
 			/* prep yield */
-			if (!truf_mmy_abs_p(c)) {
-				c = truf_mmy_abs(c, ev->t.y);
+			if (!truf_mmy_abs_p(sym)) {
+				sym = truf_mmy_abs(sym, ev->t.y);
 			}
 			/* make sure we massage the lstk */
-			i = lstk_updt_exp(c, ev->new);
-			age = echs_instant_diff(ev->t, lstk[i].t);
-			if (echs_idiff_ge_p(age, ia->mqa)) {
-				/* max quote age exceeded */
-				lstk[i].bid = nand32(NULL);
-				lstk[i].ask = nand32(NULL);
+			st = truf_step_find(sym);
+			st->old = st->new;
+			st->new = ev->new;
+
+			with (echs_idiff_t age) {
+				age = echs_instant_diff(ev->t, st->t);
+				if (echs_idiff_ge_p(age, ia->mqa)) {
+					/* max quote age exceeded */
+					st->bid = nand32(NULL);
+					st->ask = nand32(NULL);
+				}
 			}
-			if (ia->edgp && !tracerp(i)) {
+			if (ia->edgp) {
 				/* defer the yield a bit,
 				 * there's technically the chance that in the
 				 * next few lines the price gets updated */
-				res[nemit] = lstk[i];
-				res[nemit].t = ev->t;
-				nemit++;
+				res = *st;
+				res.t = ev->t;
+				yield(res);
 			}
 		}
 
 		/* yield time series lines in between trod edges */
 		do {
 			char *on;
-			truf_mmy_t c = truf_mmy_rd(ln->ln, &on);
-			lstk_t i;
+			truf_sym_t sym;
+			truf_step_t st;
 
-			/* print left over deferred events,
-			 * conditionalise on timestamp to maintain
-			 * chronologicity */
-			for (size_t j = 0U; j < nemit; j++) {
-				if (res[j].sym &&
-				    echs_instant_lt_p(res[j].t, ln->t)) {
-					yield_ptr(res + j);
+			/* snarf symbol */
+			sym = truf_mmy_rd(ln->ln, &on);
 
-					if (!truf_mmy_abs_p(res[j].sym)) {
-						res[j].sym = truf_mmy_abs(
-							res[j].sym, res[j].t.y);
-					}
-					i = lstk_find(res[j].sym);
-					if (lstk[i].new == 0.df) {
-						lstk_kick(i);
-					}
-					res[j].sym = 0U;
-				}
+			if (!truf_mmy_abs_p(sym)) {
+				sym = truf_mmy_abs(sym, ln->t.y);
+			}
+			/* make sure we massage the lstk */
+			st = truf_step_find(sym);
+			st->t = ln->t;
+
+			/* keep track of last price */
+			if (*on == '\t') {
+				st->bid = strtod32(on + 1U, &on);
+			} else {
+				st->bid = nand32(NULL);
+			}
+			if (*on == '\t') {
+				st->ask = strtod32(on + 1U, &on);
+			} else {
+				st->ask = st->bid;
 			}
 
-			if (!truf_mmy_abs_p(c)) {
-				c = truf_mmy_abs(c, ln->t.y);
-			}
-			if (relevantp(i = lstk_find(c))) {
-				/* keep track of last price */
-				truf_price_t p = strtod32(on + 1U, &on);
-				bool prntp = isnand32(lstk[i].bid);
-				lstk_t j;
-
-				/* keep track of last price */
-				lstk[i].t = ln->t;
-				lstk[i].bid = p;
-
-				for (j = 0U; j < nemit; j++) {
-					if (truf_mmy_eq_p(res[j].sym, c)) {
-						prntp = true;
-						break;
-					}
-				}
-
-				if (tracerp(i)) {
-					/* just a tracker edge */
-					;
-				} else if (ia->levp || UNLIKELY(prntp)) {
-					/* yield edge and exposure */
-					res[j] = lstk[i];
-					res[j].t = ln->t;
-					yield_ptr(res + j);
-					if (lstk[i].new == 0.df) {
-						lstk_kick(i);
-					}
-					res[j].sym = 0U;
-				}
+			if (ia->levp && st->new != 0.df) {
+				/* yield price and exposure */
+				res = *st;
+				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
@@ -531,13 +403,13 @@ declcoru(co_echs_pos, {
 		size_t ndt;
 	}, {});
 
-static truf_tsv_t
+static truf_step_t
 defcoru(co_echs_pos, ia, UNUSED(arg))
 {
 /* yields something that co_echs_out can use directly */
 	coru_t rdr;
 	coru_t pop;
-	struct truf_tsv_s res;
+	struct truf_step_s res;
 
 	init_coru();
 	if (ia->ndt == 0U) {
@@ -548,7 +420,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 	}
 	pop = make_coru(co_echs_pop, ia->q);
 
-	truf_tsv_t ev;
+	truf_step_cell_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
 		/* in between date/times from the RDR find trods */
@@ -556,9 +428,16 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			truf_mmy_t c = ev->sym;
+			truf_mmy_t sym = ev->sym;
+			truf_step_t st;
 
-			lstk_updt_exp(c, ev->new);
+			if (!truf_mmy_abs_p(sym)) {
+				sym = truf_mmy_abs(sym, ev->t.y);
+			}
+			/* make sure we massage the lstk */
+			st = truf_step_find(sym);
+			st->old = st->new;
+			st->new = ev->new;
 		}
 
 		do {
@@ -568,15 +447,14 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 
 			bp += dt_strf(bp, ep - bp, ln->t);
 			*bp++ = '\t';
-			for (lstk_t i = imin; i < imax; i++) {
-				if (lstk_emptyp(i)) {
-					continue;
+			for (truf_step_t st; (st = truf_step_iter()) != NULL;) {
+				if (st->new != 0.df) {
+					/* prep the yield */
+					res = *st;
+					res.t = ln->t;
+					res.old = nand32(NULL);
+					yield(res);
 				}
-				/* otherwise prep the yield */
-				res = lstk[i];
-				res.t = ln->t;
-				res.old = nand32(NULL);
-				yield(res);
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
@@ -792,7 +670,7 @@ cmd_print(struct truf_args_info argi[static 1U])
 			argi->rel_given, argi->abs_given, argi->oco_given,
 			.prnt_expp = true);
 
-		for (truf_tsv_t e; (e = next(pop)) != NULL;) {
+		for (truf_step_cell_t e; (e = next(pop)) != NULL;) {
 			____next(out, e);
 		}
 
@@ -872,7 +750,7 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 			argi->rel_given, argi->abs_given, argi->oco_given,
 			.prnt_expp = true);
 
-		for (truf_tsv_t e; (e = next(pop)) != NULL;) {
+		for (truf_step_cell_t e; (e = next(pop)) != NULL;) {
 			____next(out, e);
 		}
 
@@ -941,7 +819,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 			argi->rel_given, argi->abs_given, argi->oco_given,
 			.prnt_prcp = true);
 
-		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
+		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
 			if (UNLIKELY(isnand32(e->bid))) {
 				continue;
 			}
@@ -999,7 +877,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 			argi->rel_given, argi->abs_given, argi->oco_given,
 			.prnt_expp = true);
 
-		for (truf_tsv_t e; (e = next(pos)) != NULL;) {
+		for (truf_step_cell_t e; (e = next(pos)) != NULL;) {
 			____next(out, e);
 		}
 
@@ -1067,7 +945,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 			argi->rel_given, argi->abs_given, argi->oco_given,
 			.prnt_expp = true, .prnt_prcp = true);
 
-		for (truf_tsv_t e; (e = next(flt)) != NULL;) {
+		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
 			____next(out, e);
 		}
 
@@ -1098,6 +976,8 @@ main(int argc, char *argv[])
 
 	/* get the coroutines going */
 	init_coru_core();
+	/* initialise our step system */
+	truf_init_step();
 
 	/* check the command */
 	with (const char *cmd = argi->inputs[0U]) {
@@ -1119,6 +999,9 @@ See --help to obtain a list of available commands.");
 			goto out;
 		}
 	}
+
+	/* finalise our step system */
+	truf_fini_step();
 
 out:
 	/* just to make sure */
