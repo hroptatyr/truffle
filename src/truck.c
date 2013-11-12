@@ -309,7 +309,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
  * in level mode we need to know the trod changes before the levels */
 	static struct {
 		echs_instant_t t;
-		truf_step_cell_t ref;
+		truf_step_t ref;
 	} dfrd[64U];
 	coru_t rdr;
 	coru_t pop;
@@ -346,6 +346,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				age = echs_instant_diff(ev->t, st->t);
 				if (echs_idiff_ge_p(age, ia->mqa)) {
 					/* max quote age exceeded */
+					st->t = ev->t;
 					st->bid = nand32(NULL);
 					st->ask = nand32(NULL);
 				}
@@ -372,9 +373,16 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			while (nemit < ndfrd &&
 			       echs_instant_lt_p(dfrd[nemit].t, ln->t)) {
 				/* just yield */
-				res = *dfrd[nemit].ref;
+				truf_step_t ref = dfrd[nemit].ref;
+				res = *ref;
 				res.t = dfrd[nemit].t;
-				yield(res);
+				if (ref->old != ref->new) {
+					if (!isnand32(ref->bid)) {
+						/* update exposure */
+						ref->old = ref->new;
+					}
+					yield(res);
+				}
 				nemit++;
 			}
 
@@ -391,19 +399,20 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			/* keep track of last price */
 			if (*on == '\t') {
 				st->bid = strtod32(on + 1U, &on);
-			} else {
-				st->bid = nand32(NULL);
 			}
 			if (*on == '\t') {
 				st->ask = strtod32(on + 1U, &on);
-			} else {
-				st->ask = st->bid;
 			}
 
 			if (ia->levp && st->new != 0.df) {
 				/* yield price and exposure */
 				res = *st;
 				yield(res);
+			} else if (ia->edgp && st->old != st->new) {
+				/* emit the update */
+				dfrd[ndfrd].t = ln->t;
+				dfrd[ndfrd].ref = st;
+				ndfrd++;
 			}
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
