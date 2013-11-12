@@ -307,6 +307,10 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
  * in edge mode we need to know the levels beforehand because we yield
  * upon trod changes
  * in level mode we need to know the trod changes before the levels */
+	static struct {
+		echs_instant_t t;
+		truf_step_cell_t ref;
+	} dfrd[64U];
 	coru_t rdr;
 	coru_t pop;
 	struct truf_step_s res;
@@ -318,6 +322,9 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 	truf_step_cell_t ev;
 	const struct co_rdr_res_s *ln;
 	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+		size_t nemit = 0U;
+		size_t ndfrd = 0U;
+
 		/* aggregate trod directives between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
@@ -347,9 +354,9 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				/* defer the yield a bit,
 				 * there's technically the chance that in the
 				 * next few lines the price gets updated */
-				res = *st;
-				res.t = ev->t;
-				yield(res);
+				dfrd[ndfrd].t = ev->t;
+				dfrd[ndfrd].ref = st;
+				ndfrd++;
 			}
 		}
 
@@ -358,6 +365,18 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			char *on;
 			truf_sym_t sym;
 			truf_step_t st;
+
+			/* print left over deferred events,
+			 * conditionalise on timestamp to maintain
+			 * chronologicity */
+			while (nemit < ndfrd &&
+			       echs_instant_lt_p(dfrd[nemit].t, ln->t)) {
+				/* just yield */
+				res = *dfrd[nemit].ref;
+				res.t = dfrd[nemit].t;
+				yield(res);
+				nemit++;
+			}
 
 			/* snarf symbol */
 			sym = truf_mmy_rd(ln->ln, &on);
