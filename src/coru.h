@@ -153,6 +153,11 @@ static __thread coru_t ____caller[CORU_DEPTH];
 /* can't do with glibc's longjmp stack check */
 # undef _FORTIFY_SOURCE
 #endif	/* _FORTIFY_SOURCE */
+#if defined __USE_FORTIFY_LEVEL
+/* can't do with glibc's longjmp stack check */
+# undef __USE_FORTIFY_LEVEL
+# define __USE_FORTIFY_LEVEL 0
+#endif	/* __USE_FORTIFY_LEVEL */
 #include <setjmp.h>
 #include <stdint.h>
 #include <ucontext.h>
