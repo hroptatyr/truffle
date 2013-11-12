@@ -41,6 +41,7 @@
 #include <string.h>
 #include "step.h"
 #include "mmy.h"
+#include "truf-dfp754.h"
 #include "nifty.h"
 
 /* a hash is the bucket locator and a chksum for collision detection */
@@ -126,6 +127,8 @@ truf_step_find(truf_sym_t sym)
 				/* found empty slot */
 				schk[off] = hx.chk;
 				sstk[off].sym = sym;
+				/* no prices yet */
+				sstk[off].bid = sstk[off].ask = nand32(NULL);
 				nstk++;
 				return sstk + off;
 			}
