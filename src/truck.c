@@ -404,10 +404,14 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				st->ask = strtod32(on + 1U, &on);
 			}
 
-			if (ia->levp && st->new != 0.df) {
-				/* yield price and exposure */
-				res = *st;
-				yield(res);
+			if (ia->levp) {
+				if (st->old != st->new || st->new != 0.df) {
+					/* yield price and exposure */
+					res = *st;
+					/* update exposures */
+					st->old = st->new;
+					yield(res);
+				}
 			} else if (ia->edgp && st->old != st->new) {
 				/* emit the update */
 				dfrd[ndfrd].t = ln->t;
