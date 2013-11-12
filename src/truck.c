@@ -813,7 +813,11 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		goto out;
 	}
 
-	max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
+	if (argi->max_quote_age_given) {
+		max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
+	} else {
+		max_quote_age = (echs_idiff_t){4095};
+	}
 
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
@@ -940,7 +944,11 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		goto out;
 	}
 
-	max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
+	if (argi->max_quote_age_given) {
+		max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
+	} else {
+		max_quote_age = (echs_idiff_t){4095};
+	}
 
 	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
 		const char *fn = argi->inputs[i];
