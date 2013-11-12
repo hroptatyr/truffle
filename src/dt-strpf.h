@@ -48,6 +48,10 @@ extern echs_instant_t dt_strp(const char *str, char **on);
  * Print INST into BUF (of size BSZ) and return its length. */
 extern size_t dt_strf(char *restrict buf, size_t bsz, echs_instant_t inst);
 
+/**
+ * Parse STR for simply-suffixed dhms durations. */
+extern echs_idiff_t echs_idiff_rd(const char *str, char **on);
+
 
 #if defined INCLUDE_DT_STRPF_IMPL
 # include "dt-strpf.c"

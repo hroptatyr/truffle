@@ -224,4 +224,52 @@ dt_strf(char *restrict buf, size_t bsz, echs_instant_t inst)
 	return bp - buf;
 }
 
+echs_idiff_t
+echs_idiff_rd(const char *str, char **on)
+{
+	static echs_idiff_t nul;
+	echs_idiff_t res = nul;
+	const char *sp;
+	int32_t tmp;
+
+	if (UNLIKELY((sp = str) == NULL)) {
+		goto nul;
+	}
+
+	/* read the int value */
+	if ((tmp = strtoi_lim(sp, &sp, 0, INT32_MAX)) < 0) {
+		goto nul;
+	}
+	/* read the suffix */
+	switch (*sp++) {
+	case 'd':
+	case 'D':
+		res.dd = tmp;
+		break;
+	case 'h':
+	case 'H':
+		res.dd = tmp / 24;
+		res.msd = (tmp % 24) * 60 * 60 * 1000;
+		break;
+	case 'm':
+	case 'M':
+		res.dd = tmp / (24 * 60);
+		res.msd = (tmp % (24 * 60)) * 60 * 1000;
+		break;
+	case 's':
+	case 'S':
+		res.dd = tmp / (24 * 60 * 60);
+		res.msd = (tmp % (24 * 60 * 60)) * 1000;
+		break;
+	default:
+		sp--;
+		goto nul;
+	}
+nul:
+	if (LIKELY(on != NULL)) {
+		*on = deconst(sp);
+	}
+	return res;
+}
+
 #endif	/* INCLUDED_dt_strpf_c_ */
