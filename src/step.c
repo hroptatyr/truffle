@@ -131,6 +131,23 @@ truf_step_find(truf_sym_t sym)
 	}
 }
 
+truf_step_t
+truf_step_iter(void)
+{
+/* coroutine with static storage */
+	static size_t i;
+
+	while (i < zstk) {
+		size_t this = i++;
+		if (sstk[this].sym != 0U) {
+			return sstk + this;
+		}
+	}
+	/* reset offset for next iteration */
+	i = 0U;
+	return NULL;
+}
+
 void
 truf_init_step(void)
 {

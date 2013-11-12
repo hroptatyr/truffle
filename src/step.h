@@ -53,6 +53,7 @@ struct truf_step_s {
 
 
 extern truf_step_t truf_step_find(truf_sym_t sym);
+extern truf_step_t truf_step_iter(void);
 
 extern void truf_init_step(void);
 extern void truf_fini_step(void);
