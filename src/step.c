@@ -84,6 +84,12 @@ hx_mmy(truf_mmy_t ym)
 	return (hash_t){idx, ym};
 }
 
+static inline size_t
+get_off(size_t idx, size_t mod)
+{
+	return mod - (idx % mod) - 1U;
+}
+
 static void*
 recalloc(void *buf, size_t nmemb_ol, size_t nmemb_nu, size_t membz)
 {
@@ -111,7 +117,7 @@ truf_step_find(truf_sym_t sym)
 	while (1) {
 		/* just try what we've got */
 		for (size_t mod = 64U; mod <= zstk; mod *= 2U) {
-			size_t off = hx.idx % mod;
+			size_t off = get_off(hx.idx, mod);
 
 			if (LIKELY(schk[off] == hx.chk)) {
 				/* found him */
