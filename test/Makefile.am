@@ -148,6 +148,8 @@ EXTRA_DIST += filt_01.trod
 
 TESTS += glue_01.clit
 TESTS += glue_02.clit
+TESTS += glue_03.clit
+TESTS += glue_04.clit
 EXTRA_DIST += glue_01.tser
 EXTRA_DIST += glue_01.trod
 
