@@ -372,24 +372,31 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			/* print left over deferred events,
 			 * conditionalise on timestamp to maintain
 			 * chronologicity */
-			while (nemit < ndfrd &&
-			       echs_instant_lt_p(dfrd[nemit].t, ln->t)) {
+			for (; nemit < ndfrd &&
+				     echs_instant_lt_p(dfrd[nemit].t, ln->t);
+			     nemit++) {
 				/* just yield */
 				truf_step_t ref = dfrd[nemit].ref;
+
+				if (ref->old == ref->new) {
+					continue;
+				} else if (ia->levp && ref->new == 0.df) {
+					/* we already yielded this when
+					 * the exposure was != 0.df */
+					continue;
+				}
+
 				res = *ref;
 				if (ia->edgp) {
 					res.t = dfrd[nemit].t;
 				}
-				if (ref->old != ref->new) {
-					if (ia->levp) {
-						res.new = res.old;
-					} else if (!isnand32(ref->bid)) {
-						/* update exposure */
-						ref->old = ref->new;
-					}
-					yield(res);
+				if (ia->levp) {
+					res.new = res.old;
+				} else if (!isnand32(ref->bid)) {
+					/* update exposure */
+					ref->old = ref->new;
 				}
-				nemit++;
+				yield(res);
 			}
 
 			/* snarf symbol */
