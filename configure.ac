@@ -63,21 +63,8 @@ SXE_CHECK_ASM_CORUS
 AM_MISSING_PROG([HELP2MAN], [help2man], ["${missing_dir}"])
 
 ## coroutine provider
-AC_ARG_WITH([asm-backed-coroutines], [
-AS_HELP_STRING([--with-asm-backed-coroutines], [
-Provide coroutines through asm-backed frame switching instead
-of more portable setjmp/longjmp/ucontext.])
-AS_HELP_STRING([], [Default: with if supported])],
-	[with_asm_corus="${withval}"], [with_asm_corus="${sxe_cv_feat_asm_corus}"])
-if test "${sxe_cv_feat_asm_corus}" = "no" -a "${with_asm_corus}" = "yes"; then
-	AC_MSG_WARN([
-asm backed coroutines on your wishlist but it's already been determined
-that they won't work for your platform.  I hope you know what you're
-doing.
-])
-fi
-AM_CONDITIONAL([USE_ASM_CORUS], [test "${with_asm_corus}" = "yes"])
-if test "${with_asm_corus}" = "yes"; then
+AM_CONDITIONAL([USE_ASM_CORUS], [test "${use_asm_corus}" = "yes"])
+if test "${use_asm_corus}" = "yes"; then
 	AC_DEFINE([USE_ASM_CORUS], [1], [Whether to use asm backed coroutines])
 fi
 
@@ -86,7 +73,7 @@ fi
 apps="${apps} truffle"
 apps="${apps} trod"
 
-if test "${with_asm_corus}" = "yes"; then
+if test "${use_asm_corus}" = "yes"; then
 	coru=" asm"
 else
 	coru=" setjmp/longjmp/ucontext"
