@@ -129,6 +129,8 @@ truf_step_find(truf_sym_t sym)
 				sstk[off].sym = sym;
 				/* no prices yet */
 				sstk[off].bid = sstk[off].ask = nand32(NULL);
+				/* no exposures either */
+				sstk[off].old = sstk[off].new = 0.df;
 				nstk++;
 				return sstk + off;
 			}
