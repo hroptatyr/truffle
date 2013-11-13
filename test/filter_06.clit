@@ -1,15 +1,12 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
 ## only reproduce prices of contracts that are non-0 according to trod
-$ truck filter --rel "${srcdir}/filt_01.tser" "${srcdir}/filt_01.trod"
+$ truck filter --rel --max-quote-age 0s --edge \
+	"${srcdir}/filt_01.tser" "${srcdir}/filt_01.trod"
 2006-01-01T20:00:00	F0	10.00
-2006-01-01T20:10:00	F0	11.00
-2006-01-01T20:20:00	F0	10.00
-2006-01-01T20:20:00	G0	11.00
 2006-01-01T20:30:00	F0	11.00
 2006-01-01T20:30:00	G0	10.00
-2006-01-01T20:40:00	G0	11.00
 2006-01-01T20:50:00	G0	10.00
 $
 
-## filter_01.clit ends here
+## filter_06.clit ends here
