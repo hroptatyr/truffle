@@ -1,6 +1,6 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
-$ truck position "${srcdir}/print_05.trod" 2006-01-01 2006-01-02 2006-02-01
+$ truck position --rel "${srcdir}/print_05.trod" 2006-01-01 2006-01-02 2006-02-01
 2006-01-01	F0	1.0
 2006-01-02	F0	1.0
 2006-02-01	G0	1.0
