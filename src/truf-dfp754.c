@@ -514,7 +514,11 @@ strtodpd32(const char *src, char **on)
 _Decimal32
 strtod32(const char *src, char **on)
 {
+# if defined HAVE_DFP754_BID_LITERALS
 	return strtobid32(src, on);
+# elif defined HAVE_DFP754_DPD_LITERALS
+	return strtodpd32(src, on);
+# endif	 /* HAVE_DFP754_*_LITERALS */
 }
 #endif	/* !HAVE_STRTOD32 */
 
@@ -581,7 +585,11 @@ dpd32tostr(char *restrict buf, size_t UNUSED(bsz), _Decimal32 x)
 int
 d32tostr(char *restrict buf, size_t bsz, _Decimal32 x)
 {
+#if defined HAVE_DFP754_BID_LITERALS
 	return bid32tostr(buf, bsz, x);
+#elif defined HAVE_DFP754_DPD_LITERALS
+	return dpd32tostr(buf, bsz, x);
+#endif	 /* HAVE_DFP754_*_LITERALS */
 }
 
 /* always use our own version,
@@ -590,14 +598,23 @@ d32tostr(char *restrict buf, size_t bsz, _Decimal32 x)
 _Decimal32
 quantized32(_Decimal32 x, _Decimal32 r)
 {
+#if defined HAVE_DFP754_BID_LITERALS
 	return quantizebid32(x, r);
+#elif defined HAVE_DFP754_DPD_LITERALS
+	/* this one's missing */
+	return quantizedpd32(x, r);
+#endif	 /* HAVE_DFP754_*_LITERALS */
 }
 
 #if !defined HAVE_SCALBND32
 _Decimal32
 scalbnd32(_Decimal32 x, int n)
 {
+# if defined HAVE_DFP754_BID_LITERALS
 	return scalbnbid32(x, n);
+# elif defined HAVE_DFP754_DPD_LITERALS
+	return scalbndpd32(x, n);
+# endif	 /* HAVE_DFP754_*_LITERALS */
 }
 #endif	/* !HAVE_SCALBND32 */
 

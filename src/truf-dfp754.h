@@ -116,7 +116,11 @@ quantexpdpd32(_Decimal32 x)
 inline __attribute__((pure, const)) int
 quantexpd32(_Decimal32 x)
 {
+#if defined HAVE_DFP754_BID_LITERALS
 	return quantexpbid32(x);
+#elif defined HAVE_DFP754_DPD_LITERALS
+	return quantexpdpd32(x);
+#endif	/* HAVE_DFP754_*_LITERALS */
 }
 
 static inline __attribute__((pure, const)) _Decimal32
