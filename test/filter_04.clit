@@ -3,8 +3,8 @@
 ## only reproduce prices of contracts that are non-0 according to trod
 $ truck filter --rel --edge "${srcdir}/glue_01.tser" "${srcdir}/glue_01.trod"
 2006-01-01T20:00:00	F0	10.00
+2006-01-01T20:24:00	G0	11.00
 2006-01-01T20:24:00	F0	10.00
-2006-01-01T20:30:00	G0	10.00
 2006-01-01T20:44:00	G0	10.50
 $
 

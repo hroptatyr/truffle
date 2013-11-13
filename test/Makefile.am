@@ -139,6 +139,10 @@ TESTS += filter_01.clit
 TESTS += filter_02.clit
 TESTS += filter_03.clit
 TESTS += filter_04.clit
+TESTS += filter_05.clit
+TESTS += filter_06.clit
+TESTS += filter_07.clit
+TESTS += filter_08.clit
 EXTRA_DIST += filt_01.tser
 EXTRA_DIST += filt_01.trod
 
