@@ -417,20 +417,19 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				st->ask = strtod32(on + 1U, &on);
 			}
 
-			if (ia->levp) {
-				if (st->old != st->new || st->new != 0.df) {
-					/* yield price and exposure */
-					res = *st;
-					/* update exposures */
-					st->old = st->new;
-					yield(res);
-				}
-			} else if (ia->edgp && st->old != st->new) {
-				/* emit the update */
-				dfrd[ndfrd].t = ln->t;
-				dfrd[ndfrd].ref = st;
-				ndfrd++;
+			if (ia->levp && st->old == st->new && st->new == 0.df) {
+				/* we're not invested, and it's not an edge */
+				continue;
+			} else if (ia->edgp && st->old == st->new) {
+				/* not an edge */
+				continue;
 			}
+
+			/* otherwise yield price and exposure */
+			res = *st;
+			/* update exposures */
+			st->old = st->new;
+			yield(res);
 		} while (LIKELY((ln = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
 			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
