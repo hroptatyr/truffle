@@ -304,9 +304,13 @@ static truf_step_cell_t
 defcoru(co_tser_flt, ia, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes
- * in edge mode we need to know the levels beforehand because we yield
- * upon trod changes
- * in level mode we need to know the trod changes before the levels */
+ * In edge mode we need to know the levels beforehand because we yield
+ * upon trod changes.
+ * In level mode we need to know the trod changes before the levels.
+ *
+ * We implement both going through trod edges first and defer their
+ * yield.  We chose to defer trod edges because in practice they will
+ * be sparser than price data changes. */
 	static struct {
 		echs_instant_t t;
 		truf_step_t ref;
@@ -351,14 +355,12 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 					st->ask = nand32(NULL);
 				}
 			}
-			if (ia->edgp) {
-				/* defer the yield a bit,
-				 * there's technically the chance that in the
-				 * next few lines the price gets updated */
-				dfrd[ndfrd].t = ev->t;
-				dfrd[ndfrd].ref = st;
-				ndfrd++;
-			}
+			/* defer the yield a bit,
+			 * there's technically the chance that in the
+			 * next few lines the price gets updated */
+			dfrd[ndfrd].t = ev->t;
+			dfrd[ndfrd].ref = st;
+			ndfrd++;
 		}
 
 		/* yield time series lines in between trod edges */
@@ -375,9 +377,13 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				/* just yield */
 				truf_step_t ref = dfrd[nemit].ref;
 				res = *ref;
-				res.t = dfrd[nemit].t;
+				if (ia->edgp) {
+					res.t = dfrd[nemit].t;
+				}
 				if (ref->old != ref->new) {
-					if (!isnand32(ref->bid)) {
+					if (ia->levp) {
+						res.new = res.old;
+					} else if (!isnand32(ref->bid)) {
 						/* update exposure */
 						ref->old = ref->new;
 					}
