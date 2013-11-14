@@ -576,16 +576,16 @@ strtodpd32(const char *src, char **on)
 	bcd32_t b = strtobcd32(src, on);
 	_Decimal32 res;
 
-	/* pack the mantissa */
+	/* assemble the d32 */
 	with (uint32_t u = b.sign << 31U, m = b.mant) {
 		unsigned int rexp = b.expo + 101;
 
 		/* lower 3 digits */
-		u |= pack_declet(b & 0xfffU);
-		b >>= 12U;
+		u |= pack_declet(m & 0xfffU);
+		m >>= 12U;
 		/* upper 3 digits */
-		u |= pack_declet(b & 0xfffU) << 10U;
-		if (UNLIKELY((b >>= 12U) >= 8U)) {
+		u |= pack_declet(m & 0xfffU) << 10U;
+		if (UNLIKELY((m >>= 12U) >= 8U)) {
 			/* special exponent */
 			u |= 0b11U << 29U;
 			u |= (rexp & 0b11000000U) << 21U;
@@ -595,7 +595,7 @@ strtodpd32(const char *src, char **on)
 		/* rexp's beef bits */
 		u |= (rexp & 0b00111111U) << 20U;
 		/* the TTT bits (or T) */
-		u |= (b & 0x7U) << 26U;
+		u |= (m & 0x7U) << 26U;
 		res = bobs(u);
 	}
 	return res;
