@@ -686,8 +686,7 @@ cmd_print(struct truf_args_info argi[static 1U])
 
 	if (argi->inputs_num < 1U) {
 		fputs(usg, stderr);
-		res = 1;
-		goto out;
+		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
@@ -742,8 +741,7 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 
 	if (argi->inputs_num < 1U) {
 		fputs(usg, stderr);
-		res = 1;
-		goto out;
+		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
@@ -822,8 +820,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 
 	if (argi->inputs_num < 2U) {
 		fputs(usg, stderr);
-		res = 1;
-		goto out;
+		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
@@ -896,8 +893,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 
 	if (argi->inputs_num < 2U) {
 		fputs(usg, stderr);
-		res = 1;
-		goto out;
+		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
@@ -953,8 +949,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 
 	if (argi->inputs_num < 2U) {
 		fputs(usg, stderr);
-		res = 1;
-		goto out;
+		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
