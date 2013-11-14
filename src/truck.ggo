@@ -5,9 +5,10 @@ description "Tool to apply roll-over directives (trod) to time series.
 
 COMMAND may be one of:
   filter    Filter relevant price lines with given directives.
+  glue      Output a single stream with prices and directives.
+  migrate   Read recurrence schemas and roll them out.
   position  Print portfolio positions at given dates/times.
   print     Print resulting actors of trod echse messages.
-  migrate   Read recurrence schemas and roll them out.
 "
 
 text "
