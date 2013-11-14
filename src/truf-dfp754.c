@@ -404,6 +404,7 @@ quantizebid32(_Decimal32 x, _Decimal32 r)
 }
 
 #if !defined HAVE_SCALBND32
+# if defined HAVE_DFP754_BID_LITERALS
 static _Decimal32
 scalbnbid32(_Decimal32 x, int n)
 {
@@ -428,6 +429,38 @@ scalbnbid32(_Decimal32 x, int n)
 	}
 	return x;
 }
+# elif defined HAVE_DFP754_DPD_LITERALS
+static _Decimal32
+scalbndpd32(_Decimal32 x, int n)
+{
+	/* just fiddle with the exponent of X then */
+	with (uint32_t b = bits(x), u) {
+		/* the idea is to xor the current expo with the new expo
+		 * and shift the result to the right position and xor again */
+		if (UNLIKELY((b & 0x60000000U) == 0x60000000U)) {
+			/* 24th bit of mantissa is set, special expo
+			 * 11ee T (ee)eeeeee mmm... */
+			u = (b >> 20U) & 0x3fU;
+			u |= (b >> 21U) & 0xc0U;
+			u ^= u + n;
+			/* move the top-2 bits out by 1 bit again */
+			u = (u & 0x3fU) | ((u & 0xc0U) << 1U);
+			u <<= 20U;
+		} else {
+			/* ee TTT (ee)eeeeee mmm... */
+			u = (b >> 20U) & 0x3fU;
+			u |= (b >> 23U) & 0xc0U;
+			u ^= u + n;
+			/* move the top-2 bits out by 3 bits again */
+			u = (u & 0x3fU) | ((u & 0xc0U) << 3U);
+			u <<= 20U;
+		}
+		b ^= u;
+		x = bobs(b);
+	}
+	return x;
+}
+# endif	/* HAVE_DFP754_*_LITERALS */
 #endif	/* !HAVE_SCALBND32 */
 
 
