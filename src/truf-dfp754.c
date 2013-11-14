@@ -359,6 +359,7 @@ bcd32tostr(char *restrict buf, size_t bsz, uint_least32_t mant, int e, int s)
 }
 
 
+#if defined HAVE_DFP754_BID_LITERALS
 static _Decimal32
 quantizebid32(_Decimal32 x, _Decimal32 r)
 {
@@ -369,7 +370,7 @@ quantizebid32(_Decimal32 x, _Decimal32 r)
 	int ex;
 	uint_least32_t m;
 
-	/* get the exponent and mantissa */
+	/* get the exponents of x and r */
 	er = quantexpbid32(r);
 	ex = quantexpbid32(x);
 
@@ -402,6 +403,64 @@ quantizebid32(_Decimal32 x, _Decimal32 r)
 	}
 	return x;
 }
+#elif defined HAVE_DFP754_DPD_LITERALS
+static _Decimal32
+quantizedpd32(_Decimal32 x, _Decimal32 r)
+{
+/* d32s dpds look like s??ttteeeeee mm..20..mm
+ * this implementation is very minimal serving only the cattle use cases */
+	int er;
+	int ex;
+	uint_least32_t m;
+	uint_least32_t b;
+
+	/* get the exponents of x and r */
+	er = quantexpdpd32(r);
+	ex = quantexpdpd32(x);
+
+	/* get the mantissa TTT MH ML, with MH, ML being declets */
+	m = mant_bid(x);
+	/* unpack the declets and TTT, TTT first, then MH, then ML */
+	b = (m & 0xf00000U);
+	b <<= 12U;
+	b |= unpack_declet((m >> 10U) & 0x3ffU);
+	b <<= 12U;
+	b |= unpack_declet((m >> 0U) & 0x3ffU);
+
+	/* truncate (on bcd) */
+	for (; ex < er; ex++) {
+		b = (b >> 4U) + ((b & 0xfU) >= 5U);
+	}
+	/* the lowest 4 bits could be 0xa, so flip them over to 0 */
+	with (size_t i) {
+		for (i = 0U; (b & 0xfU) >= 10U; b >>= 4U, i++);
+		/* fix them up by shifting by 4i */
+		b <<= 4U * i;
+	}
+
+	/* expand (only if we don't exceed the range) */
+	for (; b < 0x1000000U && ex > er; ex--) {
+		b <<= 4U;
+	}
+
+	/* assemble the d32 */
+	with (uint32_t u = sign_bid(x) << 31U) {
+		u |= pack_declet(b & 0xfffU);
+		b >>= 12U;
+		u |= pack_declet(b & 0xfffU) << 10U;
+		if (UNLIKELY((b >>= 12U) >= 8U)) {
+			u |= 0b11U << 29U;
+			u |= (unsigned int)(ex + 101) << 21U;
+		} else {
+			u |= (unsigned int)(ex + 101) << 23U;
+		}
+		u |= (exp & 0b00111111U) << 20U;
+		u |= (b & 0x7U) << 26;
+		x = bobs(u);
+	}
+	return x;
+}
+#endif	/* HAVE_DFP754_*_LITERALS */
 
 #if !defined HAVE_SCALBND32
 # if defined HAVE_DFP754_BID_LITERALS
@@ -596,18 +655,16 @@ dpd32tostr(char *restrict buf, size_t UNUSED(bsz), _Decimal32 x)
 	/* get the exponent, sign and mantissa */
 	e = quantexpdpd32(x);
 	if (LIKELY((m = mant_dpd(x)))) {
-		uint_least32_t l3;
-		uint_least32_t h3;
+		uint_least32_t b;
 
 		s = sign_dpd(x);
 		/* get us a proper bcd version of M */
-		l3 = unpack_declet(m & 0b1111111111U);
-		m >>= 10U;
-		h3 = unpack_declet(m & 0b1111111111U);
-		m >>= 10U;
-		m <<= 24U;
-		m |= h3 << 12U;
-		m |= l3 << 0U;
+		b = (m & 0xf00000U);
+		b <<= 12U;
+		b |= unpack_declet((m >> 10U) & 0x3ffU);
+		b <<= 12U;
+		b |= unpack_declet((m >> 0U) & 0x3ffU);
+		m = b;
 	} else {
 		/* no stinking signed 0s and m is in bcd form already */
 		s = 0;
