@@ -66,7 +66,7 @@ inline __attribute__((pure, const)) int quantexpbid32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpdpd32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpd32(_Decimal32 x);
 inline __attribute__((pure, const)) _Decimal32 nand32(char *__tagp);
-extern __attribute__((pure, const)) int isnand32(_Decimal32);
+#define isnand32		__builtin_isnand32
 
 inline __attribute__((pure, const)) uint32_t
 bits(_Decimal32 x)
