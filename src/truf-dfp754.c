@@ -454,8 +454,10 @@ quantizedpd32(_Decimal32 x, _Decimal32 r)
 		} else {
 			u |= (unsigned int)(ex + 101) << 23U;
 		}
+		/* the beef bits from the expo */
 		u |= (ex & 0b00111111U) << 20U;
-		u |= (b & 0x7U) << 26;
+		/* the TTT bits (or T) */
+		u |= (b & 0x7U) << 26U;
 		x = bobs(u);
 	}
 	return x;
@@ -575,28 +577,25 @@ strtodpd32(const char *src, char **on)
 	_Decimal32 res;
 
 	/* pack the mantissa */
-	with (uint32_t u) {
-		/* lower 3 digits */
-		uint_least32_t l3 = pack_declet(b.mant & 0xfffU);
-		uint_least32_t u3 = pack_declet((b.mant & 0xfff000U) >> 12U);
-		uint_least32_t u7 = (b.mant >> 24U) & 0xfU;
+	with (uint32_t u = b.sign << 31U, m = b.mant) {
 		unsigned int rexp = b.expo + 101;
 
-		/* assemble the d32 */
-		u = b.sign << 31U;
-		/* check if bits 24-27 (d7) is small or large */
-		if (UNLIKELY(u7 >= 8U)) {
+		/* lower 3 digits */
+		u |= pack_declet(b & 0xfffU);
+		b >>= 12U;
+		/* upper 3 digits */
+		u |= pack_declet(b & 0xfffU) << 10U;
+		if (UNLIKELY((b >>= 12U) >= 8U)) {
+			/* special exponent */
 			u |= 0b11U << 29U;
 			u |= (rexp & 0b11000000U) << 21U;
 		} else {
 			u |= (rexp & 0b11000000U) << 23U;
 		}
-		/* the bottom rexp bits */
+		/* rexp's beef bits */
 		u |= (rexp & 0b00111111U) << 20U;
-		/* now comes u7 */
-		u |= (u7 & 0x7U) << 26U;
-		u |= u3 << 10U;
-		u |= l3 << 0U;
+		/* the TTT bits (or T) */
+		u |= (b & 0x7U) << 26U;
 		res = bobs(u);
 	}
 	return res;
