@@ -2,6 +2,7 @@
 include $(top_builddir)/version.mk
 
 AM_CPPFLAGS = -D_GNU_SOURCE -D_POSIX_C_SOURCE=201001L -D_XOPEN_SOURCE=700
+AM_CPPFLAGS += -D__STDC_WANT_DEC_FP__
 AM_LDFLAGS =
 
 bin_PROGRAMS =
