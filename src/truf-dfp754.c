@@ -454,7 +454,7 @@ quantizedpd32(_Decimal32 x, _Decimal32 r)
 		} else {
 			u |= (unsigned int)(ex + 101) << 23U;
 		}
-		u |= (exp & 0b00111111U) << 20U;
+		u |= (ex & 0b00111111U) << 20U;
 		u |= (b & 0x7U) << 26;
 		x = bobs(u);
 	}
