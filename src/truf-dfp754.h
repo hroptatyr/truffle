@@ -65,6 +65,8 @@ inline __attribute__((pure, const)) _Decimal32 bobs(uint32_t u);
 inline __attribute__((pure, const)) int quantexpbid32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpdpd32(_Decimal32 x);
 inline __attribute__((pure, const)) int quantexpd32(_Decimal32 x);
+inline __attribute__((pure, const)) _Decimal32 nand32(char *__tagp);
+extern __attribute__((pure, const)) int isnand32(_Decimal32);
 
 inline __attribute__((pure, const)) uint32_t
 bits(_Decimal32 x)
@@ -123,16 +125,10 @@ quantexpd32(_Decimal32 x)
 #endif	/* HAVE_DFP754_*_LITERALS */
 }
 
-static inline __attribute__((pure, const)) _Decimal32
+inline __attribute__((pure, const)) _Decimal32
 nand32(char *__tagp __attribute__((unused)))
 {
-	return (bobs(NAND32_U));
-}
-
-static inline __attribute__((pure, const)) int
-isnand32(_Decimal32 x)
-{
-	return (bits(x) & NAND32_U) == NAND32_U;
+	return bobs(NAND32_U);
 }
 
 #endif	/* INCLUDED_truf_dfp754_h_ */
