@@ -61,10 +61,6 @@ TESTS += truffle_schema_contracts.1.deflt.clit
 TESTS += truffle_schema_contracts.1.abs.clit
 TESTS += truffle_schema_contracts.1.oco.clit
 
-TESTS += truffle_trod_contracts.1.deflt.clit
-TESTS += truffle_trod_contracts.1.abs.clit
-TESTS += truffle_trod_contracts.1.oco.clit
-
 TESTS += print_01.clit
 TESTS += print_02.clit
 TESTS += print_03.clit
