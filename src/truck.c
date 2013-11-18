@@ -380,7 +380,8 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 
 				if (ref->old == ref->new) {
 					continue;
-				} else if (ia->levp && ref->new == 0.df) {
+				}
+				if (ia->levp && !ia->edgp && ref->new == 0.df) {
 					/* we already yielded this when
 					 * the exposure was != 0.df */
 					continue;
@@ -390,9 +391,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				if (ia->edgp) {
 					res.t = dfrd[nemit].t;
 				}
-				if (ia->levp) {
-					res.new = res.old;
-				} else if (!isnand32(ref->bid)) {
+				if (!isnand32(ref->bid)) {
 					/* update exposure */
 					ref->old = ref->new;
 				}
@@ -417,9 +416,12 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				st->ask = strtod32(on + 1U, &on);
 			}
 
-			if (ia->levp && st->old == st->new && st->new == 0.df) {
-				/* we're not invested, and it's not an edge */
-				continue;
+			if (ia->levp) {
+				if (st->old == st->new && st->new == 0.df) {
+					/* we're not invested,
+					 * and it's not an edge */
+					continue;
+				}
 			} else if (ia->edgp && st->old == st->new) {
 				/* not an edge */
 				continue;
@@ -985,7 +987,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		init_coru();
 		flt = make_coru(
 			co_tser_flt, q, f,
-			.edgp = true, .levp = false,
+			.edgp = true, .levp = !argi->edge_given,
 			.mqa = max_quote_age);
 		out = make_coru(
 			co_echs_out, stdout,
