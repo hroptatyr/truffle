@@ -39,6 +39,7 @@
 #endif	/* HAVE_CONFIG_H */
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 #include "truffle.h"
 #include "rpaf.h"
 #include "step.h"
@@ -153,6 +154,7 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 	truf_rpaf_t *r = sr->rpaf;
 	truf_price_t bid = st->bid;
 	truf_price_t ask = isnand32(st->ask) ? bid : st->ask;
+	truf_price_t ref;
 	truf_expos_t edif;
 
 	/* business logic here:
@@ -168,23 +170,32 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 		} else {
 			r->refprc = ask;
 		}
-	} else if ((edif = st->new - st->old) < 0.df) {
-		/* short/close */
-		r->cruflo += (r->refprc - bid) * edif;
-		r->refprc = bid;
-	} else if (edif > 0.df) {
-		/* long/open */
-		r->cruflo += (r->refprc - ask) * edif;
-		r->refprc = ask;
-	} else {
-		/* settle */
-		if (st->new > 0.df) {
-			r->cruflo += (bid - r->refprc) * st->new;
-			r->refprc = bid;
+	} else if ((edif = st->new - st->old) != 0.df) {
+		/* we determined it's an edge */
+
+		if (edif < 0.df) {
+			/* short/close */
+			ref = bid;
+		} else if (edif > 0.df) {
+			/* long/open */
+			ref = ask;
 		} else {
-			r->cruflo += (ask - r->refprc) * st->new;
-			r->refprc = ask;
+			assert(0);
 		}
+
+		/* the level formula is quite simple diff_prc * diff_exp */
+		r->cruflo += (r->refprc - ref) * edif;
+		r->refprc = ref;
+	} else {
+		/* it's a level, i.e. operate in settlement mode */
+		if (st->new > 0.df) {
+			ref = bid;
+		} else {
+			ref = ask;
+		}
+
+		r->cruflo += (ref - r->refprc) * st->new;
+		r->refprc = ref;
 	}
 	return;
 }
