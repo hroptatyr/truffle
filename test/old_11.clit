@@ -1,7 +1,0 @@
-#!/usr/bin/clitoris  ## -*- shell-script -*-
-
-$ truffle --schema "${srcdir}/toy6.schema" 2011-09-10
-2011-09-10	X0	1
-$
-
-## old_11.clit ends here
