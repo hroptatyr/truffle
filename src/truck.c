@@ -987,7 +987,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		init_coru();
 		flt = make_coru(
 			co_tser_flt, q, f,
-			.edgp = true, .levp = false,
+			.edgp = true, .levp = !argi->edge_given,
 			.mqa = max_quote_age);
 		out = make_coru(
 			co_echs_out, stdout,
