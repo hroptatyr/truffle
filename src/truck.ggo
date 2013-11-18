@@ -50,3 +50,13 @@ option "rel" -
 	"Use relative contract years for MMY-specified symbols."
 	optional
 
+text "
+Options affecting the roll command:"
+option "basis" b
+	"Basis of a carry-over position as price quote.
+Default is the quote upon the first investment."
+	optional string typestr="PRC"
+
+option "flow" f
+	"Output rolled-over cash flows instead of a quote series."
+	optional
