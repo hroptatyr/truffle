@@ -174,6 +174,11 @@ EXTRA_DIST += filt_02.trod
 EXTRA_DIST += glue_03.tser
 EXTRA_DIST += glue_02.trod
 
+TESTS += roll_01.clit
+TESTS += roll_02.clit
+TESTS += roll_03.clit
+TESTS += roll_04.clit
+
 
 ## our friendly helpers
 check_PROGRAMS += clitoris
