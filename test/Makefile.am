@@ -53,54 +53,9 @@ TESTS += old_13.clit
 TESTS += old_14.clit
 EXTRA_DIST += toy8.schema
 
-TESTS += schema_to_trod.1.deflt.clit
-TESTS += schema_to_trod.1.abs.clit
-TESTS += schema_to_trod.1.oco.clit
-
-TESTS += schema_to_trod.2.deflt.clit
-TESTS += schema_to_trod.2.abs.clit
-TESTS += schema_to_trod.2.oco.clit
-
-TESTS += schema_to_trod.3.deflt.clit
-TESTS += schema_to_trod.3.abs.clit
-TESTS += schema_to_trod.3.oco.clit
-
-TESTS += schema_to_trod.4.deflt.clit
-EXTRA_DIST += toy4.trod
-
-TESTS += schema_to_trod.5.deflt.clit
-EXTRA_DIST += toy5.trod
-
-TESTS += schema_to_trod.6.deflt.clit
-TESTS += schema_to_trod.6.abs.clit
-
-TESTS += schema_to_trod.7.deflt.clit
-TESTS += schema_to_trod.7.abs.clit
-
-TESTS += trod_to_trod.5.deflt.clit
-TESTS += trod_to_trod.5.abs.clit
-TESTS += trod_to_trod.5.oco.clit
-EXTRA_DIST += toy5.trod
-
 TESTS += toy1.1.mmy.clit
 TESTS += toy1.2.mmy.clit
 EXTRA_DIST += toy1.mmy.series
-
-TESTS += trod.1.clit
-TESTS += trod.1.f.clit
-EXTRA_DIST += toy1.trod
-
-TESTS += trod.2.clit
-TESTS += trod.2.f.clit
-EXTRA_DIST += toy2.trod
-
-TESTS += trod.2.abs.clit
-TESTS += trod.2.abs.f.clit
-EXTRA_DIST += toy2.abs.trod
-
-TESTS += trod.2.oco.clit
-TESTS += trod.2.oco.f.clit
-EXTRA_DIST += toy2.oco.trod
 
 TESTS += truffle_schema_contracts.1.deflt.clit
 TESTS += truffle_schema_contracts.1.abs.clit

@@ -1,7 +1,0 @@
-#!/usr/bin/clitoris  ## -*- shell-script -*-
-
-$ trod "${srcdir}/toy4.schema"
-< "${srcdir}/toy4.trod"
-$
-
-## schema_to_trod.4.deflt.clit ends here
