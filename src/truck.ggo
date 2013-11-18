@@ -13,7 +13,7 @@ COMMAND may be one of:
 "
 
 text "
-Options affecting the filter command:"
+Options affecting the filter and glue commands:"
 
 option "edge" -
 	"Only print edge lines"
@@ -24,6 +24,17 @@ option "max-quote-age" -
 AGE can be specified using suffixes d, h, m, s for days, hours, \
 minutes, or seconds respectively."
 	optional string typestr="AGE"
+
+text "
+Options affecting the migrate command:"
+
+option "from" -
+	"Start event states at DT."
+	string typestr="DT" optional
+
+option "till" -
+	"Finish event streams by DT."
+	string typestr="DT" optional
 
 text "
 Options affecting the print command:"
@@ -39,13 +50,3 @@ option "rel" -
 	"Use relative contract years for MMY-specified symbols."
 	optional
 
-text "
-Options affecting the migrate command:"
-
-option "from" -
-	"Start event states at DT."
-	string typestr="DT" optional
-
-option "till" -
-	"Finish event streams by DT."
-	string typestr="DT" optional
