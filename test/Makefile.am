@@ -183,6 +183,15 @@ TESTS += roll_06.clit
 TESTS += roll_07.clit
 TESTS += roll_08.clit
 
+TESTS += roll_09.clit
+TESTS += roll_10.clit
+EXTRA_DIST += roll_01.tser
+EXTRA_DIST += roll_01.trod
+TESTS += roll_11.clit
+TESTS += roll_12.clit
+EXTRA_DIST += roll_02.tser
+EXTRA_DIST += roll_02.trod
+
 
 ## our friendly helpers
 check_PROGRAMS += clitoris

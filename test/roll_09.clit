@@ -1,0 +1,13 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truck roll "${srcdir}/roll_01.tser" "${srcdir}/roll_01.trod"
+2011-01-03	12
+2011-01-04	13
+2011-01-05	24
+2011-01-06	34
+2011-01-07	44
+2011-01-08	54
+2011-01-09	64
+$
+
+## roll_09.clit ends here
