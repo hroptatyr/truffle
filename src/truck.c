@@ -292,6 +292,38 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 	return 0;
 }
 
+declcoru(co_roll_out, {
+		FILE *f;
+		bool absp;
+		signed int prec;
+	}, {
+		echs_instant_t t;
+		truf_price_t prc;
+	});
+
+static const void*
+defcoru(co_roll_out, ia, arg)
+{
+	char buf[256U];
+	const char *const ep = buf + sizeof(buf);
+
+	while (arg != NULL) {
+		char *bp = buf;
+
+		bp += dt_strf(bp, ep - bp, arg->t);
+		*bp++ = '\t';
+		if (!isnand32(arg->prc)) {
+			bp += d32tostr(bp, ep - bp, arg->prc);
+		}
+		*bp++ = '\n';
+		*bp = '\0';
+		fputs(buf, ia->f);
+
+		arg = yield_ptr(NULL);
+	}
+	return 0;
+}
+
 declcoru(co_tser_flt, {
 		truf_wheap_t q;
 		FILE *tser;
@@ -1050,6 +1082,7 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 		truf_price_t prc = nand32(NULL);
 		truf_price_t cfv = 1.df;
 		coru_t flt;
+		coru_t out;
 		FILE *f;
 
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
@@ -1070,11 +1103,11 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			co_tser_flt, q, f,
 			.edgp = true, .levp = !argi->edge_given,
 			.mqa = max_quote_age);
+		out = make_coru(
+			co_roll_out, stdout,
+			.absp = false, .prec = 0);
 
 		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
-			char buf[256U];
-			const char *const ep = buf + sizeof(buf);
-			char *bp = buf;
 			echs_instant_t t = e->t;
 			truf_rpaf_t r = truf_rpaf_step(e);
 
@@ -1092,16 +1125,11 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			/* sum up rpaf */
 			prc += r.cruflo * cfv;
 
-			bp += dt_strf(bp, ep - bp, t);
-			*bp++ = '\t';
-			bp += d32tostr(bp, ep - bp, prc);
-
-			*bp++ = '\n';
-			*bp = '\0';
-			fputs(buf, stdout);
+			next_with(out, pack_args(co_roll_out, t, prc));
 		}
 
 		free_coru(flt);
+		free_coru(out);
 		fini_coru();
 		fclose(f);
 	}
