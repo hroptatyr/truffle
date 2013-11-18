@@ -13,7 +13,7 @@ CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
 
 noinst_LIBRARIES = libtruffle.a
-libtruffle_a_SOURCES =
+libtruffle_a_SOURCES = truffle.h
 libtruffle_a_SOURCES += truf-dfp754.c truf-dfp754.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
 libtruffle_a_SOURCES += gbs.c gbs.h
@@ -53,14 +53,6 @@ EXTRA_libcoru_a_SOURCES += coru/switch-x86.c
 EXTRA_libcoru_a_SOURCES += coru/switch-x86_64.c
 endif  USE_ASM_CORUS
 
-
-bin_PROGRAMS += truffle
-truffle_SOURCES = truffle.c truffle.h truffle.ggo
-truffle_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
-truffle_LDFLAGS = $(AM_LDFLAGS)
-truffle_LDADD = libtruffle.a
-truffle_LDADD += -lm
-BUILT_SOURCES += truffle.x truffle.xh
 
 ## truffle umbrella command kit
 noinst_PROGRAMS += truck

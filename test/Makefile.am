@@ -24,43 +24,6 @@ TESTS_ENVIRONMENT = root=$(top_srcdir)
 CLIT_LOG_COMPILER = $(builddir)/clitoris
 AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
 
-TESTS += old_01.clit
-TESTS += old_02.clit
-EXTRA_DIST += toy1.schema toy1.series
-
-TESTS += old_03.clit
-TESTS += old_04.clit
-EXTRA_DIST += toy2.schema toy2.series
-
-TESTS += old_05.clit
-TESTS += old_06.clit
-EXTRA_DIST += toy3.schema toy3.series
-
-TESTS += old_07.clit
-TESTS += old_08.clit
-EXTRA_DIST += toy4.schema toy4.series
-
-TESTS += old_09.clit
-TESTS += old_10.clit
-EXTRA_DIST += toy5.schema toy5.series
-
-TESTS += old_11.clit
-TESTS += old_12.clit
-EXTRA_DIST += toy6.schema
-EXTRA_DIST += toy7.schema
-
-TESTS += old_13.clit
-TESTS += old_14.clit
-EXTRA_DIST += toy8.schema
-
-TESTS += toy1.1.mmy.clit
-TESTS += toy1.2.mmy.clit
-EXTRA_DIST += toy1.mmy.series
-
-TESTS += truffle_schema_contracts.1.deflt.clit
-TESTS += truffle_schema_contracts.1.abs.clit
-TESTS += truffle_schema_contracts.1.oco.clit
-
 TESTS += print_01.clit
 TESTS += print_02.clit
 TESTS += print_03.clit
