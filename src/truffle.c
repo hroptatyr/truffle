@@ -567,7 +567,10 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 			truf_mmy_t sym = ev->sym;
 			truf_step_t st;
 
-			if (!truf_mmy_abs_p(sym)) {
+			if (!truf_mmy_p(sym)) {
+				/* transform not */
+				;
+			} else if (!truf_mmy_abs_p(sym)) {
 				sym = truf_mmy_abs(sym, ev->t.y);
 			}
 			/* make sure we massage the lstk */
