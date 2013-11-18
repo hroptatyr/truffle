@@ -120,7 +120,9 @@ truf_mmy_rd(const char *str, char **ptr)
 	/* go for the detailed inspection */
 	if (UNLIKELY(sq == sp)) {
 		/* completely fucked innit */
-		return 0U;
+		sq = strchr(sp, '\t');
+		res = 0U;
+		goto yld;
 	} else if (ym < TRUF_MMY_ABSYR) {
 		/* something like G0 or F4 or so */
 		yr = ym;
@@ -152,6 +154,7 @@ truf_mmy_rd(const char *str, char **ptr)
 	}
 	res = make_truf_mmy(yr, mo, dd);
 	/* assign end pointer */
+yld:
 	if (ptr) {
 		*ptr = deconst(sq);
 	}
