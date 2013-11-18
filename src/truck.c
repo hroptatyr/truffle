@@ -877,6 +877,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		free_coru(flt);
 		free_coru(out);
 		fini_coru();
+		fclose(f);
 	}
 out:
 	if (LIKELY(q != NULL)) {
@@ -1002,6 +1003,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		free_coru(flt);
 		free_coru(out);
 		fini_coru();
+		fclose(f);
 	}
 out:
 	if (LIKELY(q != NULL)) {
@@ -1101,6 +1103,7 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 
 		free_coru(flt);
 		fini_coru();
+		fclose(f);
 	}
 out:
 	if (LIKELY(q != NULL)) {
