@@ -1,0 +1,10 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truck filter --edge "${srcdir}/filt_02.tser" "${srcdir}/filt_02.trod"
+2006-01-01T20:00:00	F2006	10.00	10.01
+2006-01-01T20:24:00	G2006	10.98	11.00
+2006-01-01T20:24:00	F2006	10.00	10.02
+2006-01-01T20:44:00	G2006	11.00	11.01
+$
+
+## filter_11.clit ends here
