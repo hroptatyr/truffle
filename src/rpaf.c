@@ -185,7 +185,12 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 
 		/* the level formula is quite simple diff_prc * diff_exp */
 		r->cruflo += (r->refprc - ref) * edif;
-		r->refprc = ref;
+		if (st->new == 0.df) {
+			/* reset refprc */
+			r->refprc = nand32(NULL);
+		} else {
+			r->refprc = ref;
+		}
 	} else {
 		/* it's a level, i.e. operate in settlement mode */
 		if (st->new > 0.df) {
