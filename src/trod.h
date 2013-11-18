@@ -52,14 +52,6 @@ struct truf_trod_s {
 
 
 /**
- * Read truffle roll-over schema from FILE. */
-extern trod_t read_trod(const char *file);
-
-/**
- * Free resources associated with roll-over schema. */
-extern void free_trod(trod_t);
-
-/**
  * Try and read the string STR containing a symbol and an exposure. */
 extern truf_trod_t truf_trod_rd(const char *str, char **on);
 
