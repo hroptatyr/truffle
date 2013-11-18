@@ -40,6 +40,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+/* for truf_sym_t */
+#include "truffle.h"
 
 /**
  * truf_mmys specify a contract's maturity date or the classic MMY.
@@ -71,6 +73,14 @@ extern truf_mmy_t truf_mmy_rd(const char *str, char **ptr);
 /**
  * Output YM into buffer BUF of size BSZ, return the number of bytes written. */
 extern size_t truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym);
+
+/**
+ * Like `truf_mmy_rd()' but copy non-MMY symbol into static space. */
+extern truf_sym_t truf_sym_rd(const char *str, char **ptr);
+
+/**
+ * Like `truf_sym_rd()' but allocate space for a non-MMY symbol. */
+extern truf_sym_t truf_sym_rd_alloc(const char *str, char **ptr);
 
 
 static inline __attribute__((pure, const)) truf_mmy_t
