@@ -1046,6 +1046,7 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 
 	with (const char *fn = argi->inputs[1U]) {
 		truf_price_t prc = nand32(NULL);
+		truf_price_t cfv = 1.df;
 		coru_t flt;
 		FILE *f;
 
@@ -1057,6 +1058,9 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 
 		if (argi->basis_given) {
 			prc = strtod32(argi->basis_arg, NULL);
+		}
+		if (argi->tick_value_given) {
+			cfv = strtod32(argi->tick_value_arg, NULL);
 		}
 
 		init_coru();
@@ -1077,14 +1081,14 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 				continue;
 			} else if (UNLIKELY(argi->flow_given)) {
 				/* flow mode means don't accrue anything */
-				prc = r.cruflo;
+				prc = 0.df;
 			} else if (UNLIKELY(isnand32(prc))) {
 				/* set initial price level to first refprc */
 				prc = r.refprc;
-			} else {
-				/* sum up rpaf */
-				prc += r.cruflo;
 			}
+
+			/* sum up rpaf */
+			prc += r.cruflo * cfv;
 
 			bp += dt_strf(bp, ep - bp, t);
 			*bp++ = '\t';
