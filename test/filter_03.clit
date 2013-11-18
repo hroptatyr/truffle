@@ -1,7 +1,7 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
 ## only reproduce prices of contracts that are non-0 according to trod
-$ truck filter --rel "${srcdir}/glue_01.tser" "${srcdir}/glue_01.trod"
+$ truffle filter --rel "${srcdir}/glue_01.tser" "${srcdir}/glue_01.trod"
 2006-01-01T20:00:00	F0	10.00
 2006-01-01T20:10:00	F0	11.00
 2006-01-01T20:20:00	F0	10.00
