@@ -39,16 +39,6 @@
 
 #include <stdint.h>
 
-#if !defined DECLF
-# define DECLF		extern
-# define DEFUN
-#endif	/* !DECLF */
-
-#include "dt-strpf.h"
-#include "schema.h"
-#include "trod.h"
-#include "cut.h"
-
 typedef _Decimal32 truf_price_t;
 typedef _Decimal32 truf_quant_t;
 typedef _Decimal32 truf_expos_t;
