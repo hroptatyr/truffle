@@ -1,6 +1,6 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
-$ truck roll "${srcdir}/roll_01.tser" "${srcdir}/roll_01.trod"
+$ truffle roll "${srcdir}/roll_01.tser" "${srcdir}/roll_01.trod"
 2011-01-03	12
 2011-01-04	13
 2011-01-05	24

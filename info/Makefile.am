@@ -14,7 +14,6 @@ man1_MANS =
 man1_MANS += $(BUILT_MANS)
 
 BUILT_MANS += truffle.man
-BUILT_MANS += trod.man
 
 EXTRA_DIST += author.h2m
 

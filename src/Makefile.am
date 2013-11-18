@@ -54,14 +54,14 @@ endif  USE_ASM_CORUS
 
 
 ## truffle umbrella command kit
-noinst_PROGRAMS += truck
-truck_SOURCES = truck.c truck.ggo
-truck_LDADD = libtruffle.a
+bin_PROGRAMS += truffle
+truck_SOURCES = truffle.c truffle.ggo
+truffle_LDADD = libtruffle.a
 if USE_ASM_CORUS
-truck_LDADD += libcoru.a
+truffle_LDADD += libcoru.a
 endif  USE_ASM_CORUS
-truck_LDADD += -lm
-BUILT_SOURCES += truck.x truck.xh
+truffle_LDADD += -lm
+BUILT_SOURCES += truffle.x truffle.xh
 
 
 version.c: version.c.in $(top_builddir)/version.mk

@@ -1,6 +1,6 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
-$ truck glue --max-quote-age 0 "${srcdir}/glue_03.tser" "${srcdir}/glue_02.trod"
+$ truffle glue --max-quote-age 0 "${srcdir}/glue_03.tser" "${srcdir}/glue_02.trod"
 2006-01-02	F2006	10.00	10.01	0->1.0
 2006-01-03	F2006	11.00	11.01	1.0->1.0
 2006-01-04	F2006	10.00	10.01	1.0->1.0

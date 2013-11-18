@@ -1,6 +1,6 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
-$ truck glue --edge "${srcdir}/glue_02.tser" "${srcdir}/glue_02.trod"
+$ truffle glue --edge "${srcdir}/glue_02.tser" "${srcdir}/glue_02.trod"
 2006-01-02	F2006	10.00	0->1.0
 2006-01-05	G2006	11.00	0->1.0
 2006-01-05	F2006	10.00	1.0->0.0

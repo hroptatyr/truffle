@@ -759,8 +759,8 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 #if defined __INTEL_COMPILER
 # pragma warning (disable:593)
 #endif	/* __INTEL_COMPILER */
-#include "truck.xh"
-#include "truck.x"
+#include "truffle.xh"
+#include "truffle.x"
 #if defined __INTEL_COMPILER
 # pragma warning (default:593)
 #endif	/* __INTEL_COMPILER */

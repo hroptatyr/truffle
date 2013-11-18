@@ -1,6 +1,6 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
-$ truck position --rel "${srcdir}/glue_01.trod" <<EOF
+$ truffle position --rel "${srcdir}/glue_01.trod" <<EOF
 2006-01-01T19:59:00
 2006-01-01T20:00:00
 2006-01-01T20:23:00

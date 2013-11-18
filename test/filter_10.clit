@@ -1,6 +1,6 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
-$ truck filter --max-quote-age 1m "${srcdir}/filt_02.tser" "${srcdir}/filt_02.trod"
+$ truffle filter --max-quote-age 1m "${srcdir}/filt_02.tser" "${srcdir}/filt_02.trod"
 2006-01-01T20:00:00	F2006	10.00	10.01
 2006-01-01T20:10:00	F2006	11.00	11.02
 2006-01-01T20:20:00	F2006	10.00	10.02
