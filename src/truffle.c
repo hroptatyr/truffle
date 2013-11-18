@@ -789,10 +789,6 @@ main(int argc, char *argv[])
 	} else {
 		sch = read_schema("-");
 	}
-	if (sch == NULL && argi->schema_given) {
-		/* retry with trod reader */
-		td = read_trod(argi->schema_arg);
-	}
 	if (UNLIKELY(sch == NULL && td == NULL)) {
 		fputs("schema unreadable\n", stderr);
 		res = 1;
