@@ -9,10 +9,11 @@ COMMAND may be one of:
   migrate   Read recurrence schemas and roll them out.
   position  Print portfolio positions at given dates/times.
   print     Print resulting actors of trod echse messages.
+  roll      Roll multitude of timeseries into one.
 "
 
 text "
-Options affecting the filter command:"
+Options affecting the filter and glue commands:"
 
 option "edge" -
 	"Only print edge lines"
@@ -23,6 +24,17 @@ option "max-quote-age" -
 AGE can be specified using suffixes d, h, m, s for days, hours, \
 minutes, or seconds respectively."
 	optional string typestr="AGE"
+
+text "
+Options affecting the migrate command:"
+
+option "from" -
+	"Start event states at DT."
+	string typestr="DT" optional
+
+option "till" -
+	"Finish event streams by DT."
+	string typestr="DT" optional
 
 text "
 Options affecting the print command:"
@@ -39,12 +51,26 @@ option "rel" -
 	optional
 
 text "
-Options affecting the migrate command:"
+Options affecting the roll command:"
+option "basis" b
+	"Basis of a carry-over position as price quote.
+Default is the quote upon the first investment."
+	optional string typestr="PRC"
 
-option "from" -
-	"Start event states at DT."
-	string typestr="DT" optional
+option "flow" f
+	"Output rolled-over cash flows instead of a quote series."
+	optional
 
-option "till" -
-	"Finish event streams by DT."
-	string typestr="DT" optional
+option "tick-value" -
+	"Price value of one cash flow unit."
+	optional string typestr="PRC"
+
+option "precision" p
+	"Output adjusted data in this precision instead of deriving \
+the precision from input data.
+If an absolute number N is given use N digits for the fraction all \
+throughout the output.
+If specified as +N use N more digits for the fraction than the default.
+If specified as -N use N less digits for the fraction than the default.
+Default is +0."
+	optional string typestr="[+-]N"

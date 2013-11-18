@@ -53,6 +53,7 @@
 #include "trod.h"
 #include "mmy.h"
 #include "step.h"
+#include "rpaf.h"
 #include "truf-dfp754.h"
 
 #if defined __INTEL_COMPILER
@@ -89,6 +90,13 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 	memcpy(dst, src, ssz);
 	dst[ssz] = '\0';
 	return ssz;
+}
+
+static _Decimal32
+mkscal(signed int nd)
+{
+/* produce a d32 with -ND fractional digits */
+	return scalbnd32(1.df, nd);
 }
 
 
@@ -287,6 +295,79 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 		fputs(buf, ia->f);
 
 		arg = yield_ptr(NULL);
+	}
+	return 0;
+}
+
+declcoru(co_roll_out, {
+		FILE *f;
+		bool absp;
+		signed int prec;
+	}, {
+		echs_instant_t t;
+		truf_price_t prc;
+	});
+
+static const void*
+defcoru(co_roll_out, ia, arg)
+{
+	char buf[256U];
+	const char *const ep = buf + sizeof(buf);
+
+	if (!ia->absp) {
+		/* non-abs precision mode */
+		while (arg != NULL) {
+			char *bp = buf;
+			truf_price_t prc;
+
+			if (UNLIKELY(isnand32(prc = arg->prc))) {
+				/* refuse to print nans */
+				goto nex2;
+			}
+
+			/* print time stamp */
+			bp += dt_strf(bp, ep - bp, arg->t);
+			*bp++ = '\t';
+
+			/* scale to precision */
+			if (UNLIKELY(ia->prec)) {
+				/* come up with a new raw value */
+				int tgtx = quantexpd32(prc) + ia->prec;
+				_Decimal32 scal = scalbnd32(1.df, tgtx);
+				prc = quantized32(prc, scal);
+			}
+			bp += d32tostr(bp, ep - bp, prc);
+			*bp++ = '\n';
+			*bp = '\0';
+			fputs(buf, ia->f);
+		nex2:
+			arg = yield_ptr(NULL);
+		}
+	} else /*if (absp)*/ {
+		const _Decimal32 scal = mkscal(ia->prec);
+
+		/* absolute precision mode */
+		while (arg != NULL) {
+			char *bp = buf;
+			truf_price_t prc;
+
+			if (UNLIKELY(isnand32(prc = arg->prc))) {
+				/* refuse to print nans */
+				goto nex4;
+			}
+			/* print time stamp */
+			bp += dt_strf(bp, ep - bp, arg->t);
+			*bp++ = '\t';
+
+			/* scale to precision */
+			prc = quantized32(prc, scal);
+			bp += d32tostr(bp, ep - bp, prc);
+			*bp++ = '\n';
+			*bp = '\0';
+			fputs(buf, ia->f);
+		nex4:
+			arg = yield_ptr(NULL);
+		}
 	}
 	return 0;
 }
@@ -876,6 +957,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		free_coru(flt);
 		free_coru(out);
 		fini_coru();
+		fclose(f);
 	}
 out:
 	if (LIKELY(q != NULL)) {
@@ -1001,6 +1083,130 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		free_coru(flt);
 		free_coru(out);
 		fini_coru();
+		fclose(f);
+	}
+out:
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
+	}
+	truf_free_trods();
+	return res;
+}
+
+static int
+cmd_roll(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
+	echs_idiff_t max_quote_age;
+	truf_wheap_t q;
+	int res = 0;
+
+	if (argi->inputs_num < 2U) {
+		fputs(usg, stderr);
+		return 1;
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	if (argi->max_quote_age_given) {
+		max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
+	} else {
+		max_quote_age = (echs_idiff_t){4095};
+	}
+
+	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
+		const char *fn = argi->inputs[i];
+
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+			error("cannot open trod file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	with (const char *fn = argi->inputs[1U]) {
+		truf_price_t prc = nand32(NULL);
+		truf_price_t cfv = 1.df;
+		bool abs_prec_p = false;
+		signed int prec = 0;
+		coru_t flt;
+		coru_t out;
+		FILE *f;
+
+		if (argi->precision_given) {
+			const char *p = argi->precision_arg;
+			char *on;
+
+			if (*p == '+' || *p == '-') {
+				;
+			} else {
+				abs_prec_p = true;
+			}
+			if ((prec = -strtol(p, &on, 10), *on)) {
+				error("invalid precision `%s'",
+				      argi->precision_arg);
+				res = 1;
+				goto out;
+			}
+		}
+		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
+			error("cannot open time series file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+
+		if (argi->basis_given) {
+			prc = strtod32(argi->basis_arg, NULL);
+		}
+		if (argi->tick_value_given) {
+			cfv = strtod32(argi->tick_value_arg, NULL);
+		}
+
+		init_coru();
+		flt = make_coru(
+			co_tser_flt, q, f,
+			.edgp = true, .levp = !argi->edge_given,
+			.mqa = max_quote_age);
+		out = make_coru(
+			co_roll_out, stdout,
+			.absp = abs_prec_p, .prec = prec);
+
+		echs_instant_t metro = {9999U};
+		coru_args(co_roll_out) oa;
+		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
+			echs_instant_t t = e->t;
+			truf_rpaf_t r = truf_rpaf_step(e);
+
+			if (UNLIKELY(isnand32(e->bid))) {
+				/* do fuckall */
+				continue;
+			} else if (UNLIKELY(argi->flow_given)) {
+				/* flow mode means don't accrue anything */
+				prc = 0.00df;
+			} else if (UNLIKELY(isnand32(prc))) {
+				/* set initial price level to first refprc */
+				prc = r.refprc;
+			}
+
+			/* sum up rpaf */
+			prc += r.cruflo * cfv;
+
+			/* defer by one, to avoid time dupes */
+			if (echs_instant_lt_p(metro, e->t)) {
+				next_with(out, oa);
+			}
+			metro = e->t;
+			oa = pack_args(co_roll_out, t, prc);
+		}
+		/* drain */
+		next_with(out, oa);
+
+		free_coru(flt);
+		free_coru(out);
+		fini_coru();
+		fclose(f);
 	}
 out:
 	if (LIKELY(q != NULL)) {
@@ -1025,13 +1231,16 @@ main(int argc, char *argv[])
 
 	/* get the coroutines going */
 	init_coru_core();
-	/* initialise our step system */
+	/* initialise our step and rpaf system */
 	truf_init_step();
+	truf_init_rpaf();
 
 	/* check the command */
 	with (const char *cmd = argi->inputs[0U]) {
 		if (!strcmp(cmd, "print")) {
 			res = cmd_print(argi);
+		} else if (!strcmp(cmd, "roll")) {
+			res = cmd_roll(argi);
 		} else if (!strcmp(cmd, "migrate")) {
 			res = cmd_migrate(argi);
 		} else if (!strcmp(cmd, "filter")) {
@@ -1049,8 +1258,9 @@ See --help to obtain a list of available commands.");
 		}
 	}
 
-	/* finalise our step system */
+	/* finalise our step and rpaf system */
 	truf_fini_step();
+	truf_fini_rpaf();
 
 out:
 	/* just to make sure */

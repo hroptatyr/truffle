@@ -174,6 +174,33 @@ EXTRA_DIST += filt_02.trod
 EXTRA_DIST += glue_03.tser
 EXTRA_DIST += glue_02.trod
 
+TESTS += roll_01.clit
+TESTS += roll_02.clit
+TESTS += roll_03.clit
+TESTS += roll_04.clit
+TESTS += roll_05.clit
+TESTS += roll_06.clit
+TESTS += roll_07.clit
+TESTS += roll_08.clit
+
+TESTS += roll_09.clit
+TESTS += roll_10.clit
+EXTRA_DIST += roll_01.tser
+EXTRA_DIST += roll_01.trod
+TESTS += roll_11.clit
+TESTS += roll_12.clit
+EXTRA_DIST += roll_02.tser
+EXTRA_DIST += roll_02.trod
+
+TESTS += roll_13.clit
+TESTS += roll_14.clit
+TESTS += roll_15.clit
+TESTS += roll_16.clit
+TESTS += roll_17.clit
+TESTS += roll_18.clit
+TESTS += roll_19.clit
+TESTS += roll_20.clit
+
 
 ## our friendly helpers
 check_PROGRAMS += clitoris

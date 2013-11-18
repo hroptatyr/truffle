@@ -25,6 +25,7 @@ libtruffle_a_SOURCES += cut.c cut.h
 libtruffle_a_SOURCES += mmy.c mmy.h
 libtruffle_a_SOURCES += wheap.c wheap.h
 libtruffle_a_SOURCES += step.c step.h
+libtruffle_a_SOURCES += rpaf.c rpaf.h
 libtruffle_a_SOURCES += instant.c instant.h
 libtruffle_a_SOURCES += yd.h
 libtruffle_a_SOURCES += idate.c idate.h
