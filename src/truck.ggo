@@ -64,3 +64,13 @@ option "flow" f
 option "tick-value" -
 	"Price value of one cash flow unit."
 	optional string typestr="PRC"
+
+option "precision" p
+	"Output adjusted data in this precision instead of deriving \
+the precision from input data.
+If an absolute number N is given use N digits for the fraction all \
+throughout the output.
+If specified as +N use N more digits for the fraction than the default.
+If specified as -N use N less digits for the fraction than the default.
+Default is +0."
+	optional string typestr="[+-]N"

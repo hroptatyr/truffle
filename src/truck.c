@@ -92,6 +92,13 @@ xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 	return ssz;
 }
 
+static _Decimal32
+mkscal(signed int nd)
+{
+/* produce a d32 with -ND fractional digits */
+	return scalbnd32(1.df, nd);
+}
+
 
 /* trod directives cache */
 static truf_trod_t *trods;
@@ -307,19 +314,60 @@ defcoru(co_roll_out, ia, arg)
 	char buf[256U];
 	const char *const ep = buf + sizeof(buf);
 
-	while (arg != NULL) {
-		char *bp = buf;
+	if (!ia->absp) {
+		/* non-abs precision mode */
+		while (arg != NULL) {
+			char *bp = buf;
+			truf_price_t prc;
 
-		bp += dt_strf(bp, ep - bp, arg->t);
-		*bp++ = '\t';
-		if (!isnand32(arg->prc)) {
-			bp += d32tostr(bp, ep - bp, arg->prc);
+			if (UNLIKELY(isnand32(prc = arg->prc))) {
+				/* refuse to print nans */
+				goto nex2;
+			}
+
+			/* print time stamp */
+			bp += dt_strf(bp, ep - bp, arg->t);
+			*bp++ = '\t';
+
+			/* scale to precision */
+			if (UNLIKELY(ia->prec)) {
+				/* come up with a new raw value */
+				int tgtx = quantexpd32(prc) + ia->prec;
+				_Decimal32 scal = scalbnd32(1.df, tgtx);
+				prc = quantized32(prc, scal);
+			}
+			bp += d32tostr(bp, ep - bp, prc);
+			*bp++ = '\n';
+			*bp = '\0';
+			fputs(buf, ia->f);
+		nex2:
+			arg = yield_ptr(NULL);
 		}
-		*bp++ = '\n';
-		*bp = '\0';
-		fputs(buf, ia->f);
+	} else /*if (absp)*/ {
+		const _Decimal32 scal = mkscal(ia->prec);
 
-		arg = yield_ptr(NULL);
+		/* absolute precision mode */
+		while (arg != NULL) {
+			char *bp = buf;
+			truf_price_t prc;
+
+			if (UNLIKELY(isnand32(prc = arg->prc))) {
+				/* refuse to print nans */
+				goto nex4;
+			}
+			/* print time stamp */
+			bp += dt_strf(bp, ep - bp, arg->t);
+			*bp++ = '\t';
+
+			/* scale to precision */
+			prc = quantized32(prc, scal);
+			bp += d32tostr(bp, ep - bp, prc);
+			*bp++ = '\n';
+			*bp = '\0';
+			fputs(buf, ia->f);
+		nex4:
+			arg = yield_ptr(NULL);
+		}
 	}
 	return 0;
 }
@@ -1081,10 +1129,28 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 	with (const char *fn = argi->inputs[1U]) {
 		truf_price_t prc = nand32(NULL);
 		truf_price_t cfv = 1.df;
+		bool abs_prec_p = false;
+		signed int prec = 0;
 		coru_t flt;
 		coru_t out;
 		FILE *f;
 
+		if (argi->precision_given) {
+			const char *p = argi->precision_arg;
+			char *on;
+
+			if (*p == '+' || *p == '-') {
+				;
+			} else {
+				abs_prec_p = true;
+			}
+			if ((prec = -strtol(p, &on, 10), *on)) {
+				error("invalid precision `%s'",
+				      argi->precision_arg);
+				res = 1;
+				goto out;
+			}
+		}
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
 			error("cannot open time series file `%s'", fn);
 			res = 1;
@@ -1105,7 +1171,7 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			.mqa = max_quote_age);
 		out = make_coru(
 			co_roll_out, stdout,
-			.absp = false, .prec = 0);
+			.absp = abs_prec_p, .prec = prec);
 
 		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
 			echs_instant_t t = e->t;
