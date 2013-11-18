@@ -50,11 +50,16 @@
 #include "wheap.h"
 #include "nifty.h"
 #include "coru.h"
+#include "dt-strpf.h"
 #include "trod.h"
 #include "mmy.h"
 #include "step.h"
 #include "rpaf.h"
 #include "truf-dfp754.h"
+/* while we're in transition mood */
+#include "daisy.h"
+#include "idate.h"
+#include "schema.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
