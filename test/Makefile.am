@@ -165,8 +165,14 @@ TESTS += filter_09.clit
 TESTS += filter_10.clit
 TESTS += filter_11.clit
 TESTS += filter_12.clit
+TESTS += glue_11.clit
+TESTS += glue_12.clit
+TESTS += glue_13.clit
+TESTS += glue_14.clit
 EXTRA_DIST += filt_02.tser
 EXTRA_DIST += filt_02.trod
+EXTRA_DIST += glue_03.tser
+EXTRA_DIST += glue_02.trod
 
 
 ## our friendly helpers
