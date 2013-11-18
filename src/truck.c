@@ -273,7 +273,7 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 		}
 		if (ia->prnt_expp) {
 			*bp++ = '\t';
-			if (!isnand32(arg->old) && arg->old != arg->new) {
+			if (!isnand32(arg->old)) {
 				bp += d32tostr(bp, ep - bp, arg->old);
 				*bp++ = '-';
 				*bp++ = '>';
