@@ -53,6 +53,7 @@
 #include "trod.h"
 #include "mmy.h"
 #include "step.h"
+#include "rpaf.h"
 #include "truf-dfp754.h"
 
 #if defined __INTEL_COMPILER
@@ -1010,6 +1011,91 @@ out:
 	return res;
 }
 
+static int
+cmd_roll(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
+	echs_idiff_t max_quote_age;
+	truf_wheap_t q;
+	int res = 0;
+
+	if (argi->inputs_num < 2U) {
+		fputs(usg, stderr);
+		return 1;
+	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
+		res = 1;
+		goto out;
+	}
+
+	if (argi->max_quote_age_given) {
+		max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
+	} else {
+		max_quote_age = (echs_idiff_t){4095};
+	}
+
+	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
+		const char *fn = argi->inputs[i];
+
+		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
+			error("cannot open trod file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	with (const char *fn = argi->inputs[1U]) {
+		truf_price_t prc = 0.df;
+		coru_t flt;
+		FILE *f;
+
+		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
+			error("cannot open time series file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+
+		init_coru();
+		flt = make_coru(
+			co_tser_flt, q, f,
+			.edgp = true, .levp = !argi->edge_given,
+			.mqa = max_quote_age);
+
+		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
+			char buf[256U];
+			const char *const ep = buf + sizeof(buf);
+			char *bp = buf;
+			echs_instant_t t = e->t;
+			truf_rpaf_t r = truf_rpaf_step(e);
+
+			if (isnand32(e->bid)) {
+				/* do fuckall */
+				continue;
+			}
+
+			/* sum up rpaf */
+			prc += r.cruflo;
+
+			bp += dt_strf(bp, ep - bp, t);
+			*bp++ = '\t';
+			bp += d32tostr(bp, ep - bp, prc);
+
+			*bp++ = '\n';
+			*bp = '\0';
+			fputs(buf, stdout);
+		}
+
+		free_coru(flt);
+		fini_coru();
+	}
+out:
+	if (LIKELY(q != NULL)) {
+		free_truf_wheap(q);
+	}
+	truf_free_trods();
+	return res;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1025,13 +1111,16 @@ main(int argc, char *argv[])
 
 	/* get the coroutines going */
 	init_coru_core();
-	/* initialise our step system */
+	/* initialise our step and rpaf system */
 	truf_init_step();
+	truf_init_rpaf();
 
 	/* check the command */
 	with (const char *cmd = argi->inputs[0U]) {
 		if (!strcmp(cmd, "print")) {
 			res = cmd_print(argi);
+		} else if (!strcmp(cmd, "roll")) {
+			res = cmd_roll(argi);
 		} else if (!strcmp(cmd, "migrate")) {
 			res = cmd_migrate(argi);
 		} else if (!strcmp(cmd, "filter")) {
@@ -1049,8 +1138,9 @@ See --help to obtain a list of available commands.");
 		}
 	}
 
-	/* finalise our step system */
+	/* finalise our step and rpaf system */
 	truf_fini_step();
+	truf_fini_rpaf();
 
 out:
 	/* just to make sure */

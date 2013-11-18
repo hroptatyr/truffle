@@ -9,6 +9,7 @@ COMMAND may be one of:
   migrate   Read recurrence schemas and roll them out.
   position  Print portfolio positions at given dates/times.
   print     Print resulting actors of trod echse messages.
+  roll      Roll multitude of timeseries into one.
 "
 
 text "
