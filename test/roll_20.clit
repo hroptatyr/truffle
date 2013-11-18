@@ -1,0 +1,9 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truck roll -p 4 --edge --max-quote-age 1m "${srcdir}/glue_01.tser" "${srcdir}/glue_01.trod"
+2006-01-01T20:00:00	10.0000
+2006-01-01T20:30:00	10.0000
+2006-01-01T20:44:00	10.5000
+$
+
+## roll_20.clit ends here
