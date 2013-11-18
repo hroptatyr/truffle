@@ -1173,6 +1173,8 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			co_roll_out, stdout,
 			.absp = abs_prec_p, .prec = prec);
 
+		echs_instant_t metro = {9999U};
+		coru_args(co_roll_out) oa;
 		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
 			echs_instant_t t = e->t;
 			truf_rpaf_t r = truf_rpaf_step(e);
@@ -1191,8 +1193,15 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			/* sum up rpaf */
 			prc += r.cruflo * cfv;
 
-			next_with(out, pack_args(co_roll_out, t, prc));
+			/* defer by one, to avoid time dupes */
+			if (echs_instant_lt_p(metro, e->t)) {
+				next_with(out, oa);
+			}
+			metro = e->t;
+			oa = pack_args(co_roll_out, t, prc);
 		}
+		/* drain */
+		next_with(out, oa);
 
 		free_coru(flt);
 		free_coru(out);
