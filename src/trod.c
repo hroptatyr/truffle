@@ -74,12 +74,6 @@
 # define PROT_MEM	(PROT_READ | PROT_WRITE)
 #endif	/* !PROT_MEM */
 
-#define __static_assert(COND, MSG)				\
-	typedef char static_assertion_##MSG[2 * (!!(COND)) - 1]
-#define __static_assert3(X, L)	__static_assert(X, static_assert_##L)
-#define __static_assert2(X, L)	__static_assert3(X, L)
-#define static_assert(X)	__static_assert2(X, __LINE__)
-
 
 /* auxiliaries */
 static size_t
