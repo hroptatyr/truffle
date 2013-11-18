@@ -16,7 +16,6 @@ noinst_LIBRARIES = libtruffle.a
 libtruffle_a_SOURCES =
 libtruffle_a_SOURCES += truf-dfp754.c truf-dfp754.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
-libtruffle_a_SOURCES += gq.c gq.h
 libtruffle_a_SOURCES += gbs.c gbs.h
 libtruffle_a_SOURCES += schema.c schema.h
 libtruffle_a_SOURCES += series.c series.h
@@ -62,17 +61,6 @@ truffle_LDFLAGS = $(AM_LDFLAGS)
 truffle_LDADD = libtruffle.a
 truffle_LDADD += -lm
 BUILT_SOURCES += truffle.x truffle.xh
-
-bin_PROGRAMS += trod
-trod_SOURCES = trod.c trod.ggo
-trod_SOURCES += mmy.h
-EXTRA_trod_SOURCES =
-EXTRA_trod_SOURCES += daisy.c
-trod_CPPFLAGS = $(AM_CPPFLAGS) -DSTANDALONE
-trod_LDFLAGS = $(AM_LDFLAGS)
-trod_LDADD = libtruffle.a
-trod_LDADD += -lm
-BUILT_SOURCES += trod.x trod.xh
 
 ## truffle umbrella command kit
 noinst_PROGRAMS += truck
