@@ -104,28 +104,6 @@ mkscal(signed int nd)
 	return scalbnd32(1.df, nd);
 }
 
-static truf_sym_t
-truf_sym_rd(const char *str, char **on)
-{
-	truf_sym_t res;
-
-	if ((res = truf_mmy_rd(str, on)) == 0U && LIKELY(on != NULL)) {
-		static char *strbuf;
-		static size_t strbuz;
-		size_t len;
-
-		/* take string over to strbuf */
-		if ((len = *on - str) > strbuz) {
-			strbuz = (len / 64U + 1U) * 64U;
-			strbuf = realloc(strbuf, strbuz);
-		}
-		memcpy(strbuf, str, len);
-		strbuf[len] = '\0';
-		res = (truf_sym_t)strbuf;
-	}
-	return res;
-}
-
 
 /* trod directives cache */
 static truf_trod_t *trods;
@@ -510,7 +488,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			}
 
 			/* snarf symbol, always abs(?) */
-			if (!truf_mmy_p(sym = truf_sym_rd(ln->ln, &on))) {
+			if (!truf_mmy_p(sym = truf_sym_rd_alloc(ln->ln, &on))) {
 				/* transform not */
 				;
 			} else if (!truf_mmy_abs_p(sym)) {
