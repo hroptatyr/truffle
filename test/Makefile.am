@@ -178,6 +178,10 @@ TESTS += roll_01.clit
 TESTS += roll_02.clit
 TESTS += roll_03.clit
 TESTS += roll_04.clit
+TESTS += roll_05.clit
+TESTS += roll_06.clit
+TESTS += roll_07.clit
+TESTS += roll_08.clit
 
 
 ## our friendly helpers
