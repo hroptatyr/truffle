@@ -40,8 +40,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-/* for truf_sym_t */
-#include "truffle.h"
 
 /**
  * truf_mmys specify a contract's maturity date or the classic MMY.
@@ -60,7 +58,7 @@
  *
  * For classic MMY symbology the day field should be left empty (all 0s)
  * or if OCO notation is desired all bits should be set. */
-typedef intptr_t truf_mmy_t;
+typedef int_fast32_t truf_mmy_t;
 
 /* first year interpreted as absolute */
 #define TRUF_MMY_ABSYR	(1024)
@@ -73,14 +71,6 @@ extern truf_mmy_t truf_mmy_rd(const char *str, char **ptr);
 /**
  * Output YM into buffer BUF of size BSZ, return the number of bytes written. */
 extern size_t truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym);
-
-/**
- * Like `truf_mmy_rd()' but copy non-MMY symbol into static space. */
-extern truf_sym_t truf_sym_rd(const char *str, char **ptr);
-
-/**
- * Like `truf_sym_rd()' but allocate space for a non-MMY symbol. */
-extern truf_sym_t truf_sym_rd_alloc(const char *str, char **ptr);
 
 
 static inline __attribute__((pure, const)) truf_mmy_t
@@ -107,13 +97,6 @@ static inline __attribute__((pure, const)) unsigned int
 truf_mmy_day(truf_mmy_t ym)
 {
 	return (ym >> 1U) & 0x7fU;
-}
-
-static inline __attribute__((pure, const)) bool
-truf_mmy_p(truf_mmy_t ym)
-{
-/* return true if YM encodes a MMY and false if it is a pointer */
-	return (ym & 0b1U);
 }
 
 static inline __attribute__((pure, const)) bool
