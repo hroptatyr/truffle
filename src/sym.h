@@ -70,4 +70,29 @@ truf_str_p(truf_sym_t sym)
 	return (sym.u & 0b11U) == 0U;
 }
 
+/* hashing helpers */
+static inline __attribute__((pure, const)) size_t
+truf_sym_hx(truf_sym_t sym)
+{
+	register size_t idx = 19780211U;
+	unsigned int c1, c2, c3;
+
+	if (truf_mmy_p(sym)) {
+		truf_mmy_t ym = sym.mmy;
+		c1 = truf_mmy_year(ym);
+		c2 = truf_mmy_mon(ym);
+		c3 = truf_mmy_day(ym);
+	} else if (truf_str_p(sym)) {
+		truf_str_t ym = sym.str;
+		c1 = ym & 0xffffU;
+		c2 = ym >> 16U;
+		c3 = ym >> 24U;
+	}
+
+	idx += 983U * c1;
+	idx += 991U * c2;
+	idx += 997U * c3;
+	return idx;
+}
+
 #endif	/* INCLUDED_sym_h_ */
