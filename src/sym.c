@@ -62,39 +62,20 @@ truf_sym_rd(const char *str, char **on)
 	truf_sym_t res;
 	char *tmp;
 
-	if (!(res.mmy = truf_mmy_rd(str, &tmp)) && LIKELY(tmp != NULL)) {
-		static char *strbuf;
-		static size_t strbuz;
-		size_t len;
-
-		/* take string over to strbuf */
-		if ((len = tmp - str) > strbuz) {
-			strbuz = (len / 64U + 1U) * 64U;
-			strbuf = realloc(strbuf, strbuz);
-		}
-		memcpy(strbuf, str, len);
-		strbuf[len] = '\0';
-		res.u = strbuf;
-	}
-	if (LIKELY(on != NULL)) {
-		*on = tmp;
-	}
-	return res;
-}
-
-truf_sym_t
-truf_sym_rd_alloc(const char *str, char **on)
-{
-	truf_sym_t res;
-	char *tmp;
-
-	if (!(res.mmy = truf_mmy_rd(str, &tmp)) && LIKELY(tmp != NULL)) {
+	if (res.mmy = truf_mmy_rd(str, &tmp)) {
+		/* good, it's a mmy, job done */
+		;
+	} else {
 		size_t len = tmp - str;
-		char *str_clon;
 
-		/* take string over to strbuf */
-		str_clon = strndup(str, len);
-		res.u = str_clon;
+		if ((tmp = strchr(str, '\t')) == NULL) {
+			/* bad omen */
+			;
+		} else if ((len = tmp - str)) {
+			/* take string over to strbuf */
+			char *clon = strndup(str, len);
+			res.u = clon;
+		}
 	}
 	if (LIKELY(on != NULL)) {
 		*on = tmp;

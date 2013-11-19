@@ -55,10 +55,6 @@ extern truf_sym_t truf_sym_rd(const char *str, char **ptr);
  * Output SYM into BUF of size BSZ, return the number of bytes written. */
 extern size_t truf_sym_wr(char *restrict buf, size_t bsz, truf_sym_t sym);
 
-/**
- * Like `truf_sym_rd()' but allocate space for a non-MMY symbol. */
-extern truf_sym_t truf_sym_rd_alloc(const char *str, char **ptr);
-
 
 static inline __attribute__((pure, const)) bool
 truf_mmy_p(truf_sym_t sym)
