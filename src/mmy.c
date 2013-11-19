@@ -121,7 +121,7 @@ truf_mmy_rd(const char *str, char **ptr)
 	/* go for the detailed inspection */
 	if (UNLIKELY(sq == sp)) {
 		/* completely fucked innit */
-		sq = strchr(sp, '\t');
+		sq = NULL;
 		res = 0U;
 		goto yld;
 	} else if (ym < TRUF_MMY_ABSYR) {
