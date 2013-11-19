@@ -42,20 +42,6 @@
 #include "nifty.h"
 
 
-/* auxiliaries */
-static size_t
-xstrlcpy(char *restrict dst, const char *src, size_t dsz)
-{
-	size_t ssz = strlen(src);
-	if (ssz > dsz) {
-		ssz = dsz - 1U;
-	}
-	memcpy(dst, src, ssz);
-	dst[ssz] = '\0';
-	return ssz;
-}
-
-
 truf_sym_t
 truf_sym_rd(const char *str, char **on)
 {
@@ -65,17 +51,12 @@ truf_sym_rd(const char *str, char **on)
 	if (res.mmy = truf_mmy_rd(str, &tmp)) {
 		/* good, it's a mmy, job done */
 		;
+	} else if (res.str = truf_str_rd(str, &tmp)) {
+		/* ah, it's a str, tick */
+		;
 	} else {
-		size_t len = tmp - str;
-
-		if ((tmp = strchr(str, '\t')) == NULL) {
-			/* bad omen */
-			;
-		} else if ((len = tmp - str)) {
-			/* take string over to strbuf */
-			char *clon = strndup(str, len);
-			res.u = clon;
-		}
+		tmp = deconst(str);
+		res.u = 0U;
 	}
 	if (LIKELY(on != NULL)) {
 		*on = tmp;
@@ -86,12 +67,10 @@ truf_sym_rd(const char *str, char **on)
 size_t
 truf_sym_wr(char *restrict buf, size_t bsz, truf_sym_t sym)
 {
-	if (LIKELY(sym.u)) {
-		if (truf_mmy_p(sym)) {
-			return truf_mmy_wr(buf, bsz, sym.mmy);
-		} else {
-			return xstrlcpy(buf, (const char*)sym.u, bsz);
-		}
+	if (truf_mmy_p(sym)) {
+		return truf_mmy_wr(buf, bsz, sym.mmy);
+	} else if (truf_str_p(sym)) {
+		return truf_str_wr(buf, bsz, sym.str);
 	}
 	return 0U;
 }
