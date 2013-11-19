@@ -1,6 +1,6 @@
-/*** truffle.h -- tool to roll-over futures contracts
+/*** sym.h -- symbology
  *
- * Copyright (C) 2011-2013 Sebastian Freundt
+ * Copyright (C) 2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -34,14 +34,40 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_truffle_h_
-#define INCLUDED_truffle_h_
+#if !defined INCLUDED_sym_h_
+#define INCLUDED_sym_h_
 
 #include <stdint.h>
-#include "sym.h"
+#include "mmy.h"
+#include "str.h"
 
-typedef _Decimal32 truf_price_t;
-typedef _Decimal32 truf_quant_t;
-typedef _Decimal32 truf_expos_t;
+typedef union {
+	uint_fast32_t u;
+	truf_str_t str;
+	truf_mmy_t mmy;
+} truf_sym_t;
 
-#endif	/* INCLUDED_truffle_h_ */
+/**
+ * Try and read the string STR as symbol and return a truf sym object. */
+extern truf_sym_t truf_sym_rd(const char *str, char **ptr);
+
+/**
+ * Output SYM into BUF of size BSZ, return the number of bytes written. */
+extern size_t truf_sym_wr(char *restrict buf, size_t bsz, truf_sym_t sym);
+
+
+static inline __attribute__((pure, const)) bool
+truf_mmy_p(truf_sym_t sym)
+{
+/* return true if SYM encodes a MMY and false otherwise */
+	return (sym.u & 0b1U);
+}
+
+static inline __attribute__((pure, const)) bool
+truf_str_p(truf_sym_t sym)
+{
+/* return true if SYM encodes a str object and false otherwise */
+	return (sym.u & 0b11U) == 0U;
+}
+
+#endif	/* INCLUDED_sym_h_ */

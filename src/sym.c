@@ -1,6 +1,6 @@
-/*** truffle.h -- tool to roll-over futures contracts
+/*** sym.c -- symbology
  *
- * Copyright (C) 2011-2013 Sebastian Freundt
+ * Copyright (C) 2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -34,14 +34,66 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_truffle_h_
-#define INCLUDED_truffle_h_
-
-#include <stdint.h>
+#if defined HAVE_CONFIG_H
+# include "config.h"
+#endif	/* HAVE_CONFIG_H */
+#include <string.h>
 #include "sym.h"
+#include "nifty.h"
 
-typedef _Decimal32 truf_price_t;
-typedef _Decimal32 truf_quant_t;
-typedef _Decimal32 truf_expos_t;
+
+/* auxiliaries */
+static size_t
+xstrlcpy(char *restrict dst, const char *src, size_t dsz)
+{
+	size_t ssz = strlen(src);
+	if (ssz > dsz) {
+		ssz = dsz - 1U;
+	}
+	memcpy(dst, src, ssz);
+	dst[ssz] = '\0';
+	return ssz;
+}
 
-#endif	/* INCLUDED_truffle_h_ */
+
+truf_sym_t
+truf_sym_rd(const char *str, char **on)
+{
+	truf_sym_t res;
+	char *tmp;
+
+	if (res.mmy = truf_mmy_rd(str, &tmp)) {
+		/* good, it's a mmy, job done */
+		;
+	} else {
+		size_t len = tmp - str;
+
+		if ((tmp = strchr(str, '\t')) == NULL) {
+			/* bad omen */
+			;
+		} else if ((len = tmp - str)) {
+			/* take string over to strbuf */
+			char *clon = strndup(str, len);
+			res.u = clon;
+		}
+	}
+	if (LIKELY(on != NULL)) {
+		*on = tmp;
+	}
+	return res;
+}
+
+size_t
+truf_sym_wr(char *restrict buf, size_t bsz, truf_sym_t sym)
+{
+	if (LIKELY(sym.u)) {
+		if (truf_mmy_p(sym)) {
+			return truf_mmy_wr(buf, bsz, sym.mmy);
+		} else {
+			return xstrlcpy(buf, (const char*)sym.u, bsz);
+		}
+	}
+	return 0U;
+}
+
+/* sym.c ends here */

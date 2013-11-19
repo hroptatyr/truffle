@@ -1,6 +1,6 @@
-/*** truffle.h -- tool to roll-over futures contracts
+/*** str.h -- pools of strings (for symbology)
  *
- * Copyright (C) 2011-2013 Sebastian Freundt
+ * Copyright (C) 2013 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -34,14 +34,18 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  ***/
-#if !defined INCLUDED_truffle_h_
-#define INCLUDED_truffle_h_
+#if !defined INCLUDED_str_h_
+#define INCLUDED_str_h_
 
 #include <stdint.h>
-#include "sym.h"
 
-typedef _Decimal32 truf_price_t;
-typedef _Decimal32 truf_quant_t;
-typedef _Decimal32 truf_expos_t;
+/**
+ * truf_strs are length+offset integers, 32 bits wide, always even.
+ *
+ * LLLLLLLL OOOOOOOOOOOOOOOOOOOOOO00
+ * ^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^^||
+ * length   offset                divisible by 4 
+ **/
+typedef uint_fast32_t truf_str_t;
 
-#endif	/* INCLUDED_truffle_h_ */
+#endif	/* INCLUDED_str_h_ */

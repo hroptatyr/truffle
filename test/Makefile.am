@@ -115,6 +115,13 @@ TESTS += roll_18.clit
 TESTS += roll_19.clit
 TESTS += roll_20.clit
 
+TESTS += string_symbols_01.clit
+TESTS += string_symbols_02.clit
+TESTS += string_symbols_03.clit
+TESTS += string_symbols_04.clit
+EXTRA_DIST += strsym_01.tser
+EXTRA_DIST += strsym_01.trod
+
 
 ## our friendly helpers
 check_PROGRAMS += clitoris

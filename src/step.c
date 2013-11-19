@@ -40,7 +40,6 @@
 #include <stdint.h>
 #include <string.h>
 #include "step.h"
-#include "mmy.h"
 #include "truf-dfp754.h"
 #include "nifty.h"
 
@@ -109,10 +108,10 @@ truf_step_find(truf_sym_t sym)
 
 	if (truf_mmy_p(sym)) {
 		/* hash differently */
-		hx = hx_mmy(sym);
+		hx = hx_mmy(sym.mmy);
 	} else {
-		size_t ssz = strlen((const char*)sym);
-		hx = murmur((const uint8_t*)sym, ssz);
+		size_t ssz = strlen((const char*)sym.u);
+		hx = murmur((const uint8_t*)sym.u, ssz);
 	}
 
 	while (1) {
@@ -123,7 +122,7 @@ truf_step_find(truf_sym_t sym)
 			if (LIKELY(schk[off] == hx.chk)) {
 				/* found him */
 				return sstk + off;
-			} else if (sstk[off].sym == 0U) {
+			} else if (sstk[off].sym.u == 0U) {
 				/* found empty slot */
 				schk[off] = hx.chk;
 				sstk[off].sym = sym;
@@ -150,7 +149,7 @@ truf_step_iter(void)
 
 	while (i < zstk) {
 		size_t this = i++;
-		if (sstk[this].sym != 0U) {
+		if (sstk[this].sym.u) {
 			return sstk + this;
 		}
 	}

@@ -58,7 +58,7 @@
  *
  * For classic MMY symbology the day field should be left empty (all 0s)
  * or if OCO notation is desired all bits should be set. */
-typedef intptr_t truf_mmy_t;
+typedef int_fast32_t truf_mmy_t;
 
 /* first year interpreted as absolute */
 #define TRUF_MMY_ABSYR	(1024)
@@ -97,13 +97,6 @@ static inline __attribute__((pure, const)) unsigned int
 truf_mmy_day(truf_mmy_t ym)
 {
 	return (ym >> 1U) & 0x7fU;
-}
-
-static inline __attribute__((pure, const)) bool
-truf_mmy_p(truf_mmy_t ym)
-{
-/* return true if YM encodes a MMY and false if it is a pointer */
-	return (ym & 0b1U);
 }
 
 static inline __attribute__((pure, const)) bool

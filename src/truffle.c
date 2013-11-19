@@ -52,7 +52,6 @@
 #include "coru.h"
 #include "dt-strpf.h"
 #include "trod.h"
-#include "mmy.h"
 #include "step.h"
 #include "rpaf.h"
 #include "truf-dfp754.h"
@@ -204,9 +203,6 @@ defcoru(co_echs_pop, c, UNUSED(arg))
 		res.sym = trods[tmp].sym;
 		res.new = trods[tmp].exp;
 		yield(res);
-		if (!truf_mmy_p(res.sym) && res.sym) {
-			free((char*)res.sym);
-		}
 	}
 	return 0;
 }
@@ -256,21 +252,21 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 
 		bp += dt_strf(bp, ep - bp, t);
 		*bp++ = '\t';
-		if (UNLIKELY(arg->sym == 0U)) {
+		if (UNLIKELY(arg->sym.u == 0U)) {
 			;
 		} else if (!truf_mmy_p(arg->sym)) {
-			bp += xstrlcpy(bp, (const void*)arg->sym, ep - bp);
+			bp += xstrlcpy(bp, (const void*)arg->sym.u, ep - bp);
 		} else {
 			truf_mmy_t sym;
 
 			if (ia->ocop) {
-				sym = truf_mmy_oco(arg->sym, t.y);
+				sym = truf_mmy_oco(arg->sym.mmy, t.y);
 			} else if (ia->absp) {
-				sym = truf_mmy_abs(arg->sym, t.y);
+				sym = truf_mmy_abs(arg->sym.mmy, t.y);
 			} else if (ia->relp) {
-				sym = truf_mmy_rel(arg->sym, t.y);
+				sym = truf_mmy_rel(arg->sym.mmy, t.y);
 			} else {
-				sym = arg->sym;
+				sym = arg->sym.mmy;
 			}
 			bp += truf_mmy_wr(bp, ep - bp, sym);
 		}
@@ -424,8 +420,11 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			truf_step_t st;
 
 			/* prep yield */
-			if (!truf_mmy_abs_p(sym)) {
-				sym = truf_mmy_abs(sym, ev->t.y);
+			if (!truf_mmy_p(sym)) {
+				/* transform not */
+				;
+			} else if (!truf_mmy_abs_p(sym.mmy)) {
+				sym.mmy = truf_mmy_abs(sym.mmy, ev->t.y);
 			}
 			/* make sure we massage the lstk */
 			st = truf_step_find(sym);
@@ -484,11 +483,12 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				yield(res);
 			}
 
-			/* snarf symbol */
-			sym = truf_mmy_rd(ln->ln, &on);
-
-			if (!truf_mmy_abs_p(sym)) {
-				sym = truf_mmy_abs(sym, ln->t.y);
+			/* snarf symbol, always abs(?) */
+			if (!truf_mmy_p(sym = truf_sym_rd(ln->ln, &on))) {
+				/* transform not */
+				;
+			} else if (!truf_mmy_abs_p(sym.mmy)) {
+				sym.mmy = truf_mmy_abs(sym.mmy, ln->t.y);
 			}
 			/* make sure we massage the lstk */
 			st = truf_step_find(sym);
@@ -560,11 +560,14 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 		     LIKELY(ev != NULL) &&
 			     UNLIKELY(!echs_instant_lt_p(ln->t, ev->t));
 		     ev = next(pop)) {
-			truf_mmy_t sym = ev->sym;
+			truf_sym_t sym = ev->sym;
 			truf_step_t st;
 
-			if (!truf_mmy_abs_p(sym)) {
-				sym = truf_mmy_abs(sym, ev->t.y);
+			if (!truf_mmy_p(sym)) {
+				/* transform not */
+				;
+			} else if (!truf_mmy_abs_p(sym.mmy)) {
+				sym.mmy = truf_mmy_abs(sym.mmy, ev->t.y);
 			}
 			/* make sure we massage the lstk */
 			st = truf_step_find(sym);
@@ -720,7 +723,8 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 		} else {
 			continue;
 		}
-		res.sym = make_truf_mmy(y + p->year_off, m_to_i(p->month), 0U);
+		res.sym.mmy = make_truf_mmy(
+			y + p->year_off, m_to_i(p->month), 0U);
 
 		/* indicate success (as in clear for adding) */
 		return res;
@@ -742,7 +746,7 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 		if (when < p->valid_from || when > p->valid_till) {
 			/* cline isn't applicable */
 			;
-		} else if (!((d = make_trod_from_cline(p, when)).sym)) {
+		} else if (!((d = make_trod_from_cline(p, when)).sym.u)) {
 			/* nothing added then */
 			;
 		} else {
