@@ -48,23 +48,8 @@
 #include "truffle.h"
 #include "instant.h"
 #include "trod.h"
-#include "mmy.h"
 #include "truf-dfp754.h"
 #include "nifty.h"
-
-
-/* auxiliaries */
-static size_t
-xstrlcpy(char *restrict dst, const char *src, size_t dsz)
-{
-	size_t ssz = strlen(src);
-	if (ssz > dsz) {
-		ssz = dsz - 1U;
-	}
-	memcpy(dst, src, ssz);
-	dst[ssz] = '\0';
-	return ssz;
-}
 
 
 /* new api */
@@ -110,13 +95,7 @@ truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t)
 	char *restrict bp = buf;
 	const char *const ep = bp + bsz;
 
-	if (LIKELY(t.sym)) {
-		if (truf_mmy_p(t.sym)) {
-			bp += truf_mmy_wr(bp, ep - bp, t.sym);
-		} else {
-			bp += xstrlcpy(bp, (const char*)t.sym, ep - bp);
-		}
-	}
+	bp += truf_sym_wr(bp, ep - bp, t.sym);
 	if (LIKELY(bp < ep)) {
 		*bp++ = '\t';
 	}

@@ -39,6 +39,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include "truffle.h"
 
 /* old abstract type */
 typedef struct trod_s *trod_t;
@@ -46,8 +47,8 @@ typedef struct trod_s *trod_t;
 typedef struct truf_trod_s truf_trod_t;
 
 struct truf_trod_s {
-	uintptr_t sym;
-	_Decimal32 exp;
+	truf_sym_t sym;
+	truf_expos_t exp;
 };
 
 
