@@ -42,8 +42,6 @@
 #include <assert.h>
 #include "truffle.h"
 #include "rpaf.h"
-#include "step.h"
-#include "mmy.h"
 #include "truf-dfp754.h"
 #include "nifty.h"
 
@@ -116,10 +114,10 @@ truf_rpaf_find(truf_sym_t sym)
 
 	if (truf_mmy_p(sym)) {
 		/* hash differently */
-		hx = hx_mmy(sym);
+		hx = hx_mmy(sym.mmy);
 	} else {
-		size_t ssz = strlen((const char*)sym);
-		hx = murmur((const uint8_t*)sym, ssz);
+		size_t ssz = strlen((const char*)sym.u);
+		hx = murmur((const uint8_t*)sym.u, ssz);
 	}
 
 	while (1) {
@@ -130,7 +128,7 @@ truf_rpaf_find(truf_sym_t sym)
 			if (LIKELY(rchk[off] == hx.chk)) {
 				/* found him */
 				return rstk + off;
-			} else if (rstk[off].sym == 0U) {
+			} else if (rstk[off].sym.u == 0U) {
 				/* found empty slot */
 				rchk[off] = hx.chk;
 				rstk[off].sym = sym;
