@@ -85,7 +85,7 @@ truf_trod_rd(const char *str, char **on)
 	/* before blindly strdup()ing the symbol check if it's not by
 	 * any chance in MMY notation
 	 * thankfully the mmy subsystem does the magic for us. */
-	res.sym = truf_sym_rd_alloc(str, NULL);
+	res.sym = truf_sym_rd(str, NULL);
 	return res;
 }
 

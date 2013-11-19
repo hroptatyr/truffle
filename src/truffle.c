@@ -487,7 +487,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 			}
 
 			/* snarf symbol, always abs(?) */
-			if (!truf_mmy_p(sym = truf_sym_rd_alloc(ln->ln, &on))) {
+			if (!truf_mmy_p(sym = truf_sym_rd(ln->ln, &on))) {
 				/* transform not */
 				;
 			} else if (!truf_mmy_abs_p(sym.mmy)) {
