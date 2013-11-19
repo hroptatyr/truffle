@@ -364,8 +364,10 @@ AC_DEFUN([SXE_FEATFLAGS], [dnl
 
 	## get power7 native dfps
 	SXE_CHECK_COMPILER_FLAG([-mhard-dfp], [dnl
-		## sse2 is the cure
-		featflags="$featflags -mhard-dfp"])
+		## hard-dfp is the cure
+		## unfortunately not since gcc emits instrs it can't process
+		dnl featflags="$featflags -mhard-dfp"
+	])
 
 	## icc and gcc related
 	## check if some stuff can be staticalised
