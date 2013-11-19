@@ -45,12 +45,6 @@
 #include "truf-dfp754.h"
 #include "nifty.h"
 
-/* a hash is the bucket locator and a chksum for collision detection */
-typedef struct {
-	size_t idx;
-	uint32_t chk;
-} hash_t;
-
 typedef struct {
 	truf_sym_t sym;
 	truf_rpaf_t rpaf[1U];
@@ -58,38 +52,10 @@ typedef struct {
 
 /* the beef table */
 static srpaf_t rstk;
-/* checksum table */
-static uint32_t *rchk;
 /* alloc size, 2-power */
 static size_t zstk;
 /* number of elements */
 static size_t nstk;
-
-static hash_t
-murmur(const uint8_t *str, size_t ssz)
-{
-/* tokyocabinet's hasher */
-	size_t idx = 19780211U;
-	uint32_t hash = 751U;
-	const uint8_t *rp = str + ssz;
-
-	while (ssz--) {
-		idx = idx * 37U + *str++;
-		hash = (hash * 31U) ^ *--rp;
-	}
-	return (hash_t){idx, hash};
-}
-
-static hash_t
-hx_mmy(truf_mmy_t ym)
-{
-	size_t idx = 19780211U;
-
-	idx += 983U * truf_mmy_year(ym);
-	idx += 991U * truf_mmy_mon(ym);
-	idx += 997U * truf_mmy_day(ym);
-	return (hash_t){idx, ym};
-}
 
 static inline size_t
 get_off(size_t idx, size_t mod)
@@ -110,27 +76,18 @@ recalloc(void *buf, size_t nmemb_ol, size_t nmemb_nu, size_t membz)
 static srpaf_t
 truf_rpaf_find(truf_sym_t sym)
 {
-	hash_t hx;
-
-	if (truf_mmy_p(sym)) {
-		/* hash differently */
-		hx = hx_mmy(sym.mmy);
-	} else {
-		size_t ssz = strlen((const char*)sym.u);
-		hx = murmur((const uint8_t*)sym.u, ssz);
-	}
+	size_t hx = truf_sym_hx(sym);
 
 	while (1) {
 		/* just try what we've got */
 		for (size_t mod = 64U; mod <= zstk; mod *= 2U) {
-			size_t off = get_off(hx.idx, mod);
+			size_t off = get_off(hx, mod);
 
-			if (LIKELY(rchk[off] == hx.chk)) {
+			if (LIKELY(rstk[off].sym.u == sym.u)) {
 				/* found him */
 				return rstk + off;
 			} else if (rstk[off].sym.u == 0U) {
 				/* found empty slot */
-				rchk[off] = hx.chk;
 				rstk[off].sym = sym;
 				/* init the rpaf cell */
 				rstk[off].rpaf->refprc = nand32(NULL);
@@ -141,7 +98,6 @@ truf_rpaf_find(truf_sym_t sym)
 		}
 		/* quite a lot of collisions, resize then */
 		rstk = recalloc(rstk, zstk, 2U * zstk, sizeof(*rstk));
-		rchk = recalloc(rchk, zstk, 2U * zstk, sizeof(*rchk));
 		zstk *= 2U;
 	}
 }
@@ -237,7 +193,6 @@ truf_init_rpaf(void)
 	nstk = 0U;
 	zstk = 64U;
 	rstk = calloc(zstk, sizeof(*rstk));
-	rchk = calloc(zstk, sizeof(*rchk));
 	return;
 }
 
@@ -247,11 +202,7 @@ truf_fini_rpaf(void)
 	if (LIKELY(rstk != NULL)) {
 		free(rstk);
 	}
-	if (LIKELY(rchk != NULL)) {
-		free(rchk);
-	}
 	rstk = NULL;
-	rchk = NULL;
 	zstk = 0U;
 	nstk = 0U;
 	return;
