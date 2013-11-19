@@ -1223,6 +1223,7 @@ main(int argc, char *argv[])
 	/* get the coroutines going */
 	init_coru_core();
 	/* initialise our step and rpaf system */
+	truf_init_sym();
 	truf_init_step();
 	truf_init_rpaf();
 
@@ -1252,6 +1253,7 @@ See --help to obtain a list of available commands.");
 	/* finalise our step and rpaf system */
 	truf_fini_step();
 	truf_fini_rpaf();
+	truf_fini_sym();
 
 out:
 	/* just to make sure */
