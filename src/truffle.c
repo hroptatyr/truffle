@@ -84,18 +84,6 @@ error(const char *fmt, ...)
 	return;
 }
 
-static size_t
-xstrlcpy(char *restrict dst, const char *src, size_t dsz)
-{
-	size_t ssz = strlen(src);
-	if (ssz > dsz) {
-		ssz = dsz - 1U;
-	}
-	memcpy(dst, src, ssz);
-	dst[ssz] = '\0';
-	return ssz;
-}
-
 static _Decimal32
 mkscal(signed int nd)
 {
@@ -249,27 +237,21 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 	while (arg != NULL) {
 		char *bp = buf;
 		echs_instant_t t = arg->t;
+		truf_sym_t sym = arg->sym;
 
 		bp += dt_strf(bp, ep - bp, t);
 		*bp++ = '\t';
-		if (UNLIKELY(arg->sym.u == 0U)) {
-			;
-		} else if (!truf_mmy_p(arg->sym)) {
-			bp += xstrlcpy(bp, (const void*)arg->sym.u, ep - bp);
-		} else {
-			truf_mmy_t sym;
-
+		/* convert mmys */
+		if (truf_mmy_p(sym)) {
 			if (ia->ocop) {
-				sym = truf_mmy_oco(arg->sym.mmy, t.y);
+				sym.mmy = truf_mmy_oco(sym.mmy, t.y);
 			} else if (ia->absp) {
-				sym = truf_mmy_abs(arg->sym.mmy, t.y);
+				sym.mmy = truf_mmy_abs(sym.mmy, t.y);
 			} else if (ia->relp) {
-				sym = truf_mmy_rel(arg->sym.mmy, t.y);
-			} else {
-				sym = arg->sym.mmy;
+				sym.mmy = truf_mmy_rel(sym.mmy, t.y);
 			}
-			bp += truf_mmy_wr(bp, ep - bp, sym);
 		}
+		bp += truf_sym_wr(bp, ep - bp, sym);
 		if (ia->prnt_prcp) {
 			if (!isnand32(arg->bid)) {
 				*bp++ = '\t';
@@ -1241,6 +1223,7 @@ main(int argc, char *argv[])
 	/* get the coroutines going */
 	init_coru_core();
 	/* initialise our step and rpaf system */
+	truf_init_sym();
 	truf_init_step();
 	truf_init_rpaf();
 
@@ -1270,6 +1253,7 @@ See --help to obtain a list of available commands.");
 	/* finalise our step and rpaf system */
 	truf_fini_step();
 	truf_fini_rpaf();
+	truf_fini_sym();
 
 out:
 	/* just to make sure */
