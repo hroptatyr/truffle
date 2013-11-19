@@ -203,9 +203,6 @@ defcoru(co_echs_pop, c, UNUSED(arg))
 		res.sym = trods[tmp].sym;
 		res.new = trods[tmp].exp;
 		yield(res);
-		if (!truf_mmy_p(res.sym) && res.sym.u) {
-			free((char*)res.sym.u);
-		}
 	}
 	return 0;
 }
