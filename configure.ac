@@ -73,7 +73,6 @@ fi
 
 ## trivial, no special stuff needed
 apps="${apps} truffle"
-apps="${apps} trod"
 
 if test "${use_asm_corus}" = "yes"; then
 	coru=" asm"
