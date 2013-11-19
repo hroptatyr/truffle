@@ -55,6 +55,9 @@ extern truf_sym_t truf_sym_rd(const char *str, char **ptr);
  * Output SYM into BUF of size BSZ, return the number of bytes written. */
 extern size_t truf_sym_wr(char *restrict buf, size_t bsz, truf_sym_t sym);
 
+extern void truf_init_sym(void);
+extern void truf_fini_sym(void);
+
 
 static inline __attribute__((pure, const)) bool
 truf_mmy_p(truf_sym_t sym)

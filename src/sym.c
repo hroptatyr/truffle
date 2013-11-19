@@ -75,4 +75,18 @@ truf_sym_wr(char *restrict buf, size_t bsz, truf_sym_t sym)
 	return 0U;
 }
 
+void
+truf_init_sym(void)
+{
+	truf_init_str();
+	return;
+}
+
+void
+truf_fini_sym(void)
+{
+	truf_fini_str();
+	return;
+}
+
 /* sym.c ends here */

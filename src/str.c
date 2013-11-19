@@ -148,10 +148,8 @@ truf_str_intern(const char *str, size_t len)
 			}
 		}
 		/* quite a lot of collisions, resize then */
-		with (size_t nuz = (2U * zstk) ?: SSTK_MINZ) {
-			sstk = recalloc(sstk, zstk, nuz, sizeof(*sstk));
-			zstk = nuz;
-		}
+		sstk = recalloc(sstk, zstk, 2U * zstk, sizeof(*sstk));
+		zstk *= 2U;
 	}
 	/* not reached */
 }
@@ -184,6 +182,27 @@ truf_str_wr(char *restrict buf, size_t bsz, truf_str_t s)
 	}
 	memcpy(buf, str, len + 1U/*for \nul*/);
 	return len;
+}
+
+void
+truf_init_str(void)
+{
+	nstk = 0U;
+	zstk = SSTK_MINZ;
+	sstk = calloc(zstk, sizeof(*sstk));
+	return;
+}
+
+void
+truf_fini_str(void)
+{
+	if (LIKELY(sstk != NULL)) {
+		free(sstk);
+	}
+	sstk = NULL;
+	zstk = 0U;
+	nstk = 0U;
+	return;
 }
 
 /* str.c ends here */

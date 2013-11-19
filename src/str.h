@@ -65,4 +65,7 @@ extern truf_str_t truf_str_rd(const char *str, char **on);
  * Output the interned S into BUF of size BSZ, return bytes written. */
 extern size_t truf_str_wr(char *restrict buf, size_t bsz, truf_str_t s);
 
+extern void truf_init_str(void);
+extern void truf_fini_str(void);
+
 #endif	/* INCLUDED_str_h_ */
