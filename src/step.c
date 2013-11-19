@@ -43,46 +43,12 @@
 #include "truf-dfp754.h"
 #include "nifty.h"
 
-/* a hash is the bucket locator and a chksum for collision detection */
-typedef struct {
-	size_t idx;
-	uint32_t chk;
-} hash_t;
-
 /* the beef table */
 static truf_step_t sstk;
-/* checksum table */
-static uint32_t *schk;
 /* alloc size, 2-power */
 static size_t zstk;
 /* number of elements */
 static size_t nstk;
-
-static hash_t
-murmur(const uint8_t *str, size_t ssz)
-{
-/* tokyocabinet's hasher */
-	size_t idx = 19780211U;
-	uint32_t hash = 751U;
-	const uint8_t *rp = str + ssz;
-
-	while (ssz--) {
-		idx = idx * 37U + *str++;
-		hash = (hash * 31U) ^ *--rp;
-	}
-	return (hash_t){idx, hash};
-}
-
-static hash_t
-hx_mmy(truf_mmy_t ym)
-{
-	size_t idx = 19780211U;
-
-	idx += 983U * truf_mmy_year(ym);
-	idx += 991U * truf_mmy_mon(ym);
-	idx += 997U * truf_mmy_day(ym);
-	return (hash_t){idx, ym};
-}
 
 static inline size_t
 get_off(size_t idx, size_t mod)
@@ -104,27 +70,18 @@ recalloc(void *buf, size_t nmemb_ol, size_t nmemb_nu, size_t membz)
 truf_step_t
 truf_step_find(truf_sym_t sym)
 {
-	hash_t hx;
-
-	if (truf_mmy_p(sym)) {
-		/* hash differently */
-		hx = hx_mmy(sym.mmy);
-	} else {
-		size_t ssz = strlen((const char*)sym.u);
-		hx = murmur((const uint8_t*)sym.u, ssz);
-	}
+	size_t hx = truf_sym_hx(sym);
 
 	while (1) {
 		/* just try what we've got */
 		for (size_t mod = 64U; mod <= zstk; mod *= 2U) {
-			size_t off = get_off(hx.idx, mod);
+			size_t off = get_off(hx, mod);
 
-			if (LIKELY(schk[off] == hx.chk)) {
+			if (LIKELY(sstk[off].sym.u == sym.u)) {
 				/* found him */
 				return sstk + off;
 			} else if (sstk[off].sym.u == 0U) {
 				/* found empty slot */
-				schk[off] = hx.chk;
 				sstk[off].sym = sym;
 				/* no prices yet */
 				sstk[off].bid = sstk[off].ask = nand32(NULL);
@@ -136,7 +93,6 @@ truf_step_find(truf_sym_t sym)
 		}
 		/* quite a lot of collisions, resize then */
 		sstk = recalloc(sstk, zstk, 2U * zstk, sizeof(*sstk));
-		schk = recalloc(schk, zstk, 2U * zstk, sizeof(*schk));
 		zstk *= 2U;
 	}
 }
@@ -164,7 +120,6 @@ truf_init_step(void)
 	nstk = 0U;
 	zstk = 64U;
 	sstk = calloc(zstk, sizeof(*sstk));
-	schk = calloc(zstk, sizeof(*schk));
 	return;
 }
 
@@ -174,11 +129,7 @@ truf_fini_step(void)
 	if (LIKELY(sstk != NULL)) {
 		free(sstk);
 	}
-	if (LIKELY(schk != NULL)) {
-		free(schk);
-	}
 	sstk = NULL;
-	schk = NULL;
 	zstk = 0U;
 	nstk = 0U;
 	return;
