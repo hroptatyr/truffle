@@ -37,6 +37,7 @@
 #if !defined INCLUDED_str_h_
 #define INCLUDED_str_h_
 
+#include <stdlib.h>
 #include <stdint.h>
 
 /**
@@ -47,5 +48,21 @@
  * length   offset                divisible by 4 
  **/
 typedef uint_fast32_t truf_str_t;
+
+/**
+ * Intern the string STR of length LEN. */
+extern truf_str_t truf_str_intern(const char *str, size_t len);
+
+/**
+ * Unintern the str object. */
+extern void truf_str_unintern(truf_str_t);
+
+/**
+ * Intern the string STR up to the next word boundary. */
+extern truf_str_t truf_str_rd(const char *str, char **on);
+
+/**
+ * Output the interned S into BUF of size BSZ, return bytes written. */
+extern size_t truf_str_wr(char *restrict buf, size_t bsz, truf_str_t s);
 
 #endif	/* INCLUDED_str_h_ */
