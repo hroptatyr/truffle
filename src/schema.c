@@ -232,7 +232,7 @@ __read_schema_line(const char *line, size_t llen)
 			p = tmp + strspn(tmp, skip);
 			if (UNLIKELY(cl->nn == 0)) {
 				/* auto-fill to the left */
-				if (UNLIKELY(v != 0.d && dt != 101U)) {
+				if (UNLIKELY(v != 0.0 && dt != 101U)) {
 					cl = cline_add_sugar(cl, 101, v);
 				}
 			}
@@ -245,7 +245,7 @@ __read_schema_line(const char *line, size_t llen)
 			cl = cline_add_sugar(cl, dt, v);
 		} while (*p != '\n');
 		/* auto-fill 1 polygons to the right */
-		if (UNLIKELY(v != 0.d && dt != 1231)) {
+		if (UNLIKELY(v != 0.0 && dt != 1231)) {
 			cl = cline_add_sugar(cl, 1231, v);
 		}
 	default:
@@ -421,7 +421,7 @@ make_cut(trcut_t old, trsch_t sch, daisy_t when)
 	if (old) {
 		/* quickly rinse the old cut */
 		for (size_t i = 0; i < old->ncomps; i++) {
-			old->comps[i].y = 0.d;
+			old->comps[i].y = 0.0;
 		}
 	}
 	for (size_t i = 0; i < sch->np; i++) {
