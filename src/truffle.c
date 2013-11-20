@@ -698,16 +698,16 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 
 		if (when == l2) {
 			/* something happened at l2 */
-			if (n2->y == 0.d && n1->y != 0.d) {
+			if (n2->y == 0.0 && n1->y != 0.0) {
 				res.exp = 0.df;
-			} else if (n2->y != 0.d && n1->y == 0.d) {
+			} else if (n2->y != 0.0 && n1->y == 0.0) {
 				res.exp = 1.df;
 			} else {
 				continue;
 			}
 		} else if (j == 0 && when == l1) {
 			/* something happened at l1 */
-			if (UNLIKELY(n1->y != 0.d)) {
+			if (UNLIKELY(n1->y != 0.0)) {
 				res.exp = 1.df;
 			} else {
 				continue;
