@@ -150,6 +150,9 @@ truf_mmy_rd(const char *str, char **ptr)
 		yr = (ym / 100U) / 100U;
 		mo = (ym / 100U) % 100U;
 		dd = (ym % 100U);
+	} else {
+		/* no idea what else to do */
+		goto err;
 	}
 	switch (*sq) {
 	case '\0':
