@@ -176,6 +176,52 @@ static const struct co_rdr_res_s {
 	return 0;
 }
 
+declcoru(co_tser_rdr, {
+		FILE *f;
+		bool no_sym_p;
+	}, {});
+
+static truf_step_cell_t
+defcoru(co_tser_rdr, iap, UNUSED(arg))
+{
+	coru_t rdr;
+	coru_initargs(co_tser_rdr) ia = *iap;
+	struct truf_step_s res;
+
+	init_coru();
+	rdr = make_coru(co_echs_rdr, ia.f);
+
+	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
+		char *on;
+
+		res.t = ln->t;
+		if (LIKELY(!ia.no_sym_p)) {
+			res.sym = truf_sym_rd(ln->ln, &on);
+		} else {
+			on = deconst(ln->ln - 1U);
+		}
+
+		/* keep track of last price */
+		if (*on == '\t') {
+			res.bid = strtod32(on + 1U, &on);
+		} else {
+			/* oh, no sym then */
+			res.bid = nand32(NULL);
+		}
+		if (*on == '\t') {
+			res.ask = strtod32(on + 1U, &on);
+		} else {
+			res.ask = nand32(NULL);
+		}
+
+		yield(res);
+	}
+
+	free_coru(rdr);
+	fini_coru();
+	return 0;
+}
+
 declcoru(co_echs_pop, {
 		truf_wheap_t q;
 	}, {});
@@ -392,19 +438,19 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 	struct truf_step_s res;
 
 	init_coru();
-	rdr = make_coru(co_echs_rdr, ia.tser);
+	rdr = make_coru(co_tser_rdr, ia.tser);
 	pop = make_coru(co_echs_pop, ia.q);
 
 	truf_step_cell_t ev;
-	const struct co_rdr_res_s *ln;
-	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+	truf_step_cell_t qu;
+	for (qu = next(rdr), ev = next(pop); qu != NULL;) {
 		size_t nemit = 0U;
 		size_t ndfrd = 0U;
 
 		/* aggregate trod directives between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
-			     UNLIKELY(echs_instant_ge_p(ln->t, ev->t));
+			     UNLIKELY(echs_instant_ge_p(qu->t, ev->t));
 		     ev = next(pop)) {
 			truf_sym_t sym = ev->sym;
 			truf_step_t st;
@@ -440,15 +486,14 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 
 		/* yield time series lines in between trod edges */
 		do {
-			char *on;
-			truf_sym_t sym;
+			truf_sym_t sym = qu->sym;
 			truf_step_t st;
 
 			/* print left over deferred events,
 			 * conditionalise on timestamp to maintain
 			 * chronologicity */
 			for (; nemit < ndfrd &&
-				     echs_instant_lt_p(dfrd[nemit].t, ln->t);
+				     echs_instant_lt_p(dfrd[nemit].t, qu->t);
 			     nemit++) {
 				/* just yield */
 				truf_step_t ref = dfrd[nemit].ref;
@@ -474,23 +519,19 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 			}
 
 			/* snarf symbol, always abs(?) */
-			if (!truf_mmy_p(sym = truf_sym_rd(ln->ln, &on))) {
+			if (!truf_mmy_p(sym)) {
 				/* transform not */
 				;
 			} else if (!truf_mmy_abs_p(sym.mmy)) {
-				sym.mmy = truf_mmy_abs(sym.mmy, ln->t.y);
+				sym.mmy = truf_mmy_abs(sym.mmy, qu->t.y);
 			}
 			/* make sure we massage the lstk */
 			st = truf_step_find(sym);
-			st->t = ln->t;
+			st->t = qu->t;
 
 			/* keep track of last price */
-			if (*on == '\t') {
-				st->bid = strtod32(on + 1U, &on);
-			}
-			if (*on == '\t') {
-				st->ask = strtod32(on + 1U, &on);
-			}
+			st->bid = qu->bid;
+			st->ask = qu->ask;
 
 			if (ia.levp) {
 				if (st->old == st->new && st->new == 0.df) {
@@ -508,9 +549,9 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 			/* update exposures */
 			st->old = st->new;
 			yield(res);
-		} while (LIKELY((ln = next(rdr)) != NULL) &&
+		} while (LIKELY((qu = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
-			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
+			  LIKELY(echs_instant_lt_p(qu->t, ev->t))));
 	}
 
 	free_coru(rdr);
@@ -588,52 +629,6 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 
 	free_coru(rdr);
 	free_coru(pop);
-	fini_coru();
-	return 0;
-}
-
-declcoru(co_tser_rdr, {
-		FILE *f;
-		bool no_sym_p;
-	}, {});
-
-static truf_step_cell_t
-defcoru(co_tser_rdr, iap, UNUSED(arg))
-{
-	coru_t rdr;
-	coru_initargs(co_tser_rdr) ia = *iap;
-	struct truf_step_s res;
-
-	init_coru();
-	rdr = make_coru(co_echs_rdr, ia.f);
-
-	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
-		char *on;
-
-		res.t = ln->t;
-		if (LIKELY(!ia.no_sym_p)) {
-			res.sym = truf_sym_rd(ln->ln, &on);
-		} else {
-			on = deconst(ln->ln - 1U);
-		}
-
-		/* keep track of last price */
-		if (*on == '\t') {
-			res.bid = strtod32(on + 1U, &on);
-		} else {
-			/* oh, no sym then */
-			res.bid = nand32(NULL);
-		}
-		if (*on == '\t') {
-			res.ask = strtod32(on + 1U, &on);
-		} else {
-			res.ask = nand32(NULL);
-		}
-
-		yield(res);
-	}
-
-	free_coru(rdr);
 	fini_coru();
 	return 0;
 }
