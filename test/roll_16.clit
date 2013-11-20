@@ -1,7 +1,7 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
 $ truffle -p -2 roll -f "${srcdir}/glue_01.tser" "${srcdir}/glue_01.trod"
-2006-01-01T20:00:00	0
+2006-01-01T20:00:00	0.0
 2006-01-01T20:10:00	1.0
 2006-01-01T20:20:00	-1.0
 2006-01-01T20:24:00	0.0
