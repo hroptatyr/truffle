@@ -78,11 +78,13 @@
 	static int paste(__, __LINE__);		\
 	if (paste(__, __LINE__)++)
 
+#if !defined static_assert
 #define __static_assert(COND, MSG)				\
 	typedef char static_assertion_##MSG[2 * (!!(COND)) - 1]
 #define __static_assert3(X, L)	__static_assert(X, static_assert_##L)
 #define __static_assert2(X, L)	__static_assert3(X, L)
-#define static_assert(X)	__static_assert2(X, __LINE__)
+#define static_assert(X, msg)	__static_assert2(X, __LINE__)
+#endif	/* static_assert */
 
 static __inline void*
 deconst(const void *cp)

@@ -202,6 +202,9 @@ echs_instant_add(echs_instant_t bas, echs_idiff_t add)
 
 	if (echs_instant_all_day_p(bas)) {
 		res.H = ECHS_ALL_DAY;
+		res.M = 0U;
+		res.S = 0U;
+		res.ms = 0U;
 		goto out;
 	} else if (msd < 0) {
 		res.d--;
