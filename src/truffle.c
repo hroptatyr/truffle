@@ -1271,6 +1271,67 @@ out:
 	return res;
 }
 
+static int
+cmd_flow(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle flow [TSER-FILE]\n";
+	FILE *f;
+	coru_t rdr;
+	coru_t out;
+	int res = 0;
+
+	if (argi->inputs_num > 2U) {
+		fputs(usg, stderr);
+		return 1;
+	}
+
+	if (argi->inputs_num <= 1U) {
+		/* just keep stdin then */
+		f = stdin;
+	} else with (const char *fn = argi->inputs[1U]) {
+		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
+			error("cannot open time series file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	init_coru();
+	rdr = make_coru(co_tser_rdr, f);
+	out = make_coru(
+		co_echs_out, stdout,
+		argi->rel_given, argi->abs_given, argi->oco_given,
+		.prnt_expp = false, .prnt_prcp = true);
+
+	for (truf_step_cell_t e; (e = next(rdr)) != NULL;) {
+		/* find e's sym in the step cache */
+		truf_step_t st = truf_step_find(e->sym);
+		struct truf_step_s fe = *e;
+
+		if (UNLIKELY(isnand32(st->bid))) {
+			st->bid = e->bid;
+		}
+		if (UNLIKELY(isnand32(st->ask))) {
+			st->ask = e->ask;
+		}
+		/* fiddle with the local step cell to make it cash flows */
+		fe.bid -= st->bid;
+		fe.ask -= st->ask;
+		/* store last version in step[tm] */
+		*st = *e;
+		next_with(out, fe);
+	}
+
+	free_coru(rdr);
+	free_coru(out);
+	fini_coru();
+	fclose(f);
+
+out:
+	return res;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1305,6 +1366,8 @@ main(int argc, char *argv[])
 			res = cmd_position(argi);
 		} else if (!strcmp(cmd, "glue")) {
 			res = cmd_glue(argi);
+		} else if (!strcmp(cmd, "flow")) {
+			res = cmd_flow(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\
