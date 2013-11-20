@@ -318,9 +318,7 @@ defcoru(co_roll_out, iap, arg)
 			/* print time stamp */
 			bp += dt_strf(bp, ep - bp, arg->t);
 			*bp++ = '\t';
-			/* print the virtual sym */
-			;
-			*bp++ = '\t';
+
 			/* scale to precision */
 			if (UNLIKELY(ia.prec)) {
 				/* come up with a new raw value */
