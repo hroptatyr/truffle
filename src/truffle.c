@@ -176,6 +176,53 @@ static const struct co_rdr_res_s {
 	return 0;
 }
 
+declcoru(co_tser_rdr, {
+		FILE *f;
+		bool no_sym_p;
+	}, {});
+
+static truf_step_cell_t
+defcoru(co_tser_rdr, iap, UNUSED(arg))
+{
+	coru_t rdr;
+	coru_initargs(co_tser_rdr) ia = *iap;
+	struct truf_step_s res;
+
+	init_coru();
+	rdr = make_coru(co_echs_rdr, ia.f);
+
+	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
+		char *on;
+
+		res.t = ln->t;
+		if (LIKELY(!ia.no_sym_p)) {
+			res.sym = truf_sym_rd(ln->ln, &on);
+		} else {
+			res.sym.u = 1U;
+			on = deconst(ln->ln - 1U);
+		}
+
+		/* keep track of last price */
+		if (*on == '\t') {
+			res.bid = strtod32(on + 1U, &on);
+		} else {
+			/* oh, no sym then */
+			res.bid = nand32(NULL);
+		}
+		if (*on == '\t') {
+			res.ask = strtod32(on + 1U, &on);
+		} else {
+			res.ask = nand32(NULL);
+		}
+
+		yield(res);
+	}
+
+	free_coru(rdr);
+	fini_coru();
+	return 0;
+}
+
 declcoru(co_echs_pop, {
 		truf_wheap_t q;
 	}, {});
@@ -392,19 +439,19 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 	struct truf_step_s res;
 
 	init_coru();
-	rdr = make_coru(co_echs_rdr, ia.tser);
+	rdr = make_coru(co_tser_rdr, ia.tser);
 	pop = make_coru(co_echs_pop, ia.q);
 
 	truf_step_cell_t ev;
-	const struct co_rdr_res_s *ln;
-	for (ln = next(rdr), ev = next(pop); ln != NULL;) {
+	truf_step_cell_t qu;
+	for (qu = next(rdr), ev = next(pop); qu != NULL;) {
 		size_t nemit = 0U;
 		size_t ndfrd = 0U;
 
 		/* aggregate trod directives between price lines */
 		for (;
 		     LIKELY(ev != NULL) &&
-			     UNLIKELY(echs_instant_ge_p(ln->t, ev->t));
+			     UNLIKELY(echs_instant_ge_p(qu->t, ev->t));
 		     ev = next(pop)) {
 			truf_sym_t sym = ev->sym;
 			truf_step_t st;
@@ -440,15 +487,14 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 
 		/* yield time series lines in between trod edges */
 		do {
-			char *on;
-			truf_sym_t sym;
+			truf_sym_t sym = qu->sym;
 			truf_step_t st;
 
 			/* print left over deferred events,
 			 * conditionalise on timestamp to maintain
 			 * chronologicity */
 			for (; nemit < ndfrd &&
-				     echs_instant_lt_p(dfrd[nemit].t, ln->t);
+				     echs_instant_lt_p(dfrd[nemit].t, qu->t);
 			     nemit++) {
 				/* just yield */
 				truf_step_t ref = dfrd[nemit].ref;
@@ -474,23 +520,19 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 			}
 
 			/* snarf symbol, always abs(?) */
-			if (!truf_mmy_p(sym = truf_sym_rd(ln->ln, &on))) {
+			if (!truf_mmy_p(sym)) {
 				/* transform not */
 				;
 			} else if (!truf_mmy_abs_p(sym.mmy)) {
-				sym.mmy = truf_mmy_abs(sym.mmy, ln->t.y);
+				sym.mmy = truf_mmy_abs(sym.mmy, qu->t.y);
 			}
 			/* make sure we massage the lstk */
 			st = truf_step_find(sym);
-			st->t = ln->t;
+			st->t = qu->t;
 
 			/* keep track of last price */
-			if (*on == '\t') {
-				st->bid = strtod32(on + 1U, &on);
-			}
-			if (*on == '\t') {
-				st->ask = strtod32(on + 1U, &on);
-			}
+			st->bid = qu->bid;
+			st->ask = qu->ask;
 
 			if (ia.levp) {
 				if (st->old == st->new && st->new == 0.df) {
@@ -508,9 +550,9 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 			/* update exposures */
 			st->old = st->new;
 			yield(res);
-		} while (LIKELY((ln = next(rdr)) != NULL) &&
+		} while (LIKELY((qu = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
-			  LIKELY(echs_instant_lt_p(ln->t, ev->t))));
+			  LIKELY(echs_instant_lt_p(qu->t, ev->t))));
 	}
 
 	free_coru(rdr);
@@ -1192,18 +1234,13 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 				signed int iqu = 0;
 
 				prc = r.refprc;
-				if (UNLIKELY(argi->flow_given)) {
-					/* scale an initial 0 in flow mode */
-					prc = scalbnd32(0.df, quantexpd32(prc));
-				}
 				/* get the quantum right for this one */
 				iqu += quantexpd32(prc);
 				iqu += quantexpd32(r.cruflo);
 				iqu += quantexpd32(cfv);
 				prc = quantized32(prc, scalbnd32(0.df, iqu));
 			} else {
-				/* sum up rpaf
-				 * in flow mode means don't accrue anything */
+				/* sum up rpaf */
 				prc += r.cruflo * cfv;
 			}
 
@@ -1213,10 +1250,6 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			}
 			oa = pack_args(co_roll_out, t, prc);
 			metro = t;
-			if (UNLIKELY(argi->flow_given)) {
-				/* reset price in flow mode */
-				prc = scalbnd32(0.df, quantexpd32(prc));
-			}
 		}
 		/* drain */
 		next_with(out, oa);
@@ -1231,6 +1264,67 @@ out:
 		free_truf_wheap(q);
 	}
 	truf_free_trods();
+	return res;
+}
+
+static int
+cmd_flow(struct truf_args_info argi[static 1U])
+{
+	static const char usg[] = "\
+Usage: truffle flow [TSER-FILE]\n";
+	FILE *f;
+	coru_t rdr;
+	coru_t out;
+	int res = 0;
+
+	if (argi->inputs_num > 2U) {
+		fputs(usg, stderr);
+		return 1;
+	}
+
+	if (argi->inputs_num <= 1U) {
+		/* just keep stdin then */
+		f = stdin;
+	} else with (const char *fn = argi->inputs[1U]) {
+		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
+			error("cannot open time series file `%s'", fn);
+			res = 1;
+			goto out;
+		}
+	}
+
+	init_coru();
+	rdr = make_coru(co_tser_rdr, f, argi->no_symbol_given);
+	out = make_coru(
+		co_echs_out, stdout,
+		argi->rel_given, argi->abs_given, argi->oco_given,
+		.prnt_expp = false, .prnt_prcp = true);
+
+	for (truf_step_cell_t e; (e = next(rdr)) != NULL;) {
+		/* find e's sym in the step cache */
+		truf_step_t st = truf_step_find(e->sym);
+		struct truf_step_s fe = *e;
+
+		if (UNLIKELY(isnand32(st->bid))) {
+			st->bid = e->bid;
+		}
+		if (UNLIKELY(isnand32(st->ask))) {
+			st->ask = e->ask;
+		}
+		/* fiddle with the local step cell to make it cash flows */
+		fe.bid -= st->bid;
+		fe.ask -= st->ask;
+		/* store last version in step[tm] */
+		*st = *e;
+		next_with(out, fe);
+	}
+
+	free_coru(rdr);
+	free_coru(out);
+	fini_coru();
+	fclose(f);
+
+out:
 	return res;
 }
 
@@ -1268,6 +1362,8 @@ main(int argc, char *argv[])
 			res = cmd_position(argi);
 		} else if (!strcmp(cmd, "glue")) {
 			res = cmd_glue(argi);
+		} else if (!strcmp(cmd, "flow")) {
+			res = cmd_flow(argi);
 		} else {
 		nocmd:
 			error("No valid command specified.\n\

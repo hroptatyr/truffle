@@ -5,6 +5,7 @@ description "Tool to apply roll-over directives (trod) to time series.
 
 COMMAND may be one of:
   filter    Filter relevant price lines with given directives.
+  flow      Turn a quote series into a series of cash flows.
   glue      Output a single stream with prices and directives.
   migrate   Read recurrence schemas and roll them out.
   position  Print portfolio positions at given dates/times.
@@ -37,6 +38,12 @@ option "till" -
 	string typestr="DT" optional
 
 text "
+Options affecting the flow command:"
+option "no-symbol" -
+	"Time series presented does not contain the symbol column."
+	optional
+
+text "
 Options affecting the print command:"
 option "abs" -
 	"Use absolute contract years for MMY-specified symbols."
@@ -56,10 +63,6 @@ option "basis" b
 	"Basis of a carry-over position as price quote.
 Default is the quote upon the first investment."
 	optional string typestr="PRC"
-
-option "flow" f
-	"Output rolled-over cash flows instead of a quote series."
-	optional
 
 option "tick-value" -
 	"Price value of one cash flow unit."

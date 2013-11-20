@@ -70,7 +70,7 @@ static inline __attribute__((pure, const)) bool
 truf_str_p(truf_sym_t sym)
 {
 /* return true if SYM encodes a str object and false otherwise */
-	return (sym.u & 0b11U) == 0U;
+	return sym.u && (sym.u & 0b11U) == 0U;
 }
 
 /* hashing helpers */
