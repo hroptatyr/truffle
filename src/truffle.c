@@ -62,7 +62,10 @@
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
-#endif /* __INTEL_COMPILER */
+#elif defined __GNUC__
+# pragma GCC diagnostic ignored "-Wmissing-braces"
+# pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif	/* __INTEL_COMPILER || __GNUC__ */
 
 typedef const struct truf_step_s *truf_step_cell_t;
 
@@ -640,6 +643,8 @@ struct trsch_s {
 	struct cline_s *p[];
 };
 
+static const truf_trod_t truf_nul_trod = {.exp = 0.df};
+
 static inline unsigned int
 m_to_i(char month)
 {
@@ -688,16 +693,16 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 
 		if (when == l2) {
 			/* something happened at l2 */
-			if (n2->y == 0.0 && n1->y != 0.0) {
+			if (n2->y == 0.d && n1->y != 0.d) {
 				res.exp = 0.df;
-			} else if (n2->y != 0.0 && n1->y == 0.0) {
+			} else if (n2->y != 0.d && n1->y == 0.d) {
 				res.exp = 1.df;
 			} else {
 				continue;
 			}
 		} else if (j == 0 && when == l1) {
 			/* something happened at l1 */
-			if (UNLIKELY(n1->y != 0.0)) {
+			if (UNLIKELY(n1->y != 0.d)) {
 				res.exp = 1.df;
 			} else {
 				continue;
@@ -712,7 +717,7 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 		return res;
 	}
 	/* indicate failure (to add anything) */
-	return truf_nul_trod();
+	return truf_nul_trod;
 }
 
 static void
@@ -744,11 +749,15 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:593)
+#elif defined __GNUC__
+# pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #endif	/* __INTEL_COMPILER */
 #include "truffle.xh"
 #include "truffle.x"
 #if defined __INTEL_COMPILER
 # pragma warning (default:593)
+#elif defined __GNUC__
+# pragma GCC diagnostic warning "-Wunused-but-set-variable"
 #endif	/* __INTEL_COMPILER */
 
 static int
@@ -984,13 +993,13 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 
 	/* just print them now */
 	{
-		const char *const *dt = argi->inputs + 2U;
+		char *const *dt = argi->inputs + 2U;
 		const size_t ndt = argi->inputs_num - 2U;
 		coru_t pos;
 		coru_t out;
 
 		init_coru();
-		pos = make_coru(co_echs_pos, q, dt, ndt);
+		pos = make_coru(co_echs_pos, q, (const char*const*)dt, ndt);
 		out = make_coru(
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given,

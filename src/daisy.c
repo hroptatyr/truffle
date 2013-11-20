@@ -41,6 +41,13 @@
 #include "daisy.h"
 #include "yd.h"
 
+#if defined __INTEL_COMPILER
+
+#elif defined __GNUC__
+# pragma GCC diagnostic ignored "-Wmissing-braces"
+# pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif	/* __INTEL_COMPILER || __GNUC__ */
+
 
 /* public API */
 __attribute__((pure, const)) daisy_t

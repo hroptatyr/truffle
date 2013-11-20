@@ -98,6 +98,11 @@ echs_instant_0_p(echs_instant_t x)
 static inline __attribute__((pure, const)) bool
 echs_instant_lt_p(echs_instant_t x, echs_instant_t y)
 {
+#if defined WORDS_BIGENDIAN
+	return x.u < y.u;
+#else  /* !WORDS_BIGENDIAN */
+	/* the bitfield is in big-endian order and we're on little-E
+	 * so we have to go through it slot by slot */
 	return (x.y < y.y || x.y == y.y &&
 		(x.m < y.m || x.m == y.m &&
 		 (x.d < y.d || x.d == y.d &&
@@ -105,11 +110,17 @@ echs_instant_lt_p(echs_instant_t x, echs_instant_t y)
 		   (x.M < y.M || x.M == y.M &&
 		    (x.S < y.S || x.S == y.S &&
 		     (x.ms < y.ms)))))));
+#endif	/* WORDS_BIGENDIAN */
 }
 
 static inline __attribute__((pure, const)) bool
 echs_instant_le_p(echs_instant_t x, echs_instant_t y)
 {
+#if defined WORDS_BIGENDIAN
+	return !(x.u > y.u);
+#else  /* !WORDS_BIGENDIAN */
+	/* the bitfield is in big-endian order and we're on little-E
+	 * so we have to go through it slot by slot */
 	return !(x.y > y.y || x.y == y.y &&
 		 (x.m > y.m || x.m == y.m &&
 		  (x.d > y.d || x.d == y.d &&
@@ -117,14 +128,13 @@ echs_instant_le_p(echs_instant_t x, echs_instant_t y)
 		    (x.M > y.M || x.M == y.M &&
 		     (x.S > y.S || x.S == y.S &&
 		      (x.ms > y.ms)))))));
+#endif	/* WORDS_BIGENDIAN */
 }
 
 static inline __attribute__((pure, const)) bool
 echs_instant_eq_p(echs_instant_t x, echs_instant_t y)
 {
-	return x.y == y.y && x.m == y.m && x.d == y.d &&
-		x.H == y.H && x.M == y.M && x.S == y.S &&
-		x.ms == y.ms;
+	return x.u == y.u;
 }
 
 static inline __attribute__((pure, const)) bool
