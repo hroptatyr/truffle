@@ -749,11 +749,15 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:593)
+#elif defined __GNUC__
+# pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #endif	/* __INTEL_COMPILER */
 #include "truffle.xh"
 #include "truffle.x"
 #if defined __INTEL_COMPILER
 # pragma warning (default:593)
+#elif defined __GNUC__
+# pragma GCC diagnostic warning "-Wunused-but-set-variable"
 #endif	/* __INTEL_COMPILER */
 
 static int
