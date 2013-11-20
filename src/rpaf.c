@@ -123,9 +123,11 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 		if (st->new < 0.df) {
 			/* going short or there's just one price */
 			r->refprc = bid;
-		} else {
+		} else if (st->new > 0.df) {
 			r->refprc = ask;
 		}
+		/* mimic a 0 flow but with the right quantum */
+		r->cruflo = scalbnd32(0.df, quantexpd32(st->new));
 	} else if ((edif = st->new - st->old) != 0.df) {
 		/* we determined it's an edge */
 

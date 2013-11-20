@@ -1187,23 +1187,36 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			if (UNLIKELY(isnand32(e->bid))) {
 				/* do fuckall */
 				continue;
-			} else if (UNLIKELY(argi->flow_given)) {
-				/* flow mode means don't accrue anything */
-				prc = 0.00df;
 			} else if (UNLIKELY(isnand32(prc))) {
 				/* set initial price level to first refprc */
-				prc = r.refprc;
-			}
+				signed int iqu = 0;
 
-			/* sum up rpaf */
-			prc += r.cruflo * cfv;
+				prc = r.refprc;
+				if (UNLIKELY(argi->flow_given)) {
+					/* scale an initial 0 in flow mode */
+					prc = scalbnd32(0.df, quantexpd32(prc));
+				}
+				/* get the quantum right for this one */
+				iqu += quantexpd32(prc);
+				iqu += quantexpd32(r.cruflo);
+				iqu += quantexpd32(cfv);
+				prc = quantized32(prc, scalbnd32(0.df, iqu));
+			} else {
+				/* sum up rpaf
+				 * in flow mode means don't accrue anything */
+				prc += r.cruflo * cfv;
+			}
 
 			/* defer by one, to avoid time dupes */
-			if (echs_instant_lt_p(metro, e->t)) {
+			if (echs_instant_lt_p(metro, t)) {
 				next_with(out, oa);
 			}
-			metro = e->t;
 			oa = pack_args(co_roll_out, t, prc);
+			metro = t;
+			if (UNLIKELY(argi->flow_given)) {
+				/* reset price in flow mode */
+				prc = scalbnd32(0.df, quantexpd32(prc));
+			}
 		}
 		/* drain */
 		next_with(out, oa);
