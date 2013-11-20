@@ -38,6 +38,12 @@ option "till" -
 	string typestr="DT" optional
 
 text "
+Options affecting the flow command:"
+option "no-symbol" -
+	"Time series presented does not contain the symbol column."
+	optional
+
+text "
 Options affecting the print command:"
 option "abs" -
 	"Use absolute contract years for MMY-specified symbols."

@@ -198,6 +198,7 @@ defcoru(co_tser_rdr, iap, UNUSED(arg))
 		if (LIKELY(!ia.no_sym_p)) {
 			res.sym = truf_sym_rd(ln->ln, &on);
 		} else {
+			res.sym.u = 1U;
 			on = deconst(ln->ln - 1U);
 		}
 
@@ -1293,7 +1294,7 @@ Usage: truffle flow [TSER-FILE]\n";
 	}
 
 	init_coru();
-	rdr = make_coru(co_tser_rdr, f);
+	rdr = make_coru(co_tser_rdr, f, argi->no_symbol_given);
 	out = make_coru(
 		co_echs_out, stdout,
 		argi->rel_given, argi->abs_given, argi->oco_given,
