@@ -141,7 +141,7 @@ static const struct co_rdr_res_s {
 	echs_instant_t t;
 	const char *ln;
 	size_t lz;
-} *defcoru(co_echs_rdr, c, UNUSED(arg))
+} *defcoru(co_echs_rdr, ia, UNUSED(arg))
 {
 /* coroutine for the reader of the tseries */
 	char *line = NULL;
@@ -149,8 +149,9 @@ static const struct co_rdr_res_s {
 	ssize_t nrd;
 	/* we'll yield a rdr_res */
 	struct co_rdr_res_s res;
+	FILE *f = ia->f;
 
-	while ((nrd = getline(&line, &llen, c->f)) > 0) {
+	while ((nrd = getline(&line, &llen, f)) > 0) {
 		char *p;
 
 		if (*line == '#') {
@@ -180,17 +181,18 @@ declcoru(co_echs_pop, {
 	}, {});
 
 static truf_step_cell_t
-defcoru(co_echs_pop, c, UNUSED(arg))
+defcoru(co_echs_pop, ia, UNUSED(arg))
 {
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
 	struct truf_step_s res = {
 		.old = nand32(NULL),
 	};
+	truf_wheap_t q = ia->q;
 
-	while (!echs_instant_0_p(res.t = truf_wheap_top_rank(c->q))) {
+	while (!echs_instant_0_p(res.t = truf_wheap_top_rank(q))) {
 		/* assume it's a truf_trod_t */
-		uintptr_t tmp = truf_wheap_pop(c->q);
+		uintptr_t tmp = truf_wheap_pop(q);
 		res.sym = trods[tmp].sym;
 		res.new = trods[tmp].exp;
 		yield(res);
@@ -204,11 +206,11 @@ declcoru(co_inst_rdr, {
 	}, {});
 
 static const struct co_rdr_res_s*
-defcoru(co_inst_rdr, c, UNUSED(arg))
+defcoru(co_inst_rdr, ia, UNUSED(arg))
 {
 /* coroutine for the reader of the tseries */
-	const char *const *dt = c->dt;
-	const char *const *const edt = c->dt + c->ndt;
+	const char *const *dt = ia->dt;
+	const char *const *const edt = ia->dt + ia->ndt;
 	/* we'll yield a rdr_res */
 	struct co_rdr_res_s res;
 
@@ -232,10 +234,11 @@ declcoru(co_echs_out, {
 	}, {});
 
 static const void*
-_defcoru(co_echs_out, ia, truf_step_cell_t arg)
+_defcoru(co_echs_out, iap, truf_step_cell_t arg)
 {
 	char buf[256U];
 	const char *const ep = buf + sizeof(buf);
+	coru_initargs(co_echs_out) ia = *iap;
 
 	while (arg != NULL) {
 		char *bp = buf;
@@ -246,16 +249,16 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 		*bp++ = '\t';
 		/* convert mmys */
 		if (truf_mmy_p(sym)) {
-			if (ia->ocop) {
+			if (ia.ocop) {
 				sym.mmy = truf_mmy_oco(sym.mmy, t.y);
-			} else if (ia->absp) {
+			} else if (ia.absp) {
 				sym.mmy = truf_mmy_abs(sym.mmy, t.y);
-			} else if (ia->relp) {
+			} else if (ia.relp) {
 				sym.mmy = truf_mmy_rel(sym.mmy, t.y);
 			}
 		}
 		bp += truf_sym_wr(bp, ep - bp, sym);
-		if (ia->prnt_prcp) {
+		if (ia.prnt_prcp) {
 			if (!isnand32(arg->bid)) {
 				*bp++ = '\t';
 				bp += d32tostr(bp, ep - bp, arg->bid);
@@ -265,7 +268,7 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 				bp += d32tostr(bp, ep - bp, arg->ask);
 			}
 		}
-		if (ia->prnt_expp) {
+		if (ia.prnt_expp) {
 			*bp++ = '\t';
 			if (!isnand32(arg->old)) {
 				bp += d32tostr(bp, ep - bp, arg->old);
@@ -278,7 +281,7 @@ _defcoru(co_echs_out, ia, truf_step_cell_t arg)
 		}
 		*bp++ = '\n';
 		*bp = '\0';
-		fputs(buf, ia->f);
+		fputs(buf, ia.f);
 
 		arg = yield_ptr(NULL);
 	}
@@ -295,12 +298,13 @@ declcoru(co_roll_out, {
 	});
 
 static const void*
-defcoru(co_roll_out, ia, arg)
+defcoru(co_roll_out, iap, arg)
 {
 	char buf[256U];
 	const char *const ep = buf + sizeof(buf);
+	coru_initargs(co_roll_out) ia = *iap;
 
-	if (!ia->absp) {
+	if (!ia.absp) {
 		/* non-abs precision mode */
 		while (arg != NULL) {
 			char *bp = buf;
@@ -316,21 +320,21 @@ defcoru(co_roll_out, ia, arg)
 			*bp++ = '\t';
 
 			/* scale to precision */
-			if (UNLIKELY(ia->prec)) {
+			if (UNLIKELY(ia.prec)) {
 				/* come up with a new raw value */
-				int tgtx = quantexpd32(prc) + ia->prec;
+				int tgtx = quantexpd32(prc) + ia.prec;
 				_Decimal32 scal = scalbnd32(1.df, tgtx);
 				prc = quantized32(prc, scal);
 			}
 			bp += d32tostr(bp, ep - bp, prc);
 			*bp++ = '\n';
 			*bp = '\0';
-			fputs(buf, ia->f);
+			fputs(buf, ia.f);
 		nex2:
 			arg = yield_ptr(NULL);
 		}
 	} else /*if (absp)*/ {
-		const _Decimal32 scal = mkscal(ia->prec);
+		const _Decimal32 scal = mkscal(ia.prec);
 
 		/* absolute precision mode */
 		while (arg != NULL) {
@@ -350,7 +354,7 @@ defcoru(co_roll_out, ia, arg)
 			bp += d32tostr(bp, ep - bp, prc);
 			*bp++ = '\n';
 			*bp = '\0';
-			fputs(buf, ia->f);
+			fputs(buf, ia.f);
 		nex4:
 			arg = yield_ptr(NULL);
 		}
@@ -368,7 +372,7 @@ declcoru(co_tser_flt, {
 	}, {});
 
 static truf_step_cell_t
-defcoru(co_tser_flt, ia, UNUSED(arg))
+defcoru(co_tser_flt, iap, UNUSED(arg))
 {
 /* yields a co_edg_res when exposure changes
  * In edge mode we need to know the levels beforehand because we yield
@@ -384,11 +388,12 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 	} dfrd[64U];
 	coru_t rdr;
 	coru_t pop;
+	coru_initargs(co_tser_flt) ia = *iap;
 	struct truf_step_s res;
 
 	init_coru();
-	rdr = make_coru(co_echs_rdr, ia->tser);
-	pop = make_coru(co_echs_pop, ia->q);
+	rdr = make_coru(co_echs_rdr, ia.tser);
+	pop = make_coru(co_echs_pop, ia.q);
 
 	truf_step_cell_t ev;
 	const struct co_rdr_res_s *ln;
@@ -418,7 +423,7 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 
 			with (echs_idiff_t age) {
 				age = echs_instant_diff(ev->t, st->t);
-				if (echs_idiff_ge_p(age, ia->mqa)) {
+				if (echs_idiff_ge_p(age, ia.mqa)) {
 					/* max quote age exceeded */
 					st->t = ev->t;
 					st->bid = nand32(NULL);
@@ -451,14 +456,14 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				if (ref->old == ref->new) {
 					continue;
 				}
-				if (ia->levp && !ia->edgp && ref->new == 0.df) {
+				if (ia.levp && !ia.edgp && ref->new == 0.df) {
 					/* we already yielded this when
 					 * the exposure was != 0.df */
 					continue;
 				}
 
 				res = *ref;
-				if (ia->edgp) {
+				if (ia.edgp) {
 					res.t = dfrd[nemit].t;
 				}
 				if (!isnand32(ref->bid)) {
@@ -487,13 +492,13 @@ defcoru(co_tser_flt, ia, UNUSED(arg))
 				st->ask = strtod32(on + 1U, &on);
 			}
 
-			if (ia->levp) {
+			if (ia.levp) {
 				if (st->old == st->new && st->new == 0.df) {
 					/* we're not invested,
 					 * and it's not an edge */
 					continue;
 				}
-			} else if (ia->edgp && st->old == st->new) {
+			} else if (ia.edgp && st->old == st->new) {
 				/* not an edge */
 				continue;
 			}
