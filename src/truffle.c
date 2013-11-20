@@ -62,7 +62,10 @@
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
-#endif /* __INTEL_COMPILER */
+#elif defined __GNUC__
+# pragma GCC diagnostic ignored "-Wmissing-braces"
+# pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif	/* __INTEL_COMPILER || __GNUC__ */
 
 typedef const struct truf_step_s *truf_step_cell_t;
 
