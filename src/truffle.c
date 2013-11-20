@@ -1192,11 +1192,18 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 				prc = 0.00df;
 			} else if (UNLIKELY(isnand32(prc))) {
 				/* set initial price level to first refprc */
-				prc = r.refprc;
-			}
+				signed int iqu = 0;
 
-			/* sum up rpaf */
-			prc += r.cruflo * cfv;
+				prc = r.refprc;
+				/* get the quantum right for this one */
+				iqu += quantexpd32(prc);
+				iqu += quantexpd32(r.cruflo);
+				iqu += quantexpd32(cfv);
+				prc = quantized32(prc, scalbnd32(0.df, iqu));
+			} else {
+				/* sum up rpaf */
+				prc += r.cruflo * cfv;
+			}
 
 			/* defer by one, to avoid time dupes */
 			if (echs_instant_lt_p(metro, e->t)) {
