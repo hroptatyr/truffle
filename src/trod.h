@@ -64,7 +64,7 @@ extern size_t truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t);
 static inline __attribute__((pure, const)) truf_trod_t
 truf_nul_trod(void)
 {
-	return (truf_trod_t){0U, 0.df};
+	return (truf_trod_t){.exp = 0.df};
 }
 
 #endif	/* INCLUDED_trod_h_ */
