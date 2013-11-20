@@ -1201,20 +1201,22 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 				iqu += quantexpd32(r.cruflo);
 				iqu += quantexpd32(cfv);
 				prc = quantized32(prc, scalbnd32(0.df, iqu));
-			} else if (UNLIKELY(argi->flow_given)) {
-				/* flow mode means don't accrue anything */
-				prc = r.cruflo * cfv;
 			} else {
-				/* sum up rpaf */
+				/* sum up rpaf
+				 * in flow mode means don't accrue anything */
 				prc += r.cruflo * cfv;
 			}
 
 			/* defer by one, to avoid time dupes */
-			if (echs_instant_lt_p(metro, e->t)) {
+			if (echs_instant_lt_p(metro, t)) {
 				next_with(out, oa);
 			}
-			metro = e->t;
 			oa = pack_args(co_roll_out, t, prc);
+			metro = t;
+			if (UNLIKELY(argi->flow_given)) {
+				/* reset price in flow mode */
+				prc = scalbnd32(0.df, quantexpd32(prc));
+			}
 		}
 		/* drain */
 		next_with(out, oa);
