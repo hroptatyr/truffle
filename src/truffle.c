@@ -640,6 +640,8 @@ struct trsch_s {
 	struct cline_s *p[];
 };
 
+static const truf_trod_t truf_nul_trod = {.exp = 0.df};
+
 static inline unsigned int
 m_to_i(char month)
 {
@@ -712,7 +714,7 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 		return res;
 	}
 	/* indicate failure (to add anything) */
-	return truf_nul_trod();
+	return truf_nul_trod;
 }
 
 static void
