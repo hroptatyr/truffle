@@ -592,6 +592,52 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 	return 0;
 }
 
+declcoru(co_tser_rdr, {
+		FILE *f;
+		bool no_sym_p;
+	}, {});
+
+static truf_step_cell_t
+defcoru(co_tser_rdr, iap, UNUSED(arg))
+{
+	coru_t rdr;
+	coru_initargs(co_tser_rdr) ia = *iap;
+	struct truf_step_s res;
+
+	init_coru();
+	rdr = make_coru(co_echs_rdr, ia.f);
+
+	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
+		char *on;
+
+		res.t = ln->t;
+		if (LIKELY(!ia.no_sym_p)) {
+			res.sym = truf_sym_rd(ln->ln, &on);
+		} else {
+			on = deconst(ln->ln - 1U);
+		}
+
+		/* keep track of last price */
+		if (*on == '\t') {
+			res.bid = strtod32(on + 1U, &on);
+		} else {
+			/* oh, no sym then */
+			res.bid = nand32(NULL);
+		}
+		if (*on == '\t') {
+			res.ask = strtod32(on + 1U, &on);
+		} else {
+			res.ask = nand32(NULL);
+		}
+
+		yield(res);
+	}
+
+	free_coru(rdr);
+	fini_coru();
+	return 0;
+}
+
 
 /* public api, might go to libtruffle one day */
 static int
