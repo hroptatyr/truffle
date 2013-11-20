@@ -1189,7 +1189,7 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 				continue;
 			} else if (UNLIKELY(argi->flow_given)) {
 				/* flow mode means don't accrue anything */
-				prc = 0.00df;
+				prc = r.cruflo * cfv;
 			} else if (UNLIKELY(isnand32(prc))) {
 				/* set initial price level to first refprc */
 				signed int iqu = 0;
