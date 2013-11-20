@@ -57,6 +57,8 @@ static size_t zstk;
 /* number of elements */
 static size_t nstk;
 
+static const truf_rpaf_t truf_nul_rpaf = {0.df, 0.df};
+
 static inline size_t
 get_off(size_t idx, size_t mod)
 {
@@ -166,7 +168,7 @@ truf_rpaf_step(const struct truf_step_s st[static 1U])
 	srpaf_t sr;
 
 	if (UNLIKELY((sr = truf_rpaf_find(st->sym)) == NULL)) {
-		return (truf_rpaf_t){0.df};
+		return truf_nul_rpaf;
 	}
 	/* otherwise init rpaf */
 	sr->rpaf->cruflo = 0.df;
@@ -180,7 +182,7 @@ truf_rpaf_scru(const struct truf_step_s st[static 1U])
 	srpaf_t sr;
 
 	if (UNLIKELY((sr = truf_rpaf_find(st->sym)) == NULL)) {
-		return (truf_rpaf_t){0.df};
+		return truf_nul_rpaf;
 	}
 	/* otherwise init rpaf */
 	rpaf_scru(sr, st);
