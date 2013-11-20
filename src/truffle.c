@@ -993,13 +993,13 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 
 	/* just print them now */
 	{
-		const char *const *dt = argi->inputs + 2U;
+		char *const *dt = argi->inputs + 2U;
 		const size_t ndt = argi->inputs_num - 2U;
 		coru_t pos;
 		coru_t out;
 
 		init_coru();
-		pos = make_coru(co_echs_pos, q, dt, ndt);
+		pos = make_coru(co_echs_pos, q, (const char*const*)dt, ndt);
 		out = make_coru(
 			co_echs_out, stdout,
 			argi->rel_given, argi->abs_given, argi->oco_given,
