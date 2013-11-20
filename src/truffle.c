@@ -1192,18 +1192,13 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 				signed int iqu = 0;
 
 				prc = r.refprc;
-				if (UNLIKELY(argi->flow_given)) {
-					/* scale an initial 0 in flow mode */
-					prc = scalbnd32(0.df, quantexpd32(prc));
-				}
 				/* get the quantum right for this one */
 				iqu += quantexpd32(prc);
 				iqu += quantexpd32(r.cruflo);
 				iqu += quantexpd32(cfv);
 				prc = quantized32(prc, scalbnd32(0.df, iqu));
 			} else {
-				/* sum up rpaf
-				 * in flow mode means don't accrue anything */
+				/* sum up rpaf */
 				prc += r.cruflo * cfv;
 			}
 
@@ -1213,10 +1208,6 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			}
 			oa = pack_args(co_roll_out, t, prc);
 			metro = t;
-			if (UNLIKELY(argi->flow_given)) {
-				/* reset price in flow mode */
-				prc = scalbnd32(0.df, quantexpd32(prc));
-			}
 		}
 		/* drain */
 		next_with(out, oa);

@@ -57,10 +57,6 @@ option "basis" b
 Default is the quote upon the first investment."
 	optional string typestr="PRC"
 
-option "flow" f
-	"Output rolled-over cash flows instead of a quote series."
-	optional
-
 option "tick-value" -
 	"Price value of one cash flow unit."
 	optional string typestr="PRC"
