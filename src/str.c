@@ -84,7 +84,8 @@ murmur(const uint8_t *str, size_t len)
 static inline size_t
 get_off(size_t idx, size_t mod)
 {
-	return mod - (idx % mod) - 1U;
+	/* no need to negate MOD as it's a 2-power */
+	return -idx % mod;
 }
 
 static void*
