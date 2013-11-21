@@ -94,6 +94,44 @@ mkscal(signed int nd)
 	return scalbnd32(1.df, nd);
 }
 
+static bool
+d32p(const char *str, char *on[static 1U])
+{
+	const char *sp = str;
+	bool res = true;
+
+	/* skip sign */
+	switch (*sp) {
+	case '+':
+	case '-':
+		sp++;
+	default:
+		break;
+	}
+	/* fast forward past digits */
+	for (; *sp >= '0' && *sp <= '9'; sp++);
+	if (*sp <= ' ') {
+		/* that's good enough, include the empty string as well */
+		;
+	} else if (*sp == '.') {
+		sp++;
+		/* more digits */
+		for (; *sp >= '0' && *sp <= '9'; sp++);
+		if (*sp <= ' ') {
+			/* ok, job done */
+			;
+		} else {
+			res = false;
+		}
+	} else {
+		res = false;
+	}
+	/* go to the next whitespace */
+	for (; *sp > ' '; sp++);
+	*on = deconst(sp);
+	return res;
+}
+
 
 /* trod directives cache */
 static truf_trod_t *trods;
@@ -133,6 +171,8 @@ truf_free_trods(void)
 }
 
 
+/* coroutine for the reader of echs files, key will always be date/time
+ * and value is the rest of the line */
 declcoru(co_echs_rdr, {
 		FILE *f;
 	}, {});
@@ -143,7 +183,6 @@ static const struct co_rdr_res_s {
 	size_t lz;
 } *defcoru(co_echs_rdr, ia, UNUSED(arg))
 {
-/* coroutine for the reader of the tseries */
 	char *line = NULL;
 	size_t llen = 0UL;
 	ssize_t nrd;
@@ -176,52 +215,98 @@ static const struct co_rdr_res_s {
 	return 0;
 }
 
+/* coroutine for the reader of quote series echs files,
+ * the result is specific to truffle, returning a truf_step_cell_t */
 declcoru(co_tser_rdr, {
 		FILE *f;
-		bool no_sym_p;
 	}, {});
 
 static truf_step_cell_t
-defcoru(co_tser_rdr, iap, UNUSED(arg))
+defcoru(co_tser_rdr, ia, UNUSED(arg))
 {
 	coru_t rdr;
-	coru_initargs(co_tser_rdr) ia = *iap;
+	/* we'll yield a truf_step object */
 	struct truf_step_s res;
+	unsigned int flds = 0U;
+#define FLD_SYMBOL	(1U)
+#define FLD_SETTLE	(2U)
+#define FLD_BIDASK	(4U)
 
 	init_coru();
-	rdr = make_coru(co_echs_rdr, ia.f);
+	rdr = make_coru(co_echs_rdr, ia->f);
 
-	for (const struct co_rdr_res_s *ln; (ln = next(rdr)) != NULL;) {
+	/* get a data probe */
+	const struct co_rdr_res_s *ln;
+	if ((ln = next(rdr)) == NULL) {
+		goto bugger;
+	}
+	/* try and read the first column as d32 */
+	with (const char *in = ln->ln) {
+		char *on;
+
+		if (d32p(in, &on) && on > in) {
+			flds |= FLD_SETTLE;
+		} else {
+			/* assume symbols, even allow the empty symbol */
+			flds |= FLD_SYMBOL;
+		}
+		if (*on == '\0' || *on == '\n') {
+			break;
+		}
+
+		in = on + 1U;
+		if (d32p(in, &on) && on > in) {
+			/* got more d32s,
+			 * if there was no prc yet, set SETTLE,
+			 * otherwise set BIDASK (and clear SETTLE) */
+			flds += FLD_SETTLE;
+		}
+		if (*on == '\0' || *on == '\n') {
+			break;
+		}
+
+		in = on + 1U;
+		if (d32p(in, &on) && on > in) {
+			/* got more d32s */
+			flds |= FLD_BIDASK;
+		}
+	}
+
+	do {
 		char *on;
 
 		res.t = ln->t;
-		if (LIKELY(!ia.no_sym_p)) {
+		if (LIKELY(flds & FLD_SYMBOL)) {
 			res.sym = truf_sym_rd(ln->ln, &on);
+			on++;
 		} else {
-			res.sym.u = 1U;
-			on = deconst(ln->ln - 1U);
+			res.sym.u = 0U;
+			on = deconst(ln->ln);
 		}
 
-		/* keep track of last price */
-		if (*on == '\t') {
-			res.bid = strtod32(on + 1U, &on);
+		/* snarf price(s) */
+		if (LIKELY(flds & (FLD_SETTLE | FLD_BIDASK))) {
+			res.bid = strtod32(on, &on);
+			on++;
 		} else {
-			/* oh, no sym then */
-			res.bid = nand32(NULL);
+			res.bid = res.ask = nand32(NULL);
 		}
-		if (*on == '\t') {
-			res.ask = strtod32(on + 1U, &on);
+
+		if (UNLIKELY(flds & FLD_BIDASK)) {
+			res.ask = strtod32(on, &on);
 		} else {
 			res.ask = nand32(NULL);
 		}
 
 		yield(res);
-	}
+	} while ((ln = next(rdr)) != NULL);
 
+bugger:
 	free_coru(rdr);
 	fini_coru();
 	return 0;
 }
+
 
 declcoru(co_echs_pop, {
 		truf_wheap_t q;
@@ -1294,7 +1379,7 @@ Usage: truffle flow [TSER-FILE]\n";
 	}
 
 	init_coru();
-	rdr = make_coru(co_tser_rdr, f, argi->no_symbol_given);
+	rdr = make_coru(co_tser_rdr, f);
 	out = make_coru(
 		co_echs_out, stdout,
 		argi->rel_given, argi->abs_given, argi->oco_given,
