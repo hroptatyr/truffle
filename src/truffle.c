@@ -378,18 +378,20 @@ _defcoru(co_echs_out, iap, truf_step_cell_t arg)
 		truf_sym_t sym = arg->sym;
 
 		bp += dt_strf(bp, ep - bp, t);
-		*bp++ = '\t';
-		/* convert mmys */
-		if (truf_mmy_p(sym)) {
-			if (ia.ocop) {
-				sym.mmy = truf_mmy_oco(sym.mmy, t.y);
-			} else if (ia.absp) {
-				sym.mmy = truf_mmy_abs(sym.mmy, t.y);
-			} else if (ia.relp) {
-				sym.mmy = truf_mmy_rel(sym.mmy, t.y);
+		if (LIKELY(sym.u)) {
+			/* convert mmys */
+			if (truf_mmy_p(sym)) {
+				if (ia.ocop) {
+					sym.mmy = truf_mmy_oco(sym.mmy, t.y);
+				} else if (ia.absp) {
+					sym.mmy = truf_mmy_abs(sym.mmy, t.y);
+				} else if (ia.relp) {
+					sym.mmy = truf_mmy_rel(sym.mmy, t.y);
+				}
 			}
+			*bp++ = '\t';
+			bp += truf_sym_wr(bp, ep - bp, sym);
 		}
-		bp += truf_sym_wr(bp, ep - bp, sym);
 		if (ia.prnt_prcp) {
 			if (!isnand32(arg->bid)) {
 				*bp++ = '\t';
