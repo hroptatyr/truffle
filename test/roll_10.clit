@@ -1,14 +1,14 @@
 #!/usr/bin/clitoris  ## -*- shell-script -*-
 
 $ truffle roll "${srcdir}/roll_01.tser" "${srcdir}/roll_01.trod" | \
-	truffle flow --no-symbol
-2011-01-03	?0	0
-2011-01-04	?0	1
-2011-01-05	?0	11
-2011-01-06	?0	10
-2011-01-07	?0	10
-2011-01-08	?0	10
-2011-01-09	?0	10
+	truffle flow
+2011-01-03	0
+2011-01-04	1
+2011-01-05	11
+2011-01-06	10
+2011-01-07	10
+2011-01-08	10
+2011-01-09	10
 $
 
 ## roll_10.clit ends here

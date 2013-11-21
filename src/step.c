@@ -53,7 +53,8 @@ static size_t nstk;
 static inline size_t
 get_off(size_t idx, size_t mod)
 {
-	return mod - (idx % mod) - 1U;
+	/* no need to negate MOD as it's a 2-power */
+	return -idx % mod;
 }
 
 static void*
@@ -64,6 +65,17 @@ recalloc(void *buf, size_t nmemb_ol, size_t nmemb_nu, size_t membz)
 	buf = realloc(buf, nmemb_nu);
 	memset((uint8_t*)buf + nmemb_ol, 0, nmemb_nu - nmemb_ol);
 	return buf;
+}
+
+static void
+init(size_t off, truf_sym_t sym)
+{
+	sstk[off].sym = sym;
+	/* no prices yet */
+	sstk[off].bid = sstk[off].ask = nand32(NULL);
+	/* no exposures either */
+	sstk[off].old = sstk[off].new = 0.df;
+	return;
 }
 
 
@@ -77,16 +89,13 @@ truf_step_find(truf_sym_t sym)
 		for (size_t mod = 64U; mod <= zstk; mod *= 2U) {
 			size_t off = get_off(hx, mod);
 
-			if (LIKELY(sstk[off].sym.u == sym.u)) {
+			if (UNLIKELY(!sym.u) ||
+			    LIKELY(sstk[off].sym.u == sym.u)) {
 				/* found him */
 				return sstk + off;
 			} else if (sstk[off].sym.u == 0U) {
 				/* found empty slot */
-				sstk[off].sym = sym;
-				/* no prices yet */
-				sstk[off].bid = sstk[off].ask = nand32(NULL);
-				/* no exposures either */
-				sstk[off].old = sstk[off].new = 0.df;
+				init(off, sym);
 				nstk++;
 				return sstk + off;
 			}
@@ -120,6 +129,9 @@ truf_init_step(void)
 	nstk = 0U;
 	zstk = 64U;
 	sstk = calloc(zstk, sizeof(*sstk));
+
+	/* initialise the first slot for special NOSYM symbol */
+	init(0U, (truf_sym_t){0U});
 	return;
 }
 

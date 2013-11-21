@@ -62,7 +62,8 @@ static const truf_rpaf_t truf_nul_rpaf = {0.df, 0.df};
 static inline size_t
 get_off(size_t idx, size_t mod)
 {
-	return mod - (idx % mod) - 1U;
+	/* no need to negate MOD as it's a 2-power */
+	return -idx % mod;
 }
 
 static void*
