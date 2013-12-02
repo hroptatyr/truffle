@@ -62,6 +62,7 @@
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
+# pragma warning (disable:981)
 #elif defined __GNUC__
 # pragma GCC diagnostic ignored "-Wmissing-braces"
 # pragma GCC diagnostic ignored "-Wmissing-field-initializers"
@@ -130,6 +131,12 @@ d32p(const char *str, char *on[static 1U])
 	for (; *sp > ' '; sp++);
 	*on = deconst(sp);
 	return res;
+}
+
+static inline __attribute__((always_inline)) unsigned int
+fls(unsigned int x)
+{
+	return x ? sizeof(x) * 8U - __builtin_clz(x) : 0U;
 }
 
 
@@ -519,7 +526,7 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 	static struct {
 		echs_instant_t t;
 		truf_step_t ref;
-	} dfrd[64U];
+	} _dfrd[64U], *dfrd = _dfrd;
 	coru_t rdr;
 	coru_t pop;
 	coru_initargs(co_tser_flt) ia = *iap;
@@ -570,6 +577,16 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 			dfrd[ndfrd].t = ev->t;
 			dfrd[ndfrd].ref = st;
 			ndfrd++;
+			/* check that there's room for the next deferral */
+			if (UNLIKELY(ndfrd == countof(_dfrd))) {
+				/* relocate to heap space aye */
+				dfrd = malloc(2 * sizeof(_dfrd));
+				memcpy(dfrd, _dfrd, sizeof(_dfrd));
+			} else if (UNLIKELY(_dfrd != dfrd) &&
+				   UNLIKELY(fls(ndfrd) > fls(ndfrd - 1U))) {
+				/* new 2 power, double in size */
+				dfrd = realloc(dfrd, 2 * ndfrd * sizeof(*dfrd));
+			}
 		}
 
 		/* yield time series lines in between trod edges */
@@ -640,6 +657,12 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 		} while (LIKELY((qu = next(rdr)) != NULL) &&
 			 (UNLIKELY(ev == NULL) ||
 			  LIKELY(echs_instant_lt_p(qu->t, ev->t))));
+	}
+
+	if (UNLIKELY(_dfrd != dfrd)) {
+		/* reset the deferred states */
+		free(dfrd);
+		dfrd = _dfrd;
 	}
 
 	free_coru(rdr);

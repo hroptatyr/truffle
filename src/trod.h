@@ -41,9 +41,6 @@
 #include <stdint.h>
 #include "truffle.h"
 
-/* old abstract type */
-typedef struct trod_s *trod_t;
-
 typedef struct truf_trod_s truf_trod_t;
 
 struct truf_trod_s {

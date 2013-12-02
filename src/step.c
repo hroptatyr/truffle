@@ -43,38 +43,51 @@
 #include "truf-dfp754.h"
 #include "nifty.h"
 
-/* the beef table */
-static truf_step_t sstk;
-/* alloc size, 2-power */
+/* the beef table, slot 0-63 are in stkstk[0U], slots 64-127 in stkstk[1U],
+ * slots 128-256 in stkstk[2U], etc. */
+static struct truf_step_s inistk[64U];
+static truf_step_t stkstk[64U] = {inistk};
+/* alloc size, index of next stkstk */
 static size_t zstk;
 /* number of elements */
 static size_t nstk;
 
-static inline size_t
+static inline __attribute__((always_inline)) unsigned int
+fls(unsigned int x)
+{
+	return x ? sizeof(x) * 8U - __builtin_clz(x) : 0U;
+}
+
+static inline struct stk_off_s {
+	/* which stack */
+	size_t stk;
+	/* which cell */
+	size_t cel;
+} decomp(size_t x)
+{
+	size_t log2 = fls(x);
+
+	if (log2-- <= 6U) {
+		return (struct stk_off_s){0U, x};
+	}
+	return (struct stk_off_s){log2 - 5U, x % (1U << log2)};
+}
+
+static inline struct stk_off_s
 get_off(size_t idx, size_t mod)
 {
 	/* no need to negate MOD as it's a 2-power */
-	return -idx % mod;
-}
-
-static void*
-recalloc(void *buf, size_t nmemb_ol, size_t nmemb_nu, size_t membz)
-{
-	nmemb_ol *= membz;
-	nmemb_nu *= membz;
-	buf = realloc(buf, nmemb_nu);
-	memset((uint8_t*)buf + nmemb_ol, 0, nmemb_nu - nmemb_ol);
-	return buf;
+	return decomp(-idx % mod);
 }
 
 static void
-init(size_t off, truf_sym_t sym)
+init(struct stk_off_s o, truf_sym_t sym)
 {
-	sstk[off].sym = sym;
+	stkstk[o.stk][o.cel].sym = sym;
 	/* no prices yet */
-	sstk[off].bid = sstk[off].ask = nand32(NULL);
+	stkstk[o.stk][o.cel].bid = stkstk[o.stk][o.cel].ask = nand32(NULL);
 	/* no exposures either */
-	sstk[off].old = sstk[off].new = 0.df;
+	stkstk[o.stk][o.cel].old = stkstk[o.stk][o.cel].new = 0.df;
 	return;
 }
 
@@ -83,26 +96,28 @@ truf_step_t
 truf_step_find(truf_sym_t sym)
 {
 	size_t hx = truf_sym_hx(sym);
+	size_t mod = 64U;
 
 	while (1) {
 		/* just try what we've got */
-		for (size_t mod = 64U; mod <= zstk; mod *= 2U) {
-			size_t off = get_off(hx, mod);
+		for (; mod <= (64U << zstk); mod *= 2U) {
+			struct stk_off_s o = get_off(hx, mod);
 
 			if (UNLIKELY(!sym.u) ||
-			    LIKELY(sstk[off].sym.u == sym.u)) {
+			    LIKELY(stkstk[o.stk][o.cel].sym.u == sym.u)) {
 				/* found him */
-				return sstk + off;
-			} else if (sstk[off].sym.u == 0U) {
+				return stkstk[o.stk] + o.cel;
+			} else if (stkstk[o.stk][o.cel].sym.u == 0U) {
 				/* found empty slot */
-				init(off, sym);
+				init(o, sym);
 				nstk++;
-				return sstk + off;
+				return stkstk[o.stk] + o.cel;
 			}
 		}
 		/* quite a lot of collisions, resize then */
-		sstk = recalloc(sstk, zstk, 2U * zstk, sizeof(*sstk));
-		zstk *= 2U;
+		with (size_t sz = (64U << zstk)) {
+			stkstk[++zstk] = calloc(sz, sizeof(**stkstk));
+		}
 	}
 }
 
@@ -110,16 +125,31 @@ truf_step_t
 truf_step_iter(void)
 {
 /* coroutine with static storage */
+	static size_t s;
 	static size_t i;
 
-	while (i < zstk) {
-		size_t this = i++;
-		if (sstk[this].sym.u) {
-			return sstk + this;
+	if (s == 0U) {
+		while (i < 64U) {
+			size_t this = i++;
+			if (stkstk[s][this].sym.u) {
+				return stkstk[s] + this;
+			}
 		}
+		s++;
+		i = 0U;
 	}
-	/* reset offset for next iteration */
-	i = 0U;
+	while (s <= zstk) {
+		while (i < (64U << (s - 1U))) {
+			size_t this = i++;
+			if (stkstk[s][this].sym.u) {
+				return stkstk[s] + this;
+			}
+		}
+		s++;
+		i = 0U;
+	}
+	/* reset offsets for next iteration */
+	s = 0U;
 	return NULL;
 }
 
@@ -127,21 +157,19 @@ void
 truf_init_step(void)
 {
 	nstk = 0U;
-	zstk = 64U;
-	sstk = calloc(zstk, sizeof(*sstk));
+	zstk = 0U;
 
 	/* initialise the first slot for special NOSYM symbol */
-	init(0U, (truf_sym_t){0U});
+	init((struct stk_off_s){0U, 0U}, (truf_sym_t){0U});
 	return;
 }
 
 void
 truf_fini_step(void)
 {
-	if (LIKELY(sstk != NULL)) {
-		free(sstk);
+	for (size_t i = 1U; i <= zstk; i++) {
+		free(stkstk[i]);
 	}
-	sstk = NULL;
 	zstk = 0U;
 	nstk = 0U;
 	return;
