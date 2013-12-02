@@ -106,10 +106,11 @@ truf_step_t
 truf_step_find(truf_sym_t sym)
 {
 	size_t hx = truf_sym_hx(sym);
+	size_t mod = 64U;
 
 	while (1) {
 		/* just try what we've got */
-		for (size_t mod = 64U; mod <= (64U << zstk); mod *= 2U) {
+		for (; mod <= (64U << zstk); mod *= 2U) {
 			struct stk_off_s o = get_off(hx, mod);
 
 			if (UNLIKELY(!sym.u) ||
