@@ -80,16 +80,6 @@ get_off(size_t idx, size_t mod)
 	return decomp(-idx % mod);
 }
 
-static void*
-recalloc(void *buf, size_t nmemb_ol, size_t nmemb_nu, size_t membz)
-{
-	nmemb_ol *= membz;
-	nmemb_nu *= membz;
-	buf = realloc(buf, nmemb_nu);
-	memset((uint8_t*)buf + nmemb_ol, 0, nmemb_nu - nmemb_ol);
-	return buf;
-}
-
 static void
 init(struct stk_off_s o, truf_sym_t sym)
 {
