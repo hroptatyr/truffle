@@ -146,15 +146,19 @@ truf_step_iter(void)
 			}
 		}
 		s++;
+		i = 0U;
 	}
-	while (s <= zstk && i < (64U << (s - 1U))) {
-		size_t this = i++;
-		if (stkstk[s][this].sym.u) {
-			return stkstk[s] + this;
+	while (s <= zstk) {
+		while (i < (64U << (s - 1U))) {
+			size_t this = i++;
+			if (stkstk[s][this].sym.u) {
+				return stkstk[s] + this;
+			}
 		}
+		s++;
+		i = 0U;
 	}
-	/* reset offset for next iteration */
-	i = 0U;
+	/* reset offsets for next iteration */
 	s = 0U;
 	return NULL;
 }
