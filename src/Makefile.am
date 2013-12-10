@@ -66,18 +66,14 @@ truffle_LDADD += -lm
 BUILT_SOURCES += truffle.x truffle.xh
 
 
+SUFFIXES = .yuck .yucc
+
 version.c: version.c.in $(top_builddir)/version.mk
 	sed -e 's,[@]VERSION[@],$(VERSION),g' <$(srcdir)/$@.in >$@
 
-## gengetopt rule with sed hack to avoid using VERSION and config.h
-## depend on Makefile.am to survive a git pull
-%.x %.xh: %.ggo Makefile.am
-	$(AM_V_GEN) gengetopt -l -c x -H xh -i $< -F $* \
-	&& sed \
-	  -e 's,config.h,version.h,g' \
-	  -e 's,\(.*\)_PARSER_VERSION VERSION,\1_PARSER_VERSION $(PACKAGE)_version_string,g' \
-	  $*.xh >$*.xh-t \
-	&& mv $*.xh-t $*.xh
+.yuck.yucc:
+	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
+		yuck$(EXEEXT) gen $< > $@ || { rm -f -- $@; false; }
 
 ## for dist or dist check we need binaries, so help2man can work
 dist-hook: $(bin_PROGRAMS)
