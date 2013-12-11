@@ -1,0 +1,103 @@
+Usage: truffle [OPTION]... COMMAND [ARG]...
+
+Tool to apply roll-over directives (trod) to time series.
+
+
+Usage: truffle filter TSER-FILE [TROD-FILE]....
+
+Filter relevant price lines from TSER-FILE with directives from
+TROD-FILEs or, if omitted, from stdin.
+
+  --edge                Only print edge lines.
+  --max-quote-age=AGE   Allow quotes outside of the exposure range
+                        provided they're younger than AGE.
+                        AGE can be specified using suffixes d, h, m, s
+                        for days, hours, minutes, or seconds
+                        respectively.  An omitted suffix is equivalent
+                        to seconds.
+      --abs             Use absolute contract years for MMY symbols.
+      --oco             Use OCO style for MMY symbols.
+      --rel             Use relative contract years for MMY symbols.
+
+
+Usage: truffle flow [TSER-FILE]
+
+Turn a quote series into a series of cash flows.
+
+      --abs             Use absolute contract years for MMY symbols.
+      --oco             Use OCO style for MMY symbols.
+      --rel             Use relative contract years for MMY symbols.
+
+
+Usage: truffle glue TSER-FILE [TROD-FILE]...
+
+Output a single stream with prices and directives.
+
+  --edge                Only print edge lines.
+  --max-quote-age=AGE   Allow quotes outside of the exposure range
+                        provided they're younger than AGE.
+                        AGE can be specified using suffixes d, h, m, s
+                        for days, hours, minutes, or seconds
+                        respectively.  An omitted suffix is equivalent
+                        to seconds.
+      --abs             Use absolute contract years for MMY symbols.
+      --oco             Use OCO style for MMY symbols.
+      --rel             Use relative contract years for MMY symbols.
+
+
+Usage: truffle migrate [SCHEMA-FILE]...
+
+Read recurrence schemas from SCHEMA-FILE (or stdin) and roll them out.
+
+   --from=DT            Start event states at DT.
+   --till=DT            Finish event streams by DT.
+
+      --abs             Use absolute contract years for MMY symbols.
+      --oco             Use OCO style for MMY symbols.
+      --rel             Use relative contract years for MMY symbols.
+
+
+Usage: truffle position TROD-FILE [DATE/TIME]...
+
+Print portfolio positions according to TROD-FILE at given dates/times.
+If no dates/times are given, read them from stdin.
+
+      --abs             Use absolute contract years for MMY symbols.
+      --oco             Use OCO style for MMY symbols.
+      --rel             Use relative contract years for MMY symbols.
+
+
+Usage: truffle print [TROD-FILE]...
+
+Print resulting actors of trod echse messages.
+
+      --abs             Use absolute contract years for MMY symbols.
+      --oco             Use OCO style for MMY symbols.
+      --rel             Use relative contract years for MMY symbols.
+
+
+Usage: truffle roll TSER-FILE [TROD-FILE]...
+
+Roll multitude of timeseries into one.  Roll-over directives are taken
+from TROD-FILE or, if omitted, from stdin.
+
+  --edge                Only print edge lines.
+  -b, --basis=PRC       Basis of a carry-over position as price quote.
+                        Default is the quote upon the first investment.
+      --tick-value=PRC  Price value of one cash flow unit.
+  -p, --precision=[+-]N  Output adjusted data in this precision instead
+                        of deriving the precision from input data.
+                        If an absolute number N is given use N digits
+                        for the fraction all throughout the output.
+                        If specified as +N use N more digits for the
+                        fraction than the default.
+                        If specified as -N use N less digits for the
+                        fraction than the default.  Default is +0.
+  --max-quote-age=AGE   Allow quotes outside of the exposure range
+                        provided they're younger than AGE.
+                        AGE can be specified using suffixes d, h, m, s
+                        for days, hours, minutes, or seconds
+                        respectively.  An omitted suffix is equivalent
+                        to seconds.
+
+## truffle.yuck ends here

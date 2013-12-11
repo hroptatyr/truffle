@@ -904,36 +904,21 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 }
 
 
-#if defined __INTEL_COMPILER
-# pragma warning (disable:593)
-#elif defined __GNUC__
-# pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif	/* __INTEL_COMPILER */
-#include "truffle.xh"
-#include "truffle.x"
-#if defined __INTEL_COMPILER
-# pragma warning (default:593)
-#elif defined __GNUC__
-# pragma GCC diagnostic warning "-Wunused-but-set-variable"
-#endif	/* __INTEL_COMPILER */
+#include "truffle.yucc"
 
 static int
-cmd_print(struct truf_args_info argi[static 1U])
+cmd_print(const struct yuck_cmd_print_s argi[static 1U])
 {
-	static const char usg[] = "Usage: truffle print [TROD-FILE]...\n";
 	truf_wheap_t q;
 	int res = 0;
 
-	if (argi->inputs_num < 1U) {
-		fputs(usg, stderr);
-		return 1;
-	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
+	if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
 
-	for (unsigned int i = 1U; i < argi->inputs_num; i++) {
-		const char *fn = argi->inputs[i];
+	for (size_t i = 0U; i < argi->nargs; i++) {
+		const char *fn = argi->args[i];
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
@@ -950,7 +935,7 @@ cmd_print(struct truf_args_info argi[static 1U])
 		pop = make_coru(co_echs_pop, q);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given,
+			argi->rel_flag, argi->abs_flag, argi->oco_flag,
 			.prnt_expp = true);
 
 		for (truf_step_cell_t e; (e = next(pop)) != NULL;) {
@@ -971,30 +956,26 @@ out:
 }
 
 static int
-cmd_migrate(struct truf_args_info argi[static 1U])
+cmd_migrate(const struct yuck_cmd_migrate_s argi[static 1U])
 {
-	static const char usg[] = "Usage: truffle migrate [SCHEMA-FILE]...\n";
 	truf_wheap_t q;
 	daisy_t from;
 	daisy_t till;
 	int res = 0;
 
-	if (argi->inputs_num < 1U) {
-		fputs(usg, stderr);
-		return 1;
-	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
+	if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
 
-	if (argi->from_given) {
+	if (argi->from_arg) {
 		echs_instant_t i = dt_strp(argi->from_arg, NULL);
 		from = instant_to_daisy(i);
 	} else {
 		echs_instant_t i = {2000U, 1U, 1U, ECHS_ALL_DAY};
 		from = instant_to_daisy(i);
 	}
-	if (argi->till_given) {
+	if (argi->till_arg) {
 		echs_instant_t i = dt_strp(argi->till_arg, NULL);
 		till = instant_to_daisy(i);
 	} else {
@@ -1002,8 +983,8 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 		till = instant_to_daisy(i);
 	}
 
-	for (size_t i = 1U; i < argi->inputs_num; i++) {
-		const char *fn = argi->inputs[i];
+	for (size_t i = 0U; i < argi->nargs; i++) {
+		const char *fn = argi->args[i];
 		trsch_t sch;
 
 		if ((sch = read_schema(fn)) == NULL) {
@@ -1029,7 +1010,7 @@ cmd_migrate(struct truf_args_info argi[static 1U])
 		pop = make_coru(co_echs_pop, q);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given,
+			argi->rel_flag, argi->abs_flag, argi->oco_flag,
 			.prnt_expp = true);
 
 		for (truf_step_cell_t e; (e = next(pop)) != NULL;) {
@@ -1050,30 +1031,28 @@ out:
 }
 
 static int
-cmd_filter(struct truf_args_info argi[static 1U])
+cmd_filter(const struct yuck_cmd_filter_s argi[static 1U])
 {
-	static const char usg[] = "\
-Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
 	int res = 0;
 
-	if (argi->inputs_num < 2U) {
-		fputs(usg, stderr);
+	if (argi->nargs < 1U) {
+		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
 
-	if (argi->max_quote_age_given) {
+	if (argi->max_quote_age_arg) {
 		max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
 	} else {
 		max_quote_age = (echs_idiff_t){4095};
 	}
 
-	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
-		const char *fn = argi->inputs[i];
+	for (size_t i = 1U; i < argi->nargs; i++) {
+		const char *fn = argi->args[i];
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
@@ -1082,8 +1061,8 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 		}
 	}
 
-	with (const char *fn = argi->inputs[1U]) {
-		const bool edgp = argi->edge_given;
+	with (const char *fn = *argi->args) {
+		const bool edgp = argi->edge_flag;
 		coru_t flt;
 		coru_t out;
 		FILE *f;
@@ -1101,7 +1080,7 @@ Usage: truffle filter TSER-FILE [TROD-FILE]...\n";
 			.mqa = max_quote_age);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given,
+			argi->rel_flag, argi->abs_flag, argi->oco_flag,
 			.prnt_prcp = true);
 
 		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
@@ -1125,22 +1104,20 @@ out:
 }
 
 static int
-cmd_position(struct truf_args_info argi[static 1U])
+cmd_position(const struct yuck_cmd_position_s argi[static 1U])
 {
-	static const char usg[] = "\
-Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 	truf_wheap_t q;
 	int res = 0;
 
-	if (argi->inputs_num < 2U) {
-		fputs(usg, stderr);
+	if (argi->nargs < 1U) {
+		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
 
-	with (const char *fn = argi->inputs[1U]) {
+	with (const char *fn = argi->args[0U]) {
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
 			res = 1;
@@ -1150,8 +1127,8 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 
 	/* just print them now */
 	{
-		char *const *dt = argi->inputs + 2U;
-		const size_t ndt = argi->inputs_num - 2U;
+		char *const *dt = argi->args + 1U;
+		const size_t ndt = argi->nargs - 1U;
 		coru_t pos;
 		coru_t out;
 
@@ -1159,7 +1136,7 @@ Usage: truffle position TROD-FILE [DATE/TIME]...\n";
 		pos = make_coru(co_echs_pos, q, (const char*const*)dt, ndt);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given,
+			argi->rel_flag, argi->abs_flag, argi->oco_flag,
 			.prnt_expp = true);
 
 		for (truf_step_cell_t e; (e = next(pos)) != NULL;) {
@@ -1180,30 +1157,28 @@ out:
 }
 
 static int
-cmd_glue(struct truf_args_info argi[static 1U])
+cmd_glue(const struct yuck_cmd_glue_s argi[static 1U])
 {
-	static const char usg[] = "\
-Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
 	int res = 0;
 
-	if (argi->inputs_num < 2U) {
-		fputs(usg, stderr);
+	if (argi->nargs < 1U) {
+		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
 
-	if (argi->max_quote_age_given) {
+	if (argi->max_quote_age_arg) {
 		max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
 	} else {
 		max_quote_age = (echs_idiff_t){4095};
 	}
 
-	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
-		const char *fn = argi->inputs[i];
+	for (unsigned int i = 1U; i < argi->nargs; i++) {
+		const char *fn = argi->args[i];
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
@@ -1212,7 +1187,7 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		}
 	}
 
-	with (const char *fn = argi->inputs[1U]) {
+	with (const char *fn = argi->args[0U]) {
 		coru_t flt;
 		coru_t out;
 		FILE *f;
@@ -1226,11 +1201,11 @@ Usage: truffle glue TSER-FILE [TROD-FILE]...\n";
 		init_coru();
 		flt = make_coru(
 			co_tser_flt, q, f,
-			.edgp = true, .levp = !argi->edge_given,
+			.edgp = true, .levp = !argi->edge_flag,
 			.mqa = max_quote_age);
 		out = make_coru(
 			co_echs_out, stdout,
-			argi->rel_given, argi->abs_given, argi->oco_given,
+			argi->rel_flag, argi->abs_flag, argi->oco_flag,
 			.prnt_expp = true, .prnt_prcp = true);
 
 		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
@@ -1251,30 +1226,28 @@ out:
 }
 
 static int
-cmd_roll(struct truf_args_info argi[static 1U])
+cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 {
-	static const char usg[] = "\
-Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
 	int res = 0;
 
-	if (argi->inputs_num < 2U) {
-		fputs(usg, stderr);
+	if (argi->nargs < 1U) {
+		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		res = 1;
 		goto out;
 	}
 
-	if (argi->max_quote_age_given) {
+	if (argi->max_quote_age_arg) {
 		max_quote_age = echs_idiff_rd(argi->max_quote_age_arg, NULL);
 	} else {
 		max_quote_age = (echs_idiff_t){4095};
 	}
 
-	for (unsigned int i = 2U; i < argi->inputs_num; i++) {
-		const char *fn = argi->inputs[i];
+	for (unsigned int i = 1U; i < argi->nargs; i++) {
+		const char *fn = argi->args[i];
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
@@ -1283,7 +1256,7 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 		}
 	}
 
-	with (const char *fn = argi->inputs[1U]) {
+	with (const char *fn = argi->args[0U]) {
 		truf_price_t prc = nand32(NULL);
 		truf_price_t cfv = 1.df;
 		bool abs_prec_p = false;
@@ -1291,9 +1264,9 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 		coru_t flt;
 		coru_t out;
 		FILE *f;
+		const char *p;
 
-		if (argi->precision_given) {
-			const char *p = argi->precision_arg;
+		if ((p = argi->precision_arg)) {
 			char *on;
 
 			if (*p == '+' || *p == '-') {
@@ -1314,17 +1287,17 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...\n";
 			goto out;
 		}
 
-		if (argi->basis_given) {
+		if (argi->basis_arg) {
 			prc = strtod32(argi->basis_arg, NULL);
 		}
-		if (argi->tick_value_given) {
+		if (argi->tick_value_arg) {
 			cfv = strtod32(argi->tick_value_arg, NULL);
 		}
 
 		init_coru();
 		flt = make_coru(
 			co_tser_flt, q, f,
-			.edgp = true, .levp = !argi->edge_given,
+			.edgp = true, .levp = !argi->edge_flag,
 			.mqa = max_quote_age);
 		out = make_coru(
 			co_roll_out, stdout,
@@ -1378,24 +1351,22 @@ out:
 }
 
 static int
-cmd_flow(struct truf_args_info argi[static 1U])
+cmd_flow(const struct yuck_cmd_flow_s argi[static 1U])
 {
-	static const char usg[] = "\
-Usage: truffle flow [TSER-FILE]\n";
 	FILE *f;
 	coru_t rdr;
 	coru_t out;
 	int res = 0;
 
-	if (argi->inputs_num > 2U) {
-		fputs(usg, stderr);
+	if (argi->nargs > 1U) {
+		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	}
 
-	if (argi->inputs_num <= 1U) {
+	if (!argi->nargs) {
 		/* just keep stdin then */
 		f = stdin;
-	} else with (const char *fn = argi->inputs[1U]) {
+	} else with (const char *fn = argi->args[0U]) {
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
 			error("cannot open time series file `%s'", fn);
 			res = 1;
@@ -1407,7 +1378,7 @@ Usage: truffle flow [TSER-FILE]\n";
 	rdr = make_coru(co_tser_rdr, f);
 	out = make_coru(
 		co_echs_out, stdout,
-		argi->rel_given, argi->abs_given, argi->oco_given,
+		argi->rel_flag, argi->abs_flag, argi->oco_flag,
 		.prnt_expp = false, .prnt_prcp = true);
 
 	for (truf_step_cell_t e; (e = next(rdr)) != NULL;) {
@@ -1441,14 +1412,12 @@ out:
 int
 main(int argc, char *argv[])
 {
-	struct truf_args_info argi[1];
+	yuck_t argi[1U];
 	int res = 0;
 
-	if (truf_parser(argc, argv, argi)) {
+	if (yuck_parse(argi, argc, argv)) {
 		res = 1;
 		goto out;
-	} else if (argi->inputs_num < 1) {
-		goto nocmd;
 	}
 
 	/* get the coroutines going */
@@ -1459,28 +1428,34 @@ main(int argc, char *argv[])
 	truf_init_rpaf();
 
 	/* check the command */
-	with (const char *cmd = argi->inputs[0U]) {
-		if (!strcmp(cmd, "print")) {
-			res = cmd_print(argi);
-		} else if (!strcmp(cmd, "roll")) {
-			res = cmd_roll(argi);
-		} else if (!strcmp(cmd, "migrate")) {
-			res = cmd_migrate(argi);
-		} else if (!strcmp(cmd, "filter")) {
-			res = cmd_filter(argi);
-		} else if (!strcmp(cmd, "position")) {
-			res = cmd_position(argi);
-		} else if (!strcmp(cmd, "glue")) {
-			res = cmd_glue(argi);
-		} else if (!strcmp(cmd, "flow")) {
-			res = cmd_flow(argi);
-		} else {
-		nocmd:
-			error("No valid command specified.\n\
+	switch (argi->cmd) {
+	default:
+	case TRUFFLE_CMD_NONE:
+		error("No valid command specified.\n\
 See --help to obtain a list of available commands.");
-			res = 1;
-			goto out;
-		}
+		res = 1;
+		break;
+	case TRUFFLE_CMD_PRINT:
+		res = cmd_print((const void*)argi);
+		break;
+	case TRUFFLE_CMD_ROLL:
+		res = cmd_roll((const void*)argi);
+		break;
+	case TRUFFLE_CMD_MIGRATE:
+		res = cmd_migrate((const void*)argi);
+		break;
+	case TRUFFLE_CMD_FILTER:
+		res = cmd_filter((const void*)argi);
+		break;
+	case TRUFFLE_CMD_POSITION:
+		res = cmd_position((const void*)argi);
+		break;
+	case TRUFFLE_CMD_GLUE:
+		res = cmd_glue((const void*)argi);
+		break;
+	case TRUFFLE_CMD_FLOW:
+		res = cmd_flow((const void*)argi);
+		break;
 	}
 
 	/* finalise our step and rpaf system */
@@ -1491,7 +1466,7 @@ See --help to obtain a list of available commands.");
 out:
 	/* just to make sure */
 	fflush(stdout);
-	truf_parser_free(argi);
+	yuck_free(argi);
 	return res;
 }
 

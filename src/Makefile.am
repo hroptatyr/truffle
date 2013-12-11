@@ -63,7 +63,7 @@ if USE_ASM_CORUS
 truffle_LDADD += libcoru.a
 endif  USE_ASM_CORUS
 truffle_LDADD += -lm
-BUILT_SOURCES += truffle.x truffle.xh
+BUILT_SOURCES += truffle.yucc
 
 
 SUFFIXES = .yuck .yucc
