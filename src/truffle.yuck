@@ -2,6 +2,10 @@ Usage: truffle [OPTION]... COMMAND [ARG]...
 
 Tool to apply roll-over directives (trod) to time series.
 
+      --abs             Use absolute contract years for MMY symbols.
+      --oco             Use OCO style for MMY symbols.
+      --rel             Use relative contract years for MMY symbols.
+
 
 Usage: truffle filter TSER-FILE [TROD-FILE]....
 
@@ -15,18 +19,12 @@ TROD-FILEs or, if omitted, from stdin.
                         for days, hours, minutes, or seconds
                         respectively.  An omitted suffix is equivalent
                         to seconds.
-      --abs             Use absolute contract years for MMY symbols.
-      --oco             Use OCO style for MMY symbols.
-      --rel             Use relative contract years for MMY symbols.
 
 
 Usage: truffle flow [TSER-FILE]
 
 Turn a quote series into a series of cash flows.
 
-      --abs             Use absolute contract years for MMY symbols.
-      --oco             Use OCO style for MMY symbols.
-      --rel             Use relative contract years for MMY symbols.
 
 
 Usage: truffle glue TSER-FILE [TROD-FILE]...
@@ -40,9 +38,6 @@ Output a single stream with prices and directives.
                         for days, hours, minutes, or seconds
                         respectively.  An omitted suffix is equivalent
                         to seconds.
-      --abs             Use absolute contract years for MMY symbols.
-      --oco             Use OCO style for MMY symbols.
-      --rel             Use relative contract years for MMY symbols.
 
 
 Usage: truffle migrate [SCHEMA-FILE]...
@@ -52,9 +47,6 @@ Read recurrence schemas from SCHEMA-FILE (or stdin) and roll them out.
    --from=DT            Start event states at DT.
    --till=DT            Finish event streams by DT.
 
-      --abs             Use absolute contract years for MMY symbols.
-      --oco             Use OCO style for MMY symbols.
-      --rel             Use relative contract years for MMY symbols.
 
 
 Usage: truffle position TROD-FILE [DATE/TIME]...
@@ -62,18 +54,10 @@ Usage: truffle position TROD-FILE [DATE/TIME]...
 Print portfolio positions according to TROD-FILE at given dates/times.
 If no dates/times are given, read them from stdin.
 
-      --abs             Use absolute contract years for MMY symbols.
-      --oco             Use OCO style for MMY symbols.
-      --rel             Use relative contract years for MMY symbols.
-
 
 Usage: truffle print [TROD-FILE]...
 
 Print resulting actors of trod echse messages.
-
-      --abs             Use absolute contract years for MMY symbols.
-      --oco             Use OCO style for MMY symbols.
-      --rel             Use relative contract years for MMY symbols.
 
 
 Usage: truffle roll TSER-FILE [TROD-FILE]...
