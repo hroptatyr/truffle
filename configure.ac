@@ -71,8 +71,10 @@ if test "${use_asm_corus}" = "yes"; then
 fi
 
 ## check for yuck helper
-PKG_CHECK_MODULES([yuck], [yuck >= 0.0], [have_yuck="yes"], [have_yuck="no"])
+PKG_CHECK_EXISTS([yuck >= 0.0], [have_yuck="yes"], [have_yuck="no"])
+AC_MSG_CHECKING([for yuck])
 AM_CONDITIONAL([HAVE_YUCK], [test "${have_yuck}" = "yes"])
+AC_MSG_RESULT([${have_yuck}])
 
 
 ## trivial, no special stuff needed
