@@ -19,7 +19,7 @@ EXTRA_DIST += author.h2m
 
 
 ## help2man helpers
-%.man: $(top_srcdir)/src/%.yuck $(top_srcdir)/configure $(top_builddir)/version.mk
+%.man: $(top_srcdir)/src/%.yuck $(top_builddir)/version.mk
 	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
 		yuck$(EXEEXT) genman --version=$(VERSION) $< > $@ || \
 		{ rm -f -- $@; false; }

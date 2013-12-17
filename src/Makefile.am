@@ -62,7 +62,7 @@ truffle_LDADD += -lm
 BUILT_SOURCES += truffle.yucc
 
 
-%.yucc: %.yuck $(top_srcdir)/configure $(top_builddir)/version.mk
+%.yucc: %.yuck $(top_builddir)/version.mk
 	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
 		yuck$(EXEEXT) gen --version=$(VERSION) $< > $@ || \
 		{ rm -f -- $@; false; }
