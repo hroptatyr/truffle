@@ -23,6 +23,8 @@ yuck_CPPFLAGS += -DYUCK_TEMPLATE_PATH='"$(abs_srcdir)"'
 BUILT_SOURCES += yuck.yucc
 endif  !HAVE_YUCK
 
+CLEANFILES = yuck.m4i yuck.yucc
+
 
 ## yuck rules
 yuck.m4i: yuck.yuck $(builddir)/yuck-bootstrap$(EXEEXT)
