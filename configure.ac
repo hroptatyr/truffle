@@ -14,8 +14,8 @@ dnl -------------------------------------------------------------------------
 dnl Local copyright notices.
 dnl -------------------------------------------------------------------------
 
-AC_COPYRIGHT(
-[#### Configuration script for uschi and friends.
+AC_COPYRIGHT([dnl
+#### Configuration script for truffle.
 #### Copyright (C) 2011-2013  Sebastian Freundt
 
 ### Don't edit this script!
