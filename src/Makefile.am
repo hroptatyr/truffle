@@ -73,7 +73,8 @@ version.c: version.c.in $(top_builddir)/version.mk
 
 .yuck.yucc:
 	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
-		yuck$(EXEEXT) gen $< > $@ || { rm -f -- $@; false; }
+		yuck$(EXEEXT) gen --version=$(VERSION) $< > $@ || \
+		{ rm -f -- $@; false; }
 
 ## for dist or dist check we need binaries, so help2man can work
 dist-hook: $(bin_PROGRAMS)
