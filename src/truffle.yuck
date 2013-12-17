@@ -69,7 +69,7 @@ from TROD-FILE or, if omitted, from stdin.
   -b, --basis=PRC       Basis of a carry-over position as price quote.
                         Default is the quote upon the first investment.
       --tick-value=PRC  Price value of one cash flow unit.
-  -p, --precision=[+-]N  Output adjusted data in this precision instead
+  -p, --precision=N     Output adjusted data in this precision instead
                         of deriving the precision from input data.
                         If an absolute number N is given use N digits
                         for the fraction all throughout the output.
