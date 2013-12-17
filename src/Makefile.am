@@ -71,7 +71,7 @@ SUFFIXES = .yuck .yucc
 version.c: version.c.in $(top_builddir)/version.mk
 	sed -e 's,[@]VERSION[@],$(VERSION),g' <$(srcdir)/$@.in >$@
 
-.yuck.yucc:
+.yuck.yucc: $(top_builddir)/version.mk
 	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
 		yuck$(EXEEXT) gen --version=$(VERSION) $< > $@ || \
 		{ rm -f -- $@; false; }
