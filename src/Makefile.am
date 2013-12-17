@@ -33,10 +33,6 @@ libtruffle_a_SOURCES += coru.h
 ## auxiliary giblets from the old truffle
 libtruffle_a_SOURCES += schema.c schema.h
 libtruffle_a_SOURCES += cut.c cut.h
-nodist_libtruffle_a_SOURCES = version.c
-noinst_HEADERS += version.h
-CLEANFILES += version.c
-EXTRA_DIST += version.c.in
 
 if USE_ASM_CORUS
 noinst_LIBRARIES += libcoru.a
@@ -67,9 +63,6 @@ BUILT_SOURCES += truffle.yucc
 
 
 SUFFIXES = .yuck .yucc
-
-version.c: version.c.in $(top_builddir)/version.mk
-	sed -e 's,[@]VERSION[@],$(VERSION),g' <$(srcdir)/$@.in >$@
 
 %.yucc: $(top_builddir)/version.mk
 .yuck.yucc:
