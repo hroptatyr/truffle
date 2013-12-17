@@ -15,7 +15,7 @@ EXTRA_DIST =
 DISTCLEANFILES =
 
 EXTRA_DIST += build-aux/git-version-gen
-EXTRA_DIST += m4/.dir
+EXTRA_DIST += version.m4
 
 DISTCLEANFILES += version.mk
 

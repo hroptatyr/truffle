@@ -3,8 +3,8 @@ dnl Autoconf startup.
 dnl -------------------------------------------------------------------------
 
 AC_PREREQ([2.63])
-## t.i.n.a.v = this is not a version, never use it!
-AC_INIT([truffle], [t.i.n.a.v], [https://github.com/hroptatyr/truffle])
+m4_include([version.m4])
+AC_INIT([truffle], RELEASE_VERSION, [https://github.com/hroptatyr/truffle])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADER([src/config.h])
 AC_CONFIG_MACRO_DIR([m4])
