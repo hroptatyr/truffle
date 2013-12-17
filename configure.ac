@@ -31,10 +31,6 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 GIT_VERSION_MAGIC
 AC_CONFIG_LINKS([GNUmakefile:GNUmakefile])
 
-if test -z "${CFLAGS}"; then
-	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function -Wuninitialized"
-fi
-
 ## the build chain
 AC_PROG_CC([icc tcc gcc cc])
 SXE_CHECK_CC([gnu11 gnu99])
