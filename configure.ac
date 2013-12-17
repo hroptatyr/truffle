@@ -14,8 +14,8 @@ dnl -------------------------------------------------------------------------
 dnl Local copyright notices.
 dnl -------------------------------------------------------------------------
 
-AC_COPYRIGHT(
-[#### Configuration script for uschi and friends.
+AC_COPYRIGHT([dnl
+#### Configuration script for truffle.
 #### Copyright (C) 2011-2013  Sebastian Freundt
 
 ### Don't edit this script!
@@ -30,10 +30,6 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 GIT_VERSION_MAGIC
 AC_CONFIG_LINKS([GNUmakefile:GNUmakefile])
-
-if test -z "${CFLAGS}"; then
-	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function -Wuninitialized"
-fi
 
 ## the build chain
 AC_PROG_CC([icc tcc gcc cc])
