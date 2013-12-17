@@ -57,7 +57,7 @@ endif  USE_ASM_CORUS
 
 ## truffle umbrella command kit
 bin_PROGRAMS += truffle
-truffle_SOURCES = truffle.c truffle.ggo
+truffle_SOURCES = truffle.c truffle.yuck
 truffle_LDADD = libtruffle.a
 if USE_ASM_CORUS
 truffle_LDADD += libcoru.a
