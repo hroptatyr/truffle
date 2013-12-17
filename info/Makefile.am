@@ -19,11 +19,9 @@ EXTRA_DIST += author.h2m
 
 
 ## help2man helpers
-%.man: $(top_srcdir)/src/%.ggo $(top_srcdir)/configure $(top_builddir)/version.mk
-	$(AM_V_GEN) $(HELP2MAN) -S "$(PACKAGE_STRING)" -p "($(PACKAGE))$*" \
-		--no-info \
-		-I "$(srcdir)/$*.name" \
-		-I "$(srcdir)/author.h2m" \
-		-o $@ $(top_builddir)/src/$*
+%.man: $(top_srcdir)/src/%.yuck $(top_srcdir)/configure $(top_builddir)/version.mk
+	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
+		yuck$(EXEEXT) genman --version=$(VERSION) $< > $@ || \
+		{ rm -f -- $@; false; }
 
 ## Makefile.am ends here
