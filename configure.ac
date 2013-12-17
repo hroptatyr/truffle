@@ -25,7 +25,7 @@ AC_COPYRIGHT(
 ###     autoreconf
 ])
 
-AM_INIT_AUTOMAKE([foreign parallel-tests dist-xz color-tests])
+AM_INIT_AUTOMAKE([foreign parallel-tests dist-xz color-tests subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 GIT_VERSION_MAGIC
@@ -70,6 +70,9 @@ if test "${use_asm_corus}" = "yes"; then
 	AC_DEFINE([USE_ASM_CORUS], [1], [Whether to use asm backed coroutines])
 fi
 
+## check for yuck helper
+SXE_CHECK_YUCK
+
 
 ## trivial, no special stuff needed
 apps="${apps} truffle"
@@ -81,6 +84,7 @@ else
 fi
 
 AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([build-aux/Makefile])
 AC_CONFIG_FILES([src/Makefile])
 AC_CONFIG_FILES([info/Makefile])
 AC_CONFIG_FILES([test/Makefile])
