@@ -62,27 +62,27 @@ extern _Decimal32 scalbnd32(_Decimal32 x, int n);
 #endif	/* !HAVE_DFP754_*_LITERALS */
 
 
-inline __attribute__((pure, const)) uint32_t bits(_Decimal32 x);
-inline __attribute__((pure, const)) _Decimal32 bobs(uint32_t u);
-inline __attribute__((pure, const)) int quantexpbid32(_Decimal32 x);
-inline __attribute__((pure, const)) int quantexpdpd32(_Decimal32 x);
-inline __attribute__((pure, const)) int quantexpd32(_Decimal32 x);
-inline __attribute__((pure, const)) _Decimal32 nand32(char *__tagp);
+__inline __attribute__((pure, const)) uint32_t bits(_Decimal32 x);
+__inline __attribute__((pure, const)) _Decimal32 bobs(uint32_t u);
+__inline __attribute__((pure, const)) int quantexpbid32(_Decimal32 x);
+__inline __attribute__((pure, const)) int quantexpdpd32(_Decimal32 x);
+__inline __attribute__((pure, const)) int quantexpd32(_Decimal32 x);
+__inline __attribute__((pure, const)) _Decimal32 nand32(char *__tagp);
 #define isnand32		__builtin_isnand32
 
-inline __attribute__((pure, const)) uint32_t
+__inline __attribute__((pure, const)) uint32_t
 bits(_Decimal32 x)
 {
 	return (union {_Decimal32 x; uint32_t u;}){x}.u;
 }
 
-inline __attribute__((pure, const)) _Decimal32
+__inline __attribute__((pure, const)) _Decimal32
 bobs(uint32_t u)
 {
 	return (union {uint32_t u; _Decimal32 x;}){u}.x;
 }
 
-inline __attribute__((pure, const)) int
+__inline __attribute__((pure, const)) int
 quantexpbid32(_Decimal32 x)
 {
 	register uint32_t b = bits(x);
@@ -99,7 +99,7 @@ quantexpbid32(_Decimal32 x)
 	return (tmp & 0xffU) - 101;
 }
 
-inline __attribute__((pure, const)) int
+__inline __attribute__((pure, const)) int
 quantexpdpd32(_Decimal32 x)
 {
 	register uint32_t b = bits(x);
@@ -118,7 +118,7 @@ quantexpdpd32(_Decimal32 x)
 }
 
 #if defined HAVE_DFP754_BID_LITERALS || defined HAVE_DFP754_DPD_LITERALS
-inline __attribute__((pure, const)) int
+__inline __attribute__((pure, const)) int
 quantexpd32(_Decimal32 x)
 {
 #if defined HAVE_DFP754_BID_LITERALS
@@ -129,7 +129,7 @@ quantexpd32(_Decimal32 x)
 }
 #endif	/* !HAVE_DFP754_*_LITERALS */
 
-inline __attribute__((pure, const)) _Decimal32
+__inline __attribute__((pure, const)) _Decimal32
 nand32(char *__tagp __attribute__((unused)))
 {
 	return bobs(NAND32_U);

@@ -59,14 +59,14 @@ extern void truf_init_sym(void);
 extern void truf_fini_sym(void);
 
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 truf_mmy_p(truf_sym_t sym)
 {
 /* return true if SYM encodes a MMY and false otherwise */
 	return (sym.u & 0b1U);
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 truf_str_p(truf_sym_t sym)
 {
 /* return true if SYM encodes a str object and false otherwise */
@@ -74,7 +74,7 @@ truf_str_p(truf_sym_t sym)
 }
 
 /* hashing helpers */
-static inline __attribute__((pure, const)) size_t
+static __inline __attribute__((pure, const)) size_t
 truf_sym_hx(truf_sym_t sym)
 {
 	register size_t idx = 19780211U;
