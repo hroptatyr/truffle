@@ -54,7 +54,7 @@ struct md_s {
 };
 
 
-static inline struct md_s
+static __inline struct md_s
 __yd_to_md(struct yd_s yd)
 {
 /* stolen from dateutils */
@@ -89,7 +89,7 @@ __yd_to_md(struct yd_s yd)
 #undef GET_REM
 }
 
-static inline struct yd_s
+static __inline struct yd_s
 __md_to_yd(unsigned int y, struct md_s md)
 {
 	static uint16_t __mon_yday[] = {
