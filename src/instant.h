@@ -77,25 +77,25 @@ extern echs_instant_t echs_instant_add(echs_instant_t bas, echs_idiff_t add);
 #define ECHS_ALL_DAY	(0xffU)
 #define ECHS_ALL_SEC	(0x3ffU)
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_all_day_p(echs_instant_t i)
 {
 	return i.H == ECHS_ALL_DAY;
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_all_sec_p(echs_instant_t i)
 {
 	return i.ms == ECHS_ALL_SEC;
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_0_p(echs_instant_t x)
 {
 	return x.u == 0U;
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_lt_p(echs_instant_t x, echs_instant_t y)
 {
 #if defined WORDS_BIGENDIAN
@@ -113,7 +113,7 @@ echs_instant_lt_p(echs_instant_t x, echs_instant_t y)
 #endif	/* WORDS_BIGENDIAN */
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_le_p(echs_instant_t x, echs_instant_t y)
 {
 #if defined WORDS_BIGENDIAN
@@ -131,64 +131,64 @@ echs_instant_le_p(echs_instant_t x, echs_instant_t y)
 #endif	/* WORDS_BIGENDIAN */
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_eq_p(echs_instant_t x, echs_instant_t y)
 {
 	return x.u == y.u;
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_gt_p(echs_instant_t x, echs_instant_t y)
 {
 	return !echs_instant_le_p(x, y);
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_ge_p(echs_instant_t x, echs_instant_t y)
 {
 	return !echs_instant_lt_p(x, y);
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_instant_ne_p(echs_instant_t x, echs_instant_t y)
 {
 	return !echs_instant_eq_p(x, y);
 }
 
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_idiff_lt_p(echs_idiff_t dur1, echs_idiff_t dur2)
 {
 	return dur1.dd < dur2.dd ||
 		dur1.dd == dur2.dd && dur1.msd < dur2.msd;
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_idiff_le_p(echs_idiff_t dur1, echs_idiff_t dur2)
 {
 	return !(dur1.dd > dur2.dd ||
 		 dur1.dd == dur2.dd && dur1.msd > dur2.msd);
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_idiff_eq_p(echs_idiff_t dur1, echs_idiff_t dur2)
 {
 	return dur1.dd == dur2.dd && dur1.msd == dur2.msd;
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_idiff_gt_p(echs_idiff_t dur1, echs_idiff_t dur2)
 {
 	return !echs_idiff_le_p(dur1, dur2);
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_idiff_ge_p(echs_idiff_t dur1, echs_idiff_t dur2)
 {
 	return !echs_idiff_lt_p(dur1, dur2);
 }
 
-static inline __attribute__((pure, const)) bool
+static __inline __attribute__((pure, const)) bool
 echs_idiff_ne_p(echs_idiff_t dur1, echs_idiff_t dur2)
 {
 	return !echs_idiff_eq_p(dur1, dur2);
