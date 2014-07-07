@@ -73,7 +73,7 @@ extern truf_mmy_t truf_mmy_rd(const char *str, char **ptr);
 extern size_t truf_mmy_wr(char *restrict buf, size_t bsz, truf_mmy_t ym);
 
 
-static __inline __attribute__((pure, const)) truf_mmy_t
+static inline __attribute__((pure, const)) truf_mmy_t
 make_truf_mmy(signed int year, unsigned int mon, unsigned int day)
 {
 	mon &= 0xffU;
@@ -81,25 +81,25 @@ make_truf_mmy(signed int year, unsigned int mon, unsigned int day)
 	return (((((year << 8U) | mon) << 7U) | day) << 1U) | 1U;
 }
 
-static __inline __attribute__((pure, const)) signed int
+static inline __attribute__((pure, const)) signed int
 truf_mmy_year(truf_mmy_t ym)
 {
 	return ym >> 16U;
 }
 
-static __inline __attribute__((pure, const)) unsigned int
+static inline __attribute__((pure, const)) unsigned int
 truf_mmy_mon(truf_mmy_t ym)
 {
 	return (ym >> 8U) & 0xffU;
 }
 
-static __inline __attribute__((pure, const)) unsigned int
+static inline __attribute__((pure, const)) unsigned int
 truf_mmy_day(truf_mmy_t ym)
 {
 	return (ym >> 1U) & 0x7fU;
 }
 
-static __inline __attribute__((pure, const)) bool
+static inline __attribute__((pure, const)) bool
 truf_mmy_abs_p(truf_mmy_t ym)
 {
 /* return true if YM is in absolute notation. */
@@ -107,7 +107,7 @@ truf_mmy_abs_p(truf_mmy_t ym)
 	return yr >= TRUF_MMY_ABSYR;
 }
 
-static __inline __attribute__((pure, const)) truf_mmy_t
+static inline __attribute__((pure, const)) truf_mmy_t
 truf_mmy_rel(truf_mmy_t ym, unsigned int year)
 {
 /* return a trym relative to YEAR, i.e. F0 for F2000 for year == 2000
@@ -124,7 +124,7 @@ truf_mmy_rel(truf_mmy_t ym, unsigned int year)
 	return ym;
 }
 
-static __inline __attribute__((pure, const)) truf_mmy_t
+static inline __attribute__((pure, const)) truf_mmy_t
 truf_mmy_abs(truf_mmy_t ym, unsigned int year)
 {
 /* return the absolute version of YM relative to YEAR,
@@ -143,7 +143,7 @@ truf_mmy_abs(truf_mmy_t ym, unsigned int year)
 	return make_truf_mmy(y, m, d);
 }
 
-static __inline __attribute__((pure, const)) truf_mmy_t
+static inline __attribute__((pure, const)) truf_mmy_t
 truf_mmy_oco(truf_mmy_t ym, unsigned int year)
 {
 /* return a trym relative to YEAR, i.e. F0 for F2000 for year == 2000
@@ -160,7 +160,7 @@ truf_mmy_oco(truf_mmy_t ym, unsigned int year)
 	return make_truf_mmy(y, m, d);
 }
 
-static __inline __attribute__((pure, const)) bool
+static inline __attribute__((pure, const)) bool
 truf_mmy_eq_p(truf_mmy_t ym1, truf_mmy_t ym2)
 {
 /* return true iff ym1 and ym2 is the same contract */
