@@ -6,7 +6,7 @@ include $(top_builddir)/version.mk
 LANG=C
 LC_ALL=C
 
-AM_CPPFLAGS = -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=201001L
+AM_CPPFLAGS = -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600 -D_BSD_SOURCE
 AM_CPPFLAGS += -I$(abs_top_srcdir)/src
 AM_LDFLAGS = -L$(abs_top_builddir)/src
 
@@ -127,15 +127,15 @@ EXTRA_DIST += strsym_01.trod
 check_PROGRAMS += clitoris
 clitoris_CPPFLAGS = $(AM_CPPFLAGS)
 clitoris_CPPFLAGS += -D_GNU_SOURCE
-BUILT_SOURCES += clitoris.x clitoris.xh
+clitoris_LDFLAGS = $(AM_LDFLAGS) -static
+BUILT_SOURCES += clitoris.yucc
 
 
-## ggo rule
-%.x %.xh: %.ggo
-	$(AM_V_GEN) gengetopt -F $* -c x -H xh -i $<
-	@sed -e 's,_PARSER_VERSION VERSION,_PARSER_VERSION "$(VERSION)",g' \
-	     $*.xh > $*.xh-t \
-	&& mv $*.xh-t $*.xh
+## yuck rule
+SUFFIXES = .yucc .yuck
+.yuck.yucc:
+	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
+		yuck$(EXEEXT) gen -o $@ $<
 
 clean-local:
 	-rm -rf *.tmpd
