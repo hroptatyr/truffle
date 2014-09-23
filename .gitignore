@@ -1,13 +1,21 @@
 aclocal.m4
 autom4te.cache
 configure
+ltmain.sh
 m4/libtool.m4
 m4/lt*.m4
 Makefile.in
+config.guess
+config.sub
+install-sh
+missing
+compile
+test-driver
 src/config.h.in
 *~
-=build*
-build*
+=build*/
+build/
+depcomp
 ++*
 Makefile
 .version
@@ -19,6 +27,7 @@ config.h
 stamp-h1
 .deps
 .libs
+.rsync-filter
 
 ##binaries and shite
 truffle
