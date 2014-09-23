@@ -7,21 +7,24 @@ LANG=C
 LC_ALL=C
 
 BUILT_SOURCES =
-BUILT_MANS =
-EXTRA_DIST = $(BUILT_SOURCES) $(BUILT_MANS)
+EXTRA_DIST = $(BUILT_SOURCES)
+SUFFIXES =
 
 man1_MANS =
-man1_MANS += $(BUILT_MANS)
-
-BUILT_MANS += truffle.man
+man1_MANS += truffle.man
+EXTRA_DIST += $(man1_MANS)
 
 EXTRA_DIST += author.h2m
 
 
-## help2man helpers
-%.man: $(top_srcdir)/src/%.yuck $(top_builddir)/version.mk
-	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
-		yuck$(EXEEXT) genman --version=$(VERSION) $< > $@ || \
-		{ rm -f -- $@; false; }
+VPATH += @top_srcdir@/src
+SUFFIXES += .yuck
+SUFFIXES += .man
+.yuck.man:
+	$(AM_V_GEN) PATH="$(top_builddir)/build-aux:$${PATH}" \
+		yuck$(EXEEXT) genman \
+			--package "$(PACKAGE_NAME)" \
+			-i "$(srcdir)/author.h2m" \
+			-o $@ --version-file "$(top_builddir)/.version" $<
 
 ## Makefile.am ends here
