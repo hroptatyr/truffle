@@ -67,7 +67,7 @@ if test "${use_asm_corus}" = "yes"; then
 fi
 
 ## check for yuck helper
-SXE_CHECK_YUCK
+AX_CHECK_YUCK([with_included_yuck="yes"])
 
 
 ## trivial, no special stuff needed
