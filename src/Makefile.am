@@ -11,6 +11,7 @@ noinst_HEADERS =
 BUILT_SOURCES =
 CLEANFILES =
 EXTRA_DIST = $(BUILT_SOURCES)
+SUFFIXES =
 
 noinst_LIBRARIES = libtruffle.a
 libtruffle_a_SOURCES = truffle.h
@@ -54,6 +55,9 @@ endif  USE_ASM_CORUS
 ## truffle umbrella command kit
 bin_PROGRAMS += truffle
 truffle_SOURCES = truffle.c truffle.yuck
+truffle_SOURCES += version.c version.h version.c.in
+truffle_CPPFLAGS = $(AM_CPPFLAGS)
+truffle_CPPFLAGS += -DHAVE_VERSION_H
 truffle_LDADD = libtruffle.a
 if USE_ASM_CORUS
 truffle_LDADD += libcoru.a
@@ -62,10 +66,18 @@ truffle_LDADD += -lm
 BUILT_SOURCES += truffle.yucc
 
 
-%.yucc: %.yuck $(top_builddir)/version.mk
-	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
-		yuck$(EXEEXT) gen --version=$(VERSION) $< > $@ || \
-		{ rm -f -- $@; false; }
+## version rule
+version.c: version.c.in $(top_builddir)/.version
+	$(AM_V_GEN) PATH="$(top_builddir)/build-aux:$${PATH}" \
+		yuck$(EXEEXT) scmver --ignore-noscm --force -o $@ \
+			--use-reference --reference $(top_builddir)/.version $<
+
+## yuck rule
+SUFFIXES += .yuck
+SUFFIXES += .yucc
+.yuck.yucc:
+	$(AM_V_GEN) PATH="$(top_builddir)/build-aux:$${PATH}" \
+		yuck$(EXEEXT) gen -o $@ $<
 
 ## for dist or dist check we need binaries, so help2man can work
 dist-hook: $(bin_PROGRAMS)
