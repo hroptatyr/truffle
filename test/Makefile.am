@@ -127,7 +127,6 @@ EXTRA_DIST += strsym_01.trod
 check_PROGRAMS += clitoris
 clitoris_CPPFLAGS = $(AM_CPPFLAGS)
 clitoris_CPPFLAGS += -D_GNU_SOURCE
-clitoris_LDFLAGS = $(AM_LDFLAGS) -static
 BUILT_SOURCES += clitoris.yucc
 
 
