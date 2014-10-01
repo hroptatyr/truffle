@@ -2,7 +2,6 @@
 include $(top_builddir)/version.mk
 
 AM_CPPFLAGS = -D_GNU_SOURCE -D_POSIX_C_SOURCE=201001L -D_XOPEN_SOURCE=700
-AM_CPPFLAGS += -D__STDC_WANT_DEC_FP__
 AM_LDFLAGS =
 
 bin_PROGRAMS =
@@ -34,6 +33,8 @@ libtruffle_a_SOURCES += coru.h
 ## auxiliary giblets from the old truffle
 libtruffle_a_SOURCES += schema.c schema.h
 libtruffle_a_SOURCES += cut.c cut.h
+libtruffle_a_CPPFLAGS = $(AM_LDFLAGS)
+libtruffle_a_CPPFLAGS += $(dfp754_CFLAGS)
 
 if USE_ASM_CORUS
 noinst_LIBRARIES += libcoru.a
@@ -58,6 +59,9 @@ truffle_SOURCES = truffle.c truffle.yuck
 truffle_SOURCES += version.c version.h version.c.in
 truffle_CPPFLAGS = $(AM_CPPFLAGS)
 truffle_CPPFLAGS += -DHAVE_VERSION_H
+truffle_CPPFLAGS += $(dfp754_CFLAGS)
+truffle_LDFLAGS = $(AM_LDFLAGS)
+truffle_LDFLAGS += $(dfp754_LIBS)
 truffle_LDADD = libtruffle.a
 if USE_ASM_CORUS
 truffle_LDADD += libcoru.a
