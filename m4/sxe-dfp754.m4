@@ -36,8 +36,12 @@ dnl This file is part of truffle.
 AC_DEFUN([_SXE_CHECK_DFP754_LITERAL_FLAVOUR], [dnl
 	AC_MSG_CHECKING([for dfp754 flavour of float literals])
 
+	save_CPPFLAGS="${CPPFLAGS}"
+	save_LDFLAGS="${LDFLAGS}"
+	CPPFLAGS="${CPPFLAGS} ${dfp754_CFLAGS}"
+	LDFLAGS="${LDFLAGS} ${dfp754_LIBS}"
+
 	AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#define __STDC_WANT_DEC_FP__	1
 #include <stdint.h>
 #include <stdio.h>
 ]], [[
@@ -85,6 +89,9 @@ AC_DEFUN([_SXE_CHECK_DFP754_LITERAL_FLAVOUR], [dnl
 		$1
 	])
 
+	CPPFLAGS="${save_CPPFLAGS}"
+	LDFLAGS="${save_LDFLAGS}"
+
 	case "${sxe_cv_feat_dfp754_literal_flavour}" in
 	("bid")
 		AC_DEFINE([HAVE_DFP754_BID_LITERALS], [1],
@@ -105,8 +112,12 @@ AC_DEFUN([_SXE_CHECK_DFP754_LITERAL_FLAVOUR], [dnl
 AC_DEFUN([_SXE_CHECK_DFP754_CAST_FLAVOUR], [dnl
 	AC_MSG_CHECKING([for dfp754 flavour of float casts])
 
+	save_CPPFLAGS="${CPPFLAGS}"
+	save_LDFLAGS="${LDFLAGS}"
+	CPPFLAGS="${CPPFLAGS} ${dfp754_CFLAGS}"
+	LDFLAGS="${LDFLAGS} ${dfp754_LIBS}"
+
 	AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#define __STDC_WANT_DEC_FP__	1
 #include <stdint.h>
 #include <stdio.h>
 ]], [[
@@ -154,6 +165,9 @@ AC_DEFUN([_SXE_CHECK_DFP754_CAST_FLAVOUR], [dnl
 		$1
 	])
 
+	CPPFLAGS="${save_CPPFLAGS}"
+	LDFLAGS="${save_LDFLAGS}"
+
 	case "${sxe_cv_feat_dfp754_cast_flavour}" in
 	("bid")
 		AC_DEFINE([HAVE_DFP754_BID_CAST], [1],
@@ -174,8 +188,12 @@ AC_DEFUN([_SXE_CHECK_DFP754_CAST_FLAVOUR], [dnl
 AC_DEFUN([_SXE_CHECK_DFP754_ARITH_FLAVOUR], [dnl
 	AC_MSG_CHECKING([for dfp754 flavour of float arithmetic])
 
+	save_CPPFLAGS="${CPPFLAGS}"
+	save_LDFLAGS="${LDFLAGS}"
+	CPPFLAGS="${CPPFLAGS} ${dfp754_CFLAGS}"
+	LDFLAGS="${LDFLAGS} ${dfp754_LIBS}"
+
 	AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#define __STDC_WANT_DEC_FP__	1
 #include <stdint.h>
 #include <stdio.h>
 ]], [[
@@ -225,6 +243,9 @@ AC_DEFUN([_SXE_CHECK_DFP754_ARITH_FLAVOUR], [dnl
 		$1
 	])
 
+	CPPFLAGS="${save_CPPFLAGS}"
+	LDFLAGS="${save_LDFLAGS}"
+
 	case "${sxe_cv_feat_dfp754_arith_flavour}" in
 	("bid")
 		AC_DEFINE([HAVE_DFP754_BID_ARITH], [1],
@@ -243,10 +264,14 @@ AC_DEFUN([_SXE_CHECK_DFP754_ARITH_FLAVOUR], [dnl
 ])dnl _SXE_CHECK_DFP754_ARITH_FLAVOUR
 
 AC_DEFUN([_SXE_CHECK_DFP754_LITERALS], [dnl
-
 	AC_MSG_CHECKING([whether dfp754 literals work])
+
+	save_CPPFLAGS="${CPPFLAGS}"
+	save_LDFLAGS="${LDFLAGS}"
+	CPPFLAGS="${CPPFLAGS} ${dfp754_CFLAGS}"
+	LDFLAGS="${LDFLAGS} ${dfp754_LIBS}"
+
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#define __STDC_WANT_DEC_FP__	1
 #include <stdint.h>
 #include <stdio.h>
 ]], [[
@@ -264,10 +289,32 @@ AC_DEFUN([_SXE_CHECK_DFP754_LITERALS], [dnl
 	sxe_cv_feat_dfp754_literals="no"
 	$3
 ])
+
+	CPPFLAGS="${save_CPPFLAGS}"
+	LDFLAGS="${save_LDFLAGS}"
+
 	AC_MSG_RESULT([${sxe_cv_feat_dfp754_literals}])
 ])dnl _SXE_CHECK_DFP754_LITERALS
 
+AC_DEFUN([_SXE_CHECK_DFP754_FLAGS], [dnl
+## checks for defines and libs needed to get the dfp stuff going
+## defines dfp754_CFLAGS and dfp754_LIBS
+	AC_ARG_VAR([dfp754_CFLAGS], [C compiler flags for _Decimal32 support])
+	AC_ARG_VAR([dfp754_LIBS], [linker flags for _Decimal32 support])
+
+	AC_CHECK_HEADERS([math.h])
+	AC_CHECK_HEADERS([dfp754.h])
+	AC_CHECK_HEADERS([dfp/stdlib.h])
+
+	if test "${ac_cv_env_dfp754_CFLAGS_set}" = "set"; then
+		:
+	else
+		dfp754_CFLAGS="-D__STDC_WANT_DEC_FP__"
+	fi
+])dnl _SXE_CHECK_SOURCE_DEFS
+
 AC_DEFUN([SXE_CHECK_DFP754], [dnl
+	AC_REQUIRE([_SXE_CHECK_DFP754_FLAGS])
 	AC_REQUIRE([_SXE_CHECK_DFP754_LITERALS])
 	AC_REQUIRE([_SXE_CHECK_DFP754_LITERAL_FLAVOUR])
 	AC_REQUIRE([_SXE_CHECK_DFP754_CAST_FLAVOUR])
