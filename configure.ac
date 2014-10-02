@@ -56,8 +56,6 @@ AM_CONDITIONAL([HAVE_SCALBND32], [test "${ac_cv_func_scalbnd32}" = "yes"])
 
 SXE_CHECK_ASM_CORUS
 
-AM_MISSING_PROG([HELP2MAN], [help2man], ["${missing_dir}"])
-
 ## coroutine provider
 AM_CONDITIONAL([USE_ASM_CORUS], [test "${use_asm_corus}" = "yes"])
 if test "${use_asm_corus}" = "yes"; then
