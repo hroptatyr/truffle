@@ -16,7 +16,7 @@ SUBDIRS += info
 SUBDIRS += test
 
 DISTCLEANFILES += version.mk
-DISTCLEANFILES += .verison
+DISTCLEANFILES += .version
 EXTRA_DIST += version.mk.in
 
 doc_DATA = README.md
