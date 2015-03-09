@@ -64,6 +64,8 @@ AX_CHECK_YUCK([with_included_yuck="yes"])
 AX_YUCK_SCMVER([version.mk])
 AC_CONFIG_LINKS([GNUmakefile:GNUmakefile])
 
+## set our cli-testing harness up
+AX_CHECK_CLITORIS
 
 ## trivial, no special stuff needed
 apps="${apps} truffle"
