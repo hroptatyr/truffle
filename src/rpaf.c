@@ -1,6 +1,6 @@
 /*** rpaf.c -- reference prices and accrued flows
  *
- * Copyright (C) 2009-2013 Sebastian Freundt
+ * Copyright (C) 2009-2015 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *

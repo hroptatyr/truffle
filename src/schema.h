@@ -1,6 +1,6 @@
 /*** schema.h -- read and write roll-over descriptions aka schemas
  *
- * Copyright (C) 2011-2013 Sebastian Freundt
+ * Copyright (C) 2011-2015 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
