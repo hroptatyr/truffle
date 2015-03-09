@@ -19,9 +19,8 @@ BUILT_SOURCES =
 
 LOG_COMPILER = echo
 
-TEST_EXTENSIONS += .clit
-TESTS_ENVIRONMENT = root=$(top_srcdir)
-CLIT_LOG_COMPILER = $(builddir)/clitoris
+## summon our helper
+include clitoris.am
 AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
 
 TESTS += print_01.clit
@@ -122,19 +121,6 @@ TESTS += string_symbols_04.clit
 EXTRA_DIST += strsym_01.tser
 EXTRA_DIST += strsym_01.trod
 
-
-## our friendly helpers
-check_PROGRAMS += clitoris
-clitoris_CPPFLAGS = $(AM_CPPFLAGS)
-clitoris_CPPFLAGS += -D_GNU_SOURCE
-BUILT_SOURCES += clitoris.yucc
-
-
-## yuck rule
-SUFFIXES = .yucc .yuck
-.yuck.yucc:
-	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
-		yuck$(EXEEXT) gen -o $@ $<
 
 clean-local:
 	-rm -rf *.tmpd
