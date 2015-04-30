@@ -4,8 +4,12 @@
   
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"></meta>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="http://www.fresse.org/truffle/"/>
     <title>{{ page.title }}</title>
-    <link href="/assets/custom/css/default.css" media="screen" rel="stylesheet" type="text/css">
+    <link href="/assets/custom/css/default.css" media="screen" rel="stylesheet" type="text/css"></link>
+    {% if page.description %}<meta name="description" content="{{ page.description }}"></meta>{% endif %}
+    <meta name="author" content="Sebastian Freundt"></meta>
   </head>
 
   <body>
@@ -29,16 +33,15 @@
 	  <div class="sidebar-stack">
 	    <ul>
 	      <li>
-		<script type="text/javascript" src="http://www.ohloh.net/p/{{ page.project }}/widgets/project_languages.js"></script>
+		<script type="text/javascript" src="http://www.openhub.net/p/{{ page.project }}/widgets/project_languages.js"></script>
 	      </li>
 	    </ul>
 	  </div>
 	  <div class="sidebar-stack">
 	    <ul>
 	      <li>
-		<a href="https://badge.fury.io/gh/hroptatyr%2F{{ page.project }}"><img src="https://badge.fury.io/gh/hroptatyr%2F{{ page.project }}.png"></img></a>
-		<a href="http://travis-ci.org/hroptatyr/{{ page.project }} "><img src="https://secure.travis-ci.org/hroptatyr/{{ page.project }}.png?branch=master" alt="build status"></img></a>
-		<a href="https://drone.io/github.com/hroptatyr/{{ page.project }}/latest"><img src="https://drone.io/github.com/hroptatyr/{{ page.project }}/status.png" alt="build status"></img></a>
+		<a href="https://github.com/hroptatyr/{{ page.project }}/releases"><img src="https://badge.fury.io/gh/hroptatyr%2F{{ page.project }}.png"></img></a>
+		<a href="http://opensource.org/licenses/BSD-3-Clause"><img src="http://img.shields.io/badge/licence-BSD3c-brightgreen.svg"></img></a>
 	      </li>
 	    </ul>
 	  </div>
