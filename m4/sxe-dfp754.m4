@@ -313,12 +313,92 @@ AC_DEFUN([_SXE_CHECK_DFP754_FLAGS], [dnl
 	fi
 ])dnl _SXE_CHECK_SOURCE_DEFS
 
+AC_DEFUN([_SXE_CHECK_DFP754_STRTOD], [dnl
+	pushdef([strtod], [$1])
+
+	AC_REQUIRE([_SXE_CHECK_DFP754_HEADERS])
+
+	save_CPPFLAGS="${CPPFLAGS}"
+	save_LDFLAGS="${LDFLAGS}"
+	CPPFLAGS="${CPPFLAGS} ${dfp754_CFLAGS}"
+	LDFLAGS="${LDFLAGS} ${dfp754_LIBS}"
+
+	AC_MSG_CHECKING([whether ]strtod[ is clean])
+	AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#include <stdint.h>
+#include <stdio.h>
+#if defined HAVE_DFP754_H
+# include <dfp754.h>
+#endif
+#if defined HAVE_DFP_STDLIB_H
+# include <dfp/stdlib.h>
+#endif
+]], [[
+	static char test[] = "0xxx";
+	char *endptr;
+
+	(void)]strtod[(test, &endptr);
+	if (endptr != test + 1U) {
+		return 1;
+	}
+]])], [
+	sxe_cv_func_]strtod[_clean="yes"
+	AC_DEFINE(AS_TR_CPP([HAVE_CLEAN_]strtod), [1],
+		[Whether ]strtod[ has endptr pointing to an element of nptr])
+	$2
+], [
+	sxe_cv_func_]strtod[_clean="no"
+	$3
+])
+	CPPFLAGS="${save_CPPFLAGS}"
+	LDFLAGS="${save_LDFLAGS}"
+
+	AC_MSG_RESULT([${sxe_cv_func_]strtod[_clean}])
+	popdef([strtod])
+])dnl _SXE_CHECK_DFP754_STRTOD
+
+AC_DEFUN([_SXE_CHECK_DFP754_HEADERS], [dnl
+	AC_CHECK_HEADERS([dfp754.h])
+	AC_CHECK_HEADERS([dfp/stdlib.h])
+])dnl _SXE_CHECK_DFP754_HEADERS
+
+
+AC_DEFUN([_SXE_CHECK_DFP754_SYMBOLS], [dnl
+	AC_CHECK_FUNCS([strtod32])
+	AC_CHECK_FUNCS([quantized32])
+	AC_CHECK_FUNCS([scalbnd32])
+
+	AC_CHECK_FUNCS([strtod64])
+	AC_CHECK_FUNCS([quantized64])
+	AC_CHECK_FUNCS([scalbnd64])
+
+	## see if strtod64/strtod32 are clean
+	if test "${ac_cv_func_strtod32}" = "yes"; then
+		_SXE_CHECK_DFP754_STRTOD([strtod32])
+	fi
+	if test "${ac_cv_func_strtod64}" = "yes"; then
+		_SXE_CHECK_DFP754_STRTOD([strtod64])
+	fi
+
+	save_LDFLAGS="${LDFLAGS}"
+	LDFLAGS="${LDFLAGS} -lm"
+	AC_CHECK_FUNCS([nand32])
+	AC_CHECK_FUNCS([isnand32])
+
+	AC_CHECK_FUNCS([nand64])
+	AC_CHECK_FUNCS([isnand64])
+	LDFLAGS="${save_LDFLAGS}"
+])dnl _SXE_CHECK_DFP754_SYMBOLS
+
 AC_DEFUN([SXE_CHECK_DFP754], [dnl
 	AC_REQUIRE([_SXE_CHECK_DFP754_FLAGS])
 	AC_REQUIRE([_SXE_CHECK_DFP754_LITERALS])
 	AC_REQUIRE([_SXE_CHECK_DFP754_LITERAL_FLAVOUR])
 	AC_REQUIRE([_SXE_CHECK_DFP754_CAST_FLAVOUR])
 	AC_REQUIRE([_SXE_CHECK_DFP754_ARITH_FLAVOUR])
+
+	AC_REQUIRE([_SXE_CHECK_DFP754_HEADERS])
+	AC_REQUIRE([_SXE_CHECK_DFP754_SYMBOLS])
 ])dnl SXE_CHECK_DFP754
 
 dnl sxe-dfp754.m4 ends here

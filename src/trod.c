@@ -48,7 +48,7 @@
 #include "truffle.h"
 #include "instant.h"
 #include "trod.h"
-#include "truf-dfp754.h"
+#include "dfp754_d32.h"
 #include "nifty.h"
 
 

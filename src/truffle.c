@@ -54,7 +54,7 @@
 #include "trod.h"
 #include "step.h"
 #include "rpaf.h"
-#include "truf-dfp754.h"
+#include "dfp754_d32.h"
 /* while we're in transition mood */
 #include "daisy.h"
 #include "idate.h"

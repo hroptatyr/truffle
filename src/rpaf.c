@@ -42,7 +42,7 @@
 #include <assert.h>
 #include "truffle.h"
 #include "rpaf.h"
-#include "truf-dfp754.h"
+#include "dfp754_d32.h"
 #include "nifty.h"
 
 typedef struct {
