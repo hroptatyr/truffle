@@ -3,7 +3,7 @@ dnl Autoconf startup.
 dnl -------------------------------------------------------------------------
 
 AC_PREREQ([2.63])
-AC_INIT([truffle], [0.2.0rc1], [https://github.com/hroptatyr/truffle])
+AC_INIT([truffle], [0.2.0rc2], [https://github.com/hroptatyr/truffle])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADER([src/config.h])
 AC_CONFIG_MACRO_DIR([m4])
