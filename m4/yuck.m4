@@ -37,7 +37,7 @@ AC_DEFUN([AX_CHECK_M4_BUFFERS], [dnl
 	AC_MSG_CHECKING([for m4 with sufficient capabilities])
 
 	AC_ARG_VAR([M4], [full path to the m4 tool])
-	probe_M4="${M4:-m4}"
+	probe_M4="${M4-m4}"
 	if ${probe_M4} >/dev/null 2>&1 \
 		-Dx='y y y y y y y y y y y y y y y y' \
 		-Dy='z z z z z z z z z z z z z z z z' \
@@ -50,7 +50,7 @@ EOF
 		M4="${probe_M4}"
 	else
 		## check if a little buffer massage solves the problem
-		probe_M4="${M4:-m4} -B16384"
+		probe_M4="${M4-m4} -B16384"
 		if ${probe_M4} >/dev/null 2>&1 \
 			-Dx='y y y y y y y y y y y y y y y y' \
 			-Dy='z z z z z z z z z z z z z z z z' \
@@ -63,7 +63,7 @@ EOF
 			M4="${probe_M4}"
 		else
 			AC_MSG_WARN([m4 on this machine might suffer from big buffers.])
-			M4="${M4:-m4}"
+			M4="${M4-m4}"
 		fi
 	fi
 
@@ -84,7 +84,7 @@ instead of the system-wide one.])], [with_included_yuck="${withval}"], [$1])
 		if test -n "${YUCK}"; then
 			## see what m4 they used back then
 			YUCK_M4=`${YUCK} config --m4 2>/dev/null`
-			M4="${YUCK_M4:-${M4}}"
+			M4="${YUCK_M4-$M4}"
 		fi
 	fi
 	AM_CONDITIONAL([HAVE_YUCK], [dnl
@@ -112,7 +112,30 @@ AC_DEFUN([AX_YUCK_SCMVER], [dnl
 #define _XOPEN_SOURCE	600
 #define VERSION_FILE	"${srcdir}/.version"
 #include "yuck-scmver.c"
-]])], [STIP_VERSION=`./conftest$EXEEXT`], [AC_MSG_RESULT([none])])
+]])], [STIP_VERSION=`./conftest$EXEEXT`], [AC_MSG_RESULT([none])], [dnl
+		AC_MSG_RESULT([impossible, cross-compiling])
+		if test -f "[]vfile[]" -o \
+			-f "${srcdir}/[]vfile[]" -o \
+			-f "${srcdir}/.version"; then
+			AC_MSG_NOTICE([
+Files that (possibly) mandate versions have been detected.
+These are `]vfile[' or `${srcdir}/]vfile[' or `${srcdir}/.version'.
+However, their contents cannot be automatically checked for integrity
+due to building for a platform other than the current one
+(cross-compiling).
+
+I will proceed with the most conservative guess for the stipulated
+version, which is `${VERSION}'.
+
+If that appears to be wrong, or needs overriding, please edit the
+aforementioned files manually.
+
+Also note, even though this project comes with all the tools to
+perform a successful bootstrap for any of the files above, should
+they go out of date or be deleted, they don't support cross-builds.
+			])
+		fi
+	])
 	CPPFLAGS="${save_CPPFLAGS}"
 	AC_LANG_POP([C])
 
@@ -126,7 +149,7 @@ AC_DEFUN([AX_YUCK_SCMVER], [dnl
 		## make sure it's in the builddir as well
 		cp -p "${srcdir}/[]vfile[]" "[]vfile[]" 2>/dev/null
 	elif test -f "${srcdir}/[]vfile[].in"; then
-		${M4:-m4} -DYUCK_SCMVER_VERSION="${VERSION}" \
+		${M4-m4} -DYUCK_SCMVER_VERSION="${VERSION}" \
 			"${srcdir}/[]vfile[].in" > "[]vfile[]"
 	else
 		echo "VERSION = ${VERSION}" > "[]vfile[]"
