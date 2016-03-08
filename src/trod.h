@@ -1,6 +1,6 @@
 /*** trod.h -- read and write roll-over descriptions in echse format
  *
- * Copyright (C) 2013-2015 Sebastian Freundt
+ * Copyright (C) 2013-2016 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
