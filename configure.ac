@@ -34,22 +34,8 @@ AC_CHECK_TOOLS([AR], [xiar ar], [false])
 AC_C_BIGENDIAN
 AC_PROG_RANLIB
 
+## dfp754 helpers
 SXE_CHECK_DFP754
-
-AC_CHECK_HEADERS([dfp754.h])
-AM_CONDITIONAL([HAVE_DFP754], [test "${ac_cv_header_dfp754_h}" = "yes"])
-
-AC_CHECK_HEADERS([dfp/stdlib.h])
-AM_CONDITIONAL([HAVE_DFP_STDLIB], [test "${ac_cv_header_dfp_stdlib_h}" = "yes"])
-
-AC_CHECK_FUNCS([strtod32])
-AM_CONDITIONAL([HAVE_STRTOD32], [test "${ac_cv_func_strtod32}" = "yes"])
-
-AC_CHECK_FUNCS([quantized32])
-AM_CONDITIONAL([HAVE_QUANTIZED32], [test "${ac_cv_func_quantized32}" = "yes"])
-
-AC_CHECK_FUNCS([scalbnd32])
-AM_CONDITIONAL([HAVE_SCALBND32], [test "${ac_cv_func_scalbnd32}" = "yes"])
 
 SXE_CHECK_ASM_CORUS
 
