@@ -121,6 +121,11 @@ TESTS += string_symbols_04.clit
 EXTRA_DIST += strsym_01.tser
 EXTRA_DIST += strsym_01.trod
 
+TESTS += migrate_01.clit
+TESTS += migrate_02.clit
+EXTRA_DIST += old_01.truf
+EXTRA_DIST += old_02.truf
+
 
 clean-local:
 	-rm -rf *.tmpd

@@ -1,6 +1,6 @@
 /*** step.c -- time-symbol-exposure-price hash tables
  *
- * Copyright (C) 2009-2015 Sebastian Freundt
+ * Copyright (C) 2009-2016 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -40,7 +40,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "step.h"
-#include "truf-dfp754.h"
+#include "dfp754_d32.h"
 #include "nifty.h"
 
 /* the beef table, slot 0-63 are in stkstk[0U], slots 64-127 in stkstk[1U],

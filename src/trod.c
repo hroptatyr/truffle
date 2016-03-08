@@ -1,6 +1,6 @@
 /*** trod.c -- convert or generate truffle roll-over description files
  *
- * Copyright (C) 2011-2015 Sebastian Freundt
+ * Copyright (C) 2011-2016 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -48,7 +48,7 @@
 #include "truffle.h"
 #include "instant.h"
 #include "trod.h"
-#include "truf-dfp754.h"
+#include "dfp754_d32.h"
 #include "nifty.h"
 
 

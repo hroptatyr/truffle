@@ -1,6 +1,6 @@
 /*** truffle.c -- tool to apply roll-over directives
  *
- * Copyright (C) 2009-2015 Sebastian Freundt
+ * Copyright (C) 2009-2016 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -54,7 +54,7 @@
 #include "trod.h"
 #include "step.h"
 #include "rpaf.h"
-#include "truf-dfp754.h"
+#include "dfp754_d32.h"
 /* while we're in transition mood */
 #include "daisy.h"
 #include "idate.h"

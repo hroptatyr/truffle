@@ -1,6 +1,6 @@
 /*** rpaf.c -- reference prices and accrued flows
  *
- * Copyright (C) 2009-2015 Sebastian Freundt
+ * Copyright (C) 2009-2016 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -42,7 +42,7 @@
 #include <assert.h>
 #include "truffle.h"
 #include "rpaf.h"
-#include "truf-dfp754.h"
+#include "dfp754_d32.h"
 #include "nifty.h"
 
 typedef struct {

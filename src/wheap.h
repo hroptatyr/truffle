@@ -1,6 +1,6 @@
 /*** wheap.h -- weak heaps, as stolen from sxemacs
  *
- * Copyright (C) 2007-2015 Sebastian Freundt
+ * Copyright (C) 2007-2016 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
