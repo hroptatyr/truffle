@@ -1304,7 +1304,7 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 			.absp = abs_prec_p, .prec = prec);
 
 		echs_instant_t metro = {9999U};
-		coru_args(co_roll_out) oa;
+		coru_args(co_roll_out) oa = {};
 		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
 			echs_instant_t t = e->t;
 			truf_rpaf_t r = truf_rpaf_step(e);
