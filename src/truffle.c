@@ -296,13 +296,13 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 			res.bid = strtod32(on, &on);
 			on++;
 		} else {
-			res.bid = res.ask = nand32(NULL);
+			res.bid = res.ask = NAND32;
 		}
 
 		if (UNLIKELY(flds & FLD_BIDASK)) {
 			res.ask = strtod32(on, &on);
 		} else {
-			res.ask = nand32(NULL);
+			res.ask = NAND32;
 		}
 
 		yield(res);
@@ -325,7 +325,7 @@ defcoru(co_echs_pop, ia, UNUSED(arg))
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
 	struct truf_step_s res = {
-		.old = nand32(NULL),
+		.old = NAND32,
 	};
 	truf_wheap_t q = ia->q;
 
@@ -567,8 +567,8 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 				if (echs_idiff_ge_p(age, ia.mqa)) {
 					/* max quote age exceeded */
 					st->t = ev->t;
-					st->bid = nand32(NULL);
-					st->ask = nand32(NULL);
+					st->bid = NAND32;
+					st->ask = NAND32;
 				}
 			}
 			/* defer the yield a bit,
@@ -729,7 +729,7 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 					/* prep the yield */
 					res = *st;
 					res.t = ln->t;
-					res.old = nand32(NULL);
+					res.old = NAND32;
 					yield(res);
 				}
 			}
@@ -1257,7 +1257,7 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 	}
 
 	with (const char *fn = argi->args[0U]) {
-		truf_price_t prc = nand32(NULL);
+		truf_price_t prc = NAND32;
 		truf_price_t cfv = 1.df;
 		bool abs_prec_p = false;
 		signed int prec = 0;

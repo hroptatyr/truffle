@@ -93,7 +93,7 @@ truf_rpaf_find(truf_sym_t sym)
 				/* found empty slot */
 				rstk[off].sym = sym;
 				/* init the rpaf cell */
-				rstk[off].rpaf->refprc = nand32(NULL);
+				rstk[off].rpaf->refprc = NAND32;
 				rstk[off].rpaf->cruflo = 0.df;
 				nstk++;
 				return rstk + off;
@@ -146,7 +146,7 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 		r->cruflo += (r->refprc - ref) * edif;
 		if (st->new == 0.df) {
 			/* reset refprc */
-			r->refprc = nand32(NULL);
+			r->refprc = NAND32;
 		} else {
 			r->refprc = ref;
 		}

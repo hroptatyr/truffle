@@ -85,7 +85,7 @@ init(struct stk_off_s o, truf_sym_t sym)
 {
 	stkstk[o.stk][o.cel].sym = sym;
 	/* no prices yet */
-	stkstk[o.stk][o.cel].bid = stkstk[o.stk][o.cel].ask = nand32(NULL);
+	stkstk[o.stk][o.cel].bid = stkstk[o.stk][o.cel].ask = NAND32;
 	/* no exposures either */
 	stkstk[o.stk][o.cel].old = stkstk[o.stk][o.cel].new = 0.df;
 	return;
