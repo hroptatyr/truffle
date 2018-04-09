@@ -39,10 +39,13 @@
 #endif	/* HAVE_CONFIG_H */
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #if defined HAVE_DFP754_H
 # include <dfp754.h>
 #elif defined HAVE_DFP_STDLIB_H
 # include <dfp/stdlib.h>
+#else  /* !HAVE_DFP754_H && !HAVE_DFP_STDLIB_H */
+extern int isinfd64(_Decimal64);
 #endif	/* HAVE_DFP754_H */
 #include "dfp754_d32.h"
 
@@ -73,6 +76,12 @@ deconst(const void *cp)
 		void *p;
 	} tmp = {cp};
 	return tmp.p;
+}
+
+static inline __attribute__((const, pure)) size_t
+min_z(size_t z1, size_t z2)
+{
+	return z1 <= z2 ? z1 : z2;
 }
 
 
@@ -371,6 +380,9 @@ strtobcd32(const char *src, char **on)
 
 	if (UNLIKELY(*sp == '-')) {
 		sign = 1;
+		sp++;
+	} else if (UNLIKELY(*sp == '+')) {
+		sign = 0;
 		sp++;
 	}
 	/* skip leading zeros innit? */
@@ -684,6 +696,16 @@ dpd32tostr(char *restrict buf, size_t bsz, _Decimal32 x)
 int
 d32tostr(char *restrict buf, size_t bsz, _Decimal32 x)
 {
+	if (UNLIKELY(isnand32(x))) {
+		const size_t z = min_z(3U, bsz);
+		memcpy(buf, "nan", z);
+		return z;
+	} else if (UNLIKELY(isinfd32(x))) {
+		const size_t z = min_z(3U + (x < 0.df), bsz);
+		buf[0U] = '-';
+		memcpy(buf + (x < 0.df), "inf", z);
+		return z;
+	}
 #if defined HAVE_DFP754_BID_LITERALS
 	return bid32tostr(buf, bsz, x);
 #elif defined HAVE_DFP754_DPD_LITERALS

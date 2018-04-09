@@ -42,13 +42,22 @@
 #endif	/* HAVE_CONFIG_H */
 #if defined HAVE_DFP754_H
 # include <dfp754.h>
-#elif defined HAVE_DFP_STDLIB_H
-# include <dfp/stdlib.h>
 #endif	/* HAVE_DFP754_H */
+#if defined HAVE_DFP_STDLIB_H
+# include <dfp/stdlib.h>
+#endif	/* HAVE_DFP_STDLIB_H */
 #include <stdlib.h>
 #include <stdint.h>
 
 #define NAND32_U		(0x7c000000U)
+#define INFD32_U		(0x78000000U)
+
+#if !defined __DEC32_MOST_POSITIVE__
+# define __DEC32_MOST_POSITIVE__	(__DEC32_MAX__)
+#endif	/* !__DEC32_MOST_POSITIVE__ */
+#if !defined __DEC32_MOST_NEGATIVE__
+# define __DEC32_MOST_NEGATIVE__	(-__DEC32_MOST_POSITIVE__)
+#endif	/* !__DEC32_MOST_NEGATIVE__ */
 
 typedef struct {
 	uint_least32_t mant;
@@ -150,12 +159,35 @@ quantexpd32(_Decimal32 x)
 }
 #endif	/* !HAVE_DFP754_*_LITERALS */
 
+#if defined HAVE_BUILTIN_NAND32
+# define NAND32		__builtin_nand32("")
+#elif defined HAVE_BUILTIN_NAN_FOR_NAND32
+# define NAND32		((_Decimal32)__builtin_nan(""))
+#else
+# define NAND32		((union {uint32_t u; _Decimal32 x;}){NAND32_U}.x)
+#endif
+#if defined HAVE_BUILTIN_INFD32
+# define INFD32		__builtin_infd32()
+#elif defined HAVE_BUILTIN_INF_FOR_INFD32
+# define INFD32		((_Decimal32)__builtin_inf())
+#else
+# define INFD32		(((union {uint32_t u; _Decimal32 x;}){INFD32_U}).x)
+#endif
+
 #if !defined HAVE_NAND32
 inline __attribute__((pure, const)) _Decimal32
 nand32(char *__tagp __attribute__((unused)))
 {
-	return bobs32(NAND32_U);
+	return NAND32;
 }
 #endif	/* !HAVE_NAND32 */
+
+#if !defined HAVE_INFD32
+inline __attribute__((pure, const)) _Decimal32
+infd32(void)
+{
+	return INFD32;
+}
+#endif	/* !HAVE_INFD32 */
 
 #endif	/* INCLUDED_dfp754_d32_h_ */
