@@ -1,6 +1,6 @@
 /*** str.c -- pools of strings (for symbology)
  *
- * Copyright (C) 2013-2016 Sebastian Freundt
+ * Copyright (C) 2013-2018 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *

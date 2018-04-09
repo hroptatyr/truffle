@@ -1,6 +1,6 @@
 /*** truffle.c -- tool to apply roll-over directives
  *
- * Copyright (C) 2009-2016 Sebastian Freundt
+ * Copyright (C) 2009-2018 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
