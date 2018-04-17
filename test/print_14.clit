@@ -1,0 +1,10 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truffle print < "${srcdir}/print_02.trod"
+2006-01-01T20:00:00	F0	1
+2006-01-01T20:24:00	G0	1
+2006-01-01T20:24:00	F0	0
+2006-01-01T20:44:00	G0	0
+$
+
+## print_14.clit ends here
