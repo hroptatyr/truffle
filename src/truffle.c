@@ -1051,7 +1051,7 @@ cmd_filter(const struct yuck_cmd_filter_s argi[static 1U])
 		max_quote_age = (echs_idiff_t){4095};
 	}
 
-	for (size_t i = 1U; i < argi->nargs; i++) {
+	for (size_t i = 1U; i < argi->nargs + (argi->nargs <= 1U); i++) {
 		const char *fn = argi->args[i];
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
@@ -1246,7 +1246,7 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 		max_quote_age = (echs_idiff_t){4095};
 	}
 
-	for (unsigned int i = 1U; i < argi->nargs; i++) {
+	for (unsigned int i = 1U; i < argi->nargs + (argi->nargs <= 1U); i++) {
 		const char *fn = argi->args[i];
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
