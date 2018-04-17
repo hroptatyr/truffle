@@ -917,7 +917,7 @@ cmd_print(const struct yuck_cmd_print_s argi[static 1U])
 		goto out;
 	}
 
-	for (size_t i = 0U; i < argi->nargs; i++) {
+	for (size_t i = 0U; i < argi->nargs + !argi->nargs; i++) {
 		const char *fn = argi->args[i];
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {

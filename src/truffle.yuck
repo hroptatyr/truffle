@@ -58,6 +58,7 @@ If no dates/times are given, read them from stdin.
 Usage: truffle print [TROD-FILE]...
 
 Print resulting actors of trod echse messages.
+If TROD-FILE is omitted, read from stdin.
 
 
 Usage: truffle roll TSER-FILE [TROD-FILE]...
