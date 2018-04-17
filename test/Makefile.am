@@ -117,6 +117,10 @@ TESTS += roll_17.clit
 TESTS += roll_18.clit
 TESTS += roll_19.clit
 TESTS += roll_20.clit
+TESTS += roll_21.clit
+TESTS += roll_22.clit
+TESTS += roll_23.clit
+TESTS += roll_24.clit
 
 TESTS += string_symbols_01.clit
 TESTS += string_symbols_02.clit
