@@ -40,9 +40,9 @@ Output a single stream with prices and directives.
                         to seconds.
 
 
-Usage: truffle migrate [SCHEMA-FILE]...
+Usage: truffle migrate SCHEMA-FILE...
 
-Read recurrence schemas from SCHEMA-FILE (or stdin) and roll them out.
+Read recurrence schemas from SCHEMA-FILE and roll them out.
 
    --from=DT            Start event states at DT.
    --till=DT            Finish event streams by DT.
