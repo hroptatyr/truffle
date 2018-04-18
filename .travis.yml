@@ -6,7 +6,7 @@ os:
   - linux
 
 compiler:
-  - gcc
+  - gcc-5
 
 before_script:
   - autoreconf -vfi
@@ -39,3 +39,10 @@ deploy:
 notifications:
   email:
     - devel@fresse.org
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-5
