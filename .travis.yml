@@ -24,6 +24,17 @@ branches:
   only:
     - master
     - next
+    - /^v\d+\..*/
+
+deploy:
+  provider: releases
+  api_key:
+    secure: "SiSVINnjUURtKyRzK0vN7auhlL23Pl3UZKUts1EP8V39r2IkxYwYDPCKx8CFlcH/+qxwuY9FLQYN94gC1qT4FMskiPgwJW4cpqMAqiGt5Z3ZEBAMc0M9gqzPboi+ILqtYBoep0dYmNYYexuggdE5MxKukCEAoVyzFdALe2cYmZ8="
+  file_glob: true
+  file: truffle-*.tar.xz
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:
