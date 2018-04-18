@@ -1,12 +1,12 @@
 language: c
 
+sudo: false
+
+os:
+  - linux
+
 compiler:
   - gcc
-
-before_install:
-  - sudo apt-get -qq update
-
-install:
 
 before_script:
   - autoreconf -vfi
