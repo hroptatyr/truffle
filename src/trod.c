@@ -48,7 +48,6 @@
 #include "truffle.h"
 #include "instant.h"
 #include "trod.h"
-#include "dfp754_d32.h"
 #include "nifty.h"
 
 
@@ -66,10 +65,10 @@ truf_trod_rd(const char *str, char **on)
 		/* no separator, so it's just a symbol
 		 * imply exp = 0.df if ~FOO, exp = 1.df otherwise */
 		if (*str != '~') {
-			res.exp = 1.df;
+			res.exp = UNITEX;
 		} else {
 			/* could be ~FOO notation */
-			res.exp = 0.df;
+			res.exp = ZEROEX;
 			str++;
 		}
 		/* also set ON pointer */
@@ -79,7 +78,7 @@ truf_trod_rd(const char *str, char **on)
 		break;
 	default:
 		/* get the exposure sorted (hopefully just 1 separator) */
-		res.exp = strtod32(brk + 1U, on);
+		res.exp = strtoex(brk + 1U, on);
 		break;
 	}
 	/* before blindly strdup()ing the symbol check if it's not by
@@ -99,7 +98,7 @@ truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t)
 	if (LIKELY(bp < ep)) {
 		*bp++ = '\t';
 	}
-	bp += d32tostr(bp, ep - bp, t.exp);
+	bp += extostr(bp, ep - bp, t.exp);
 	if (LIKELY(bp < ep)) {
 		*bp = '\0';
 	} else if (LIKELY(ep > bp)) {
