@@ -194,13 +194,14 @@ static const struct co_rdr_res_s {
 	echs_instant_t t;
 	const char *ln;
 	size_t lz;
+	size_t nl;
 } *defcoru(co_echs_rdr, ia, UNUSED(arg))
 {
 	char *line = NULL;
 	size_t llen = 0UL;
 	ssize_t nrd;
 	/* we'll yield a rdr_res */
-	struct co_rdr_res_s res;
+	struct co_rdr_res_s res = {.nl = 0U};
 	FILE *f = ia->f;
 
 	while ((nrd = getline(&line, &llen, f)) > 0) {
@@ -219,6 +220,7 @@ static const struct co_rdr_res_s {
 		/* pack the result structure */
 		res.ln = p;
 		res.lz = nrd - (p - line);
+		res.nl++;
 		yield(res);
 	}
 
@@ -237,6 +239,7 @@ declcoru(co_tser_rdr, {
 static truf_step_cell_t
 defcoru(co_tser_rdr, ia, UNUSED(arg))
 {
+	echs_instant_t olt = {.u = 0};
 	coru_t rdr;
 	/* we'll yield a truf_step object */
 	struct truf_step_s res;
@@ -289,6 +292,12 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 		char *on;
 
 		res.t = ln->t;
+		if (UNLIKELY(echs_instant_lt_p(res.t, olt))) {
+			errno = 0, error("\
+Error: violation of chronologicity in line %zu of time series", ln->nl);
+			goto bugger;
+		}
+		olt = res.t;
 		if (LIKELY(flds & FLD_SYMBOL)) {
 			res.sym = truf_sym_rd(ln->ln, &on);
 			on++;
