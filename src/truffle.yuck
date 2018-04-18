@@ -12,6 +12,8 @@ Usage: truffle filter TSER-FILE [TROD-FILE]....
 Filter relevant price lines from TSER-FILE with directives from
 TROD-FILEs or, if omitted, from stdin.
 
+Time series are read from TSER-FILE and must be in chronological order.
+
   --edge                Only print edge lines.
   --max-quote-age=AGE   Allow quotes outside of the exposure range
                         provided they're younger than AGE.
@@ -30,6 +32,8 @@ Turn a quote series into a series of cash flows.
 Usage: truffle glue TSER-FILE [TROD-FILE]...
 
 Output a single stream with prices and directives.
+
+Time series are read from TSER-FILE and must be in chronological order.
 
   --edge                Only print edge lines.
   --max-quote-age=AGE   Allow quotes outside of the exposure range
@@ -65,6 +69,8 @@ Usage: truffle roll TSER-FILE [TROD-FILE]...
 
 Roll multitude of timeseries into one.  Roll-over directives are taken
 from TROD-FILE or, if omitted, from stdin.
+
+Time series are read from TSER-FILE and must be in chronological order.
 
   --edge                Only print edge lines.
   -b, --basis=PRC       Basis of a carry-over position as price quote.
