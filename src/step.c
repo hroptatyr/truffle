@@ -40,7 +40,6 @@
 #include <stdint.h>
 #include <string.h>
 #include "step.h"
-#include "dfp754_d32.h"
 #include "nifty.h"
 
 /* the beef table, slot 0-63 are in stkstk[0U], slots 64-127 in stkstk[1U],
@@ -85,9 +84,9 @@ init(struct stk_off_s o, truf_sym_t sym)
 {
 	stkstk[o.stk][o.cel].sym = sym;
 	/* no prices yet */
-	stkstk[o.stk][o.cel].bid = stkstk[o.stk][o.cel].ask = NAND32;
+	stkstk[o.stk][o.cel].bid = stkstk[o.stk][o.cel].ask = NANPX;
 	/* no exposures either */
-	stkstk[o.stk][o.cel].old = stkstk[o.stk][o.cel].new = 0.df;
+	stkstk[o.stk][o.cel].old = stkstk[o.stk][o.cel].new = ZEROEX;
 	return;
 }
 

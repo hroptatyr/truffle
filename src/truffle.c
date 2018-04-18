@@ -46,6 +46,13 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#if defined HAVE_DFP754_H
+# include <dfp754.h>
+#elif defined HAVE_DFP_STDLIB_H
+# include <dfp/stdlib.h>
+#else  /* !HAVE_DFP754_H && !HAVE_DFP_STDLIB_H */
+extern int isinfd64(_Decimal64);
+#endif	/* HAVE_DFP754_H */
 #include "truffle.h"
 #include "wheap.h"
 #include "nifty.h"
@@ -54,7 +61,6 @@
 #include "trod.h"
 #include "step.h"
 #include "rpaf.h"
-#include "dfp754_d32.h"
 /* while we're in transition mood */
 #include "daisy.h"
 #include "idate.h"
@@ -92,11 +98,11 @@ static _Decimal32
 mkscal(signed int nd)
 {
 /* produce a d32 with -ND fractional digits */
-	return scalbnd32(1.df, nd);
+	return scalbnd(1.df, nd);
 }
 
 static bool
-d32p(const char *str, char *on[static 1U])
+dxxp(const char *str, char *on[static 1U])
 {
 	const char *sp = str;
 	bool res = true;
@@ -251,7 +257,7 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 	with (const char *in = ln->ln) {
 		char *on;
 
-		if (d32p(in, &on) && on > in) {
+		if (dxxp(in, &on) && on > in) {
 			flds |= FLD_SETTLE;
 		} else {
 			/* assume symbols, even allow the empty symbol */
@@ -262,7 +268,7 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 		}
 
 		in = on + 1U;
-		if (d32p(in, &on) && on > in) {
+		if (dxxp(in, &on) && on > in) {
 			/* got more d32s,
 			 * if there was no prc yet, set SETTLE,
 			 * otherwise set BIDASK (and clear SETTLE) */
@@ -273,7 +279,7 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 		}
 
 		in = on + 1U;
-		if (d32p(in, &on) && on > in) {
+		if (dxxp(in, &on) && on > in) {
 			/* got more d32s */
 			flds |= FLD_BIDASK;
 		}
@@ -293,16 +299,16 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 
 		/* snarf price(s) */
 		if (LIKELY(flds & (FLD_SETTLE | FLD_BIDASK))) {
-			res.bid = strtod32(on, &on);
+			res.bid = strtopx(on, &on);
 			on++;
 		} else {
-			res.bid = res.ask = NAND32;
+			res.bid = res.ask = NANPX;
 		}
 
 		if (UNLIKELY(flds & FLD_BIDASK)) {
-			res.ask = strtod32(on, &on);
+			res.ask = strtopx(on, &on);
 		} else {
-			res.ask = NAND32;
+			res.ask = NANPX;
 		}
 
 		yield(res);
@@ -325,7 +331,7 @@ defcoru(co_echs_pop, ia, UNUSED(arg))
 /* coroutine for the wheap popper */
 	/* we'll yield a pop_res */
 	struct truf_step_s res = {
-		.old = NAND32,
+		.old = NANEX,
 	};
 	truf_wheap_t q = ia->q;
 
@@ -400,24 +406,24 @@ _defcoru(co_echs_out, iap, truf_step_cell_t arg)
 			bp += truf_sym_wr(bp, ep - bp, sym);
 		}
 		if (ia.prnt_prcp) {
-			if (!isnand32(arg->bid)) {
+			if (!isnanpx(arg->bid)) {
 				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->bid);
+				bp += pxtostr(bp, ep - bp, arg->bid);
 			}
-			if (!isnand32(arg->ask)) {
+			if (!isnanpx(arg->ask)) {
 				*bp++ = '\t';
-				bp += d32tostr(bp, ep - bp, arg->ask);
+				bp += pxtostr(bp, ep - bp, arg->ask);
 			}
 		}
 		if (ia.prnt_expp) {
 			*bp++ = '\t';
-			if (!isnand32(arg->old)) {
-				bp += d32tostr(bp, ep - bp, arg->old);
+			if (!isnanpx(arg->old)) {
+				bp += extostr(bp, ep - bp, arg->old);
 				*bp++ = '-';
 				*bp++ = '>';
 			}
-			if (!isnand32(arg->new)) {
-				bp += d32tostr(bp, ep - bp, arg->new);
+			if (!isnanpx(arg->new)) {
+				bp += extostr(bp, ep - bp, arg->new);
 			}
 		}
 		*bp++ = '\n';
@@ -451,7 +457,7 @@ defcoru(co_roll_out, iap, arg)
 			char *bp = buf;
 			truf_price_t prc;
 
-			if (UNLIKELY(isnand32(prc = arg->prc))) {
+			if (UNLIKELY(isnanpx(prc = arg->prc))) {
 				/* refuse to print nans */
 				goto nex2;
 			}
@@ -463,11 +469,11 @@ defcoru(co_roll_out, iap, arg)
 			/* scale to precision */
 			if (UNLIKELY(ia.prec)) {
 				/* come up with a new raw value */
-				int tgtx = quantexpd32(prc) + ia.prec;
-				_Decimal32 scal = scalbnd32(1.df, tgtx);
-				prc = quantized32(prc, scal);
+				int tgtx = quantexpd(prc) + ia.prec;
+				truf_price_t scal = scalbnd(ZEROPX, tgtx);
+				prc = quantized(prc, scal);
 			}
-			bp += d32tostr(bp, ep - bp, prc);
+			bp += pxtostr(bp, ep - bp, prc);
 			*bp++ = '\n';
 			*bp = '\0';
 			fputs(buf, ia.f);
@@ -482,7 +488,7 @@ defcoru(co_roll_out, iap, arg)
 			char *bp = buf;
 			truf_price_t prc;
 
-			if (UNLIKELY(isnand32(prc = arg->prc))) {
+			if (UNLIKELY(isnanpx(prc = arg->prc))) {
 				/* refuse to print nans */
 				goto nex4;
 			}
@@ -491,8 +497,8 @@ defcoru(co_roll_out, iap, arg)
 			*bp++ = '\t';
 
 			/* scale to precision */
-			prc = quantized32(prc, scal);
-			bp += d32tostr(bp, ep - bp, prc);
+			prc = quantized(prc, scal);
+			bp += pxtostr(bp, ep - bp, prc);
 			*bp++ = '\n';
 			*bp = '\0';
 			fputs(buf, ia.f);
@@ -567,8 +573,8 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 				if (echs_idiff_ge_p(age, ia.mqa)) {
 					/* max quote age exceeded */
 					st->t = ev->t;
-					st->bid = NAND32;
-					st->ask = NAND32;
+					st->bid = NANPX;
+					st->ask = NANPX;
 				}
 			}
 			/* defer the yield a bit,
@@ -606,7 +612,7 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 				if (ref->old == ref->new) {
 					continue;
 				}
-				if (ia.levp && !ia.edgp && ref->new == 0.df) {
+				if (ia.levp && !ia.edgp && ref->new == ZEROEX) {
 					/* we already yielded this when
 					 * the exposure was != 0.df */
 					continue;
@@ -616,7 +622,7 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 				if (ia.edgp) {
 					res.t = dfrd[nemit].t;
 				}
-				if (!isnand32(ref->bid)) {
+				if (!isnanpx(ref->bid)) {
 					/* update exposure */
 					ref->old = ref->new;
 				}
@@ -639,7 +645,7 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 			st->ask = qu->ask;
 
 			if (ia.levp) {
-				if (st->old == st->new && st->new == 0.df) {
+				if (st->old == st->new && st->new == ZEROEX) {
 					/* we're not invested,
 					 * and it's not an edge */
 					continue;
@@ -725,11 +731,11 @@ defcoru(co_echs_pos, ia, UNUSED(arg))
 			bp += dt_strf(bp, ep - bp, ln->t);
 			*bp++ = '\t';
 			for (truf_step_t st; (st = truf_step_iter()) != NULL;) {
-				if (st->new != 0.df) {
+				if (st->new != ZEROEX) {
 					/* prep the yield */
 					res = *st;
 					res.t = ln->t;
-					res.old = NAND32;
+					res.old = NANEX;
 					yield(res);
 				}
 			}
@@ -800,7 +806,7 @@ struct trsch_s {
 	struct cline_s *p[];
 };
 
-static const truf_trod_t truf_nul_trod = {.exp = 0.df};
+static const truf_trod_t truf_nul_trod = {.exp = ZEROEX};
 
 static inline unsigned int
 m_to_i(char month)
@@ -851,16 +857,16 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 		if (when == l2) {
 			/* something happened at l2 */
 			if (n2->y == 0.0 && n1->y != 0.0) {
-				res.exp = 0.df;
+				res.exp = ZEROEX;
 			} else if (n2->y != 0.0 && n1->y == 0.0) {
-				res.exp = 1.df;
+				res.exp = UNITEX;
 			} else {
 				continue;
 			}
 		} else if (j == 0 && when == l1) {
 			/* something happened at l1 */
 			if (UNLIKELY(n1->y != 0.0)) {
-				res.exp = 1.df;
+				res.exp = UNITEX;
 			} else {
 				continue;
 			}
@@ -1084,7 +1090,7 @@ cmd_filter(const struct yuck_cmd_filter_s argi[static 1U])
 			.prnt_prcp = true);
 
 		for (truf_step_cell_t e; (e = next(flt)) != NULL;) {
-			if (UNLIKELY(isnand32(e->bid))) {
+			if (UNLIKELY(isnanpx(e->bid))) {
 				continue;
 			}
 			____next(out, e);
@@ -1257,7 +1263,7 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 	}
 
 	with (const char *fn = argi->args[0U]) {
-		truf_price_t prc = NAND32;
+		truf_price_t prc = NANPX;
 		truf_price_t cfv = 1.df;
 		bool abs_prec_p = false;
 		signed int prec = 0;
@@ -1288,10 +1294,10 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 		}
 
 		if (argi->basis_arg) {
-			prc = strtod32(argi->basis_arg, NULL);
+			prc = strtopx(argi->basis_arg, NULL);
 		}
 		if (argi->tick_value_arg) {
-			cfv = strtod32(argi->tick_value_arg, NULL);
+			cfv = strtopx(argi->tick_value_arg, NULL);
 		}
 
 		init_coru();
@@ -1309,19 +1315,19 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 			echs_instant_t t = e->t;
 			truf_rpaf_t r = truf_rpaf_step(e);
 
-			if (UNLIKELY(isnand32(e->bid))) {
+			if (UNLIKELY(isnanpx(e->bid))) {
 				/* do fuckall */
 				continue;
-			} else if (UNLIKELY(isnand32(prc))) {
+			} else if (UNLIKELY(isnanpx(prc))) {
 				/* set initial price level to first refprc */
 				signed int iqu = 0;
 
 				prc = r.refprc;
 				/* get the quantum right for this one */
-				iqu += quantexpd32(prc);
-				iqu += quantexpd32(r.cruflo);
-				iqu += quantexpd32(cfv);
-				prc = quantized32(prc, scalbnd32(0.df, iqu));
+				iqu += quantexpd(prc);
+				iqu += quantexpd(r.cruflo);
+				iqu += quantexpd(cfv);
+				prc = quantized(prc, scalbnd(ZEROPX, iqu));
 			} else {
 				/* sum up rpaf */
 				prc += r.cruflo * cfv;
@@ -1386,10 +1392,10 @@ cmd_flow(const struct yuck_cmd_flow_s argi[static 1U])
 		truf_step_t st = truf_step_find(e->sym);
 		struct truf_step_s fe = *e;
 
-		if (UNLIKELY(isnand32(st->bid))) {
+		if (UNLIKELY(isnanpx(st->bid))) {
 			st->bid = e->bid;
 		}
-		if (UNLIKELY(isnand32(st->ask))) {
+		if (UNLIKELY(isnanpx(st->ask))) {
 			st->ask = e->ask;
 		}
 		/* fiddle with the local step cell to make it cash flows */

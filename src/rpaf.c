@@ -40,9 +40,15 @@
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
+#if defined HAVE_DFP754_H
+# include <dfp754.h>
+#elif defined HAVE_DFP_STDLIB_H
+# include <dfp/stdlib.h>
+#else  /* !HAVE_DFP754_H && !HAVE_DFP_STDLIB_H */
+extern int isinfd64(_Decimal64);
+#endif	/* HAVE_DFP754_H */
 #include "truffle.h"
 #include "rpaf.h"
-#include "dfp754_d32.h"
 #include "nifty.h"
 
 typedef struct {
@@ -57,7 +63,7 @@ static size_t zstk;
 /* number of elements */
 static size_t nstk;
 
-static const truf_rpaf_t truf_nul_rpaf = {0.df, 0.df};
+static const truf_rpaf_t truf_nul_rpaf = {ZEROPX, ZEROPX};
 
 static inline size_t
 get_off(size_t idx, size_t mod)
@@ -93,8 +99,8 @@ truf_rpaf_find(truf_sym_t sym)
 				/* found empty slot */
 				rstk[off].sym = sym;
 				/* init the rpaf cell */
-				rstk[off].rpaf->refprc = NAND32;
-				rstk[off].rpaf->cruflo = 0.df;
+				rstk[off].rpaf->refprc = NANPX;
+				rstk[off].rpaf->cruflo = ZEROPX;
 				nstk++;
 				return rstk + off;
 			}
@@ -110,7 +116,7 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 {
 	truf_rpaf_t *r = sr->rpaf;
 	truf_price_t bid = st->bid;
-	truf_price_t ask = isnand32(st->ask) ? bid : st->ask;
+	truf_price_t ask = isnanpx(st->ask) ? bid : st->ask;
 	truf_price_t ref;
 	truf_expos_t edif;
 
@@ -119,23 +125,23 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 	 * the difference between the two is weighted by the exposure and
 	 * returned in the cruflo slot
 	 * this routine is for callers who want to do the summing themselves */
-	if (isnand32(r->refprc)) {
+	if (isnanpx(r->refprc)) {
 		/* just set the reference price */
-		if (st->new < 0.df) {
+		if (st->new < ZEROEX) {
 			/* going short or there's just one price */
 			r->refprc = bid;
-		} else if (st->new > 0.df) {
+		} else if (st->new > ZEROEX) {
 			r->refprc = ask;
 		}
 		/* mimic a 0 flow but with the right quantum */
-		r->cruflo = scalbnd32(0.df, quantexpd32(st->new));
-	} else if ((edif = st->new - st->old) != 0.df) {
+		r->cruflo = scalbnd(ZEROPX, quantexpd(st->new));
+	} else if ((edif = st->new - st->old) != ZEROEX) {
 		/* we determined it's an edge */
 
-		if (edif < 0.df) {
+		if (edif < ZEROEX) {
 			/* short/close */
 			ref = bid;
-		} else if (edif > 0.df) {
+		} else if (edif > ZEROEX) {
 			/* long/open */
 			ref = ask;
 		} else {
@@ -144,15 +150,15 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 
 		/* the level formula is quite simple diff_prc * diff_exp */
 		r->cruflo += (r->refprc - ref) * edif;
-		if (st->new == 0.df) {
+		if (st->new == ZEROEX) {
 			/* reset refprc */
-			r->refprc = NAND32;
+			r->refprc = NANPX;
 		} else {
 			r->refprc = ref;
 		}
 	} else {
 		/* it's a level, i.e. operate in settlement mode */
-		if (st->new > 0.df) {
+		if (st->new > ZEROEX) {
 			ref = bid;
 		} else {
 			ref = ask;
@@ -174,7 +180,7 @@ truf_rpaf_step(const struct truf_step_s st[static 1U])
 		return truf_nul_rpaf;
 	}
 	/* otherwise init rpaf */
-	sr->rpaf->cruflo = 0.df;
+	sr->rpaf->cruflo = ZEROPX;
 	rpaf_scru(sr, st);
 	return *sr->rpaf;
 }

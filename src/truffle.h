@@ -38,10 +38,52 @@
 #define INCLUDED_truffle_h_
 
 #include <stdint.h>
+#include "dfp754_d32.h"
+#include "dfp754_d64.h"
 #include "sym.h"
 
-typedef _Decimal32 truf_price_t;
-typedef _Decimal32 truf_quant_t;
+typedef _Decimal64 truf_price_t;
+typedef _Decimal64 truf_quant_t;
 typedef _Decimal32 truf_expos_t;
+
+#define NANPX	NAND64
+#define isnanpx	isnand64
+#define NANQX	NAND64
+#define isnanqx	isnand64
+#define NANEX	NAND32
+#define isnanex	isnand32
+
+#define strtopx	strtod64
+#define pxtostr	d64tostr
+#define strtoqx	strtod64
+#define qxtostr	d64tostr
+#define strtoex	strtod32
+#define extostr	d32tostr
+
+#define ZEROPX	0.dd
+#define UNITPX	1.dd
+#define ZEROQX	0.dd
+#define UNITQX	1.dd
+#define ZEROEX	0.df
+#define UNITEX	1.df
+
+#define scalbnd(x, i)				\
+	_Generic((x),				\
+		 _Decimal32: scalbnd32,		\
+		 _Decimal64: scalbnd64,		\
+		 default: scalbnd64		\
+		)(x, i)
+#define quantexpd(x)				\
+	_Generic((x),				\
+		 _Decimal64: quantexpd64,	\
+		 _Decimal32: quantexpd32,	\
+		 default: quantexpd64		\
+		)(x)
+#define quantized(x, s)				\
+	_Generic((x),				\
+		 _Decimal64: quantized64,	\
+		 _Decimal32: quantized32,	\
+		 default: quantized64		\
+		)(x, s)
 
 #endif	/* INCLUDED_truffle_h_ */

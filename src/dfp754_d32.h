@@ -40,12 +40,6 @@
 #if defined HAVE_CONFIG_H
 # include "config.h"
 #endif	/* HAVE_CONFIG_H */
-#if defined HAVE_DFP754_H
-# include <dfp754.h>
-#endif	/* HAVE_DFP754_H */
-#if defined HAVE_DFP_STDLIB_H
-# include <dfp/stdlib.h>
-#endif	/* HAVE_DFP_STDLIB_H */
 #include <stdlib.h>
 #include <stdint.h>
 

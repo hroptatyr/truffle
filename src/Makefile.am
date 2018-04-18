@@ -15,6 +15,7 @@ SUFFIXES =
 noinst_LIBRARIES = libtruffle.a
 libtruffle_a_SOURCES = truffle.h
 libtruffle_a_SOURCES += dfp754_d32.c dfp754_d32.h
+libtruffle_a_SOURCES += dfp754_d64.c dfp754_d64.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
 libtruffle_a_SOURCES += str.c str.h
 libtruffle_a_SOURCES += mmy.c mmy.h
