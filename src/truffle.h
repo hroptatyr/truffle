@@ -42,26 +42,26 @@
 #include "dfp754_d64.h"
 #include "sym.h"
 
-typedef _Decimal32 truf_price_t;
+typedef _Decimal64 truf_price_t;
 typedef _Decimal64 truf_quant_t;
 typedef _Decimal32 truf_expos_t;
 
-#define NANPX	NAND32
-#define isnanpx	isnand32
+#define NANPX	NAND64
+#define isnanpx	isnand64
 #define NANQX	NAND64
 #define isnanqx	isnand64
 #define NANEX	NAND32
 #define isnanex	isnand32
 
-#define strtopx	strtod32
-#define pxtostr	d32tostr
+#define strtopx	strtod64
+#define pxtostr	d64tostr
 #define strtoqx	strtod64
 #define qxtostr	d64tostr
 #define strtoex	strtod32
 #define extostr	d32tostr
 
-#define ZEROPX	0.df
-#define UNITPX	1.df
+#define ZEROPX	0.dd
+#define UNITPX	1.dd
 #define ZEROQX	0.dd
 #define UNITQX	1.dd
 #define ZEROEX	0.df
