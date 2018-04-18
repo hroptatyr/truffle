@@ -46,6 +46,13 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#if defined HAVE_DFP754_H
+# include <dfp754.h>
+#elif defined HAVE_DFP_STDLIB_H
+# include <dfp/stdlib.h>
+#else  /* !HAVE_DFP754_H && !HAVE_DFP_STDLIB_H */
+extern int isinfd64(_Decimal64);
+#endif	/* HAVE_DFP754_H */
 #include "truffle.h"
 #include "wheap.h"
 #include "nifty.h"
