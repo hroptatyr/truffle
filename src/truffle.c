@@ -94,13 +94,6 @@ error(const char *fmt, ...)
 	return;
 }
 
-static _Decimal32
-mkscal(signed int nd)
-{
-/* produce a d32 with -ND fractional digits */
-	return scalbnd(1.df, nd);
-}
-
 static bool
 dxxp(const char *str, char *on[static 1U])
 {
@@ -481,7 +474,8 @@ defcoru(co_roll_out, iap, arg)
 			arg = yield_ptr(NULL);
 		}
 	} else /*if (absp)*/ {
-		const _Decimal32 scal = mkscal(ia.prec);
+		/* produce a price with -ia.prec fractional digits */
+		const truf_price_t scal = scalbnd(UNITPX, ia.prec);
 
 		/* absolute precision mode */
 		while (arg != NULL) {
