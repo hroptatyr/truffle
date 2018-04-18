@@ -76,6 +76,8 @@ extern int isinfd64(_Decimal64);
 
 typedef const struct truf_step_s *truf_step_cell_t;
 
+static int rc;
+
 
 static void
 __attribute__((format(printf, 1, 2)))
@@ -187,13 +189,14 @@ static const struct co_rdr_res_s {
 	echs_instant_t t;
 	const char *ln;
 	size_t lz;
+	size_t nl;
 } *defcoru(co_echs_rdr, ia, UNUSED(arg))
 {
 	char *line = NULL;
 	size_t llen = 0UL;
 	ssize_t nrd;
 	/* we'll yield a rdr_res */
-	struct co_rdr_res_s res;
+	struct co_rdr_res_s res = {.nl = 0U};
 	FILE *f = ia->f;
 
 	while ((nrd = getline(&line, &llen, f)) > 0) {
@@ -212,6 +215,7 @@ static const struct co_rdr_res_s {
 		/* pack the result structure */
 		res.ln = p;
 		res.lz = nrd - (p - line);
+		res.nl++;
 		yield(res);
 	}
 
@@ -230,6 +234,7 @@ declcoru(co_tser_rdr, {
 static truf_step_cell_t
 defcoru(co_tser_rdr, ia, UNUSED(arg))
 {
+	echs_instant_t olt = {.u = 0};
 	coru_t rdr;
 	/* we'll yield a truf_step object */
 	struct truf_step_s res;
@@ -282,6 +287,13 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 		char *on;
 
 		res.t = ln->t;
+		if (UNLIKELY(echs_instant_lt_p(res.t, olt))) {
+			errno = 0, error("\
+Error: violation of chronologicity in line %zu of time series", ln->nl);
+			rc = -1;
+			goto bugger;
+		}
+		olt = res.t;
 		if (LIKELY(flds & FLD_SYMBOL)) {
 			res.sym = truf_sym_rd(ln->ln, &on);
 			on++;
@@ -910,10 +922,9 @@ static int
 cmd_print(const struct yuck_cmd_print_s argi[static 1U])
 {
 	truf_wheap_t q;
-	int res = 0;
 
 	if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
-		res = 1;
+		rc = -1;
 		goto out;
 	}
 
@@ -922,7 +933,7 @@ cmd_print(const struct yuck_cmd_print_s argi[static 1U])
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 	}
@@ -952,7 +963,7 @@ out:
 		free_truf_wheap(q);
 	}
 	truf_free_trods();
-	return res;
+	return rc < 0;
 }
 
 static int
@@ -961,10 +972,9 @@ cmd_migrate(const struct yuck_cmd_migrate_s argi[static 1U])
 	truf_wheap_t q;
 	daisy_t from;
 	daisy_t till;
-	int res = 0;
 
 	if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
-		res = 1;
+		rc = -1;
 		goto out;
 	}
 
@@ -1027,7 +1037,7 @@ out:
 		free_truf_wheap(q);
 	}
 	truf_free_trods();
-	return res;
+	return rc < 0;
 }
 
 static int
@@ -1035,13 +1045,12 @@ cmd_filter(const struct yuck_cmd_filter_s argi[static 1U])
 {
 	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
-	int res = 0;
 
 	if (argi->nargs < 1U) {
 		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
-		res = 1;
+		rc = -1;
 		goto out;
 	}
 
@@ -1056,7 +1065,7 @@ cmd_filter(const struct yuck_cmd_filter_s argi[static 1U])
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 	}
@@ -1069,7 +1078,7 @@ cmd_filter(const struct yuck_cmd_filter_s argi[static 1U])
 
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
 			error("cannot open time series file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 
@@ -1100,27 +1109,26 @@ out:
 		free_truf_wheap(q);
 	}
 	truf_free_trods();
-	return res;
+	return rc < 0;
 }
 
 static int
 cmd_position(const struct yuck_cmd_position_s argi[static 1U])
 {
 	truf_wheap_t q;
-	int res = 0;
 
 	if (argi->nargs < 1U) {
 		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
-		res = 1;
+		rc = -1;
 		goto out;
 	}
 
 	with (const char *fn = argi->args[0U]) {
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 	}
@@ -1153,7 +1161,7 @@ out:
 		free_truf_wheap(q);
 	}
 	truf_free_trods();
-	return res;
+	return rc < 0;
 }
 
 static int
@@ -1161,13 +1169,12 @@ cmd_glue(const struct yuck_cmd_glue_s argi[static 1U])
 {
 	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
-	int res = 0;
 
 	if (argi->nargs < 1U) {
 		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
-		res = 1;
+		rc = -1;
 		goto out;
 	}
 
@@ -1182,7 +1189,7 @@ cmd_glue(const struct yuck_cmd_glue_s argi[static 1U])
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 	}
@@ -1194,7 +1201,7 @@ cmd_glue(const struct yuck_cmd_glue_s argi[static 1U])
 
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
 			error("cannot open time series file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 
@@ -1222,7 +1229,7 @@ out:
 		free_truf_wheap(q);
 	}
 	truf_free_trods();
-	return res;
+	return rc < 0;
 }
 
 static int
@@ -1230,13 +1237,12 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 {
 	echs_idiff_t max_quote_age;
 	truf_wheap_t q;
-	int res = 0;
 
 	if (argi->nargs < 1U) {
 		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	} else if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
-		res = 1;
+		rc = -1;
 		goto out;
 	}
 
@@ -1251,7 +1257,7 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 
 		if (UNLIKELY(truf_read_trod_file(q, fn) < 0)) {
 			error("cannot open trod file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 	}
@@ -1277,13 +1283,13 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 			if ((prec = -strtol(p, &on, 10), *on)) {
 				error("invalid precision `%s'",
 				      argi->precision_arg);
-				res = 1;
+				rc = -1;
 				goto out;
 			}
 		}
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
 			error("cannot open time series file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 
@@ -1335,7 +1341,9 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 			metro = t;
 		}
 		/* drain */
-		next_with(out, oa);
+		if (rc >= 0) {
+			next_with(out, oa);
+		}
 
 		free_coru(flt);
 		free_coru(out);
@@ -1347,7 +1355,7 @@ out:
 		free_truf_wheap(q);
 	}
 	truf_free_trods();
-	return res;
+	return rc < 0;
 }
 
 static int
@@ -1356,7 +1364,6 @@ cmd_flow(const struct yuck_cmd_flow_s argi[static 1U])
 	FILE *f;
 	coru_t rdr;
 	coru_t out;
-	int res = 0;
 
 	if (argi->nargs > 1U) {
 		yuck_auto_usage((const yuck_t*)argi);
@@ -1369,7 +1376,7 @@ cmd_flow(const struct yuck_cmd_flow_s argi[static 1U])
 	} else with (const char *fn = argi->args[0U]) {
 		if (UNLIKELY((f = fopen(fn, "r")) == NULL)) {
 			error("cannot open time series file `%s'", fn);
-			res = 1;
+			rc = -1;
 			goto out;
 		}
 	}
@@ -1406,7 +1413,7 @@ cmd_flow(const struct yuck_cmd_flow_s argi[static 1U])
 	fclose(f);
 
 out:
-	return res;
+	return rc < 0;
 }
 
 int
@@ -1466,6 +1473,7 @@ See --help to obtain a list of available commands.");
 out:
 	/* just to make sure */
 	fflush(stdout);
+	fflush(stderr);
 	yuck_free(argi);
 	return res;
 }
