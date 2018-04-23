@@ -70,12 +70,12 @@ endif  USE_ASM_CORUS
 truffle_LDADD += -lm
 BUILT_SOURCES += truffle.yucc
 
-
-## version rule
-version.c: version.c.in $(top_builddir)/.version
+## version rules
+version.c: $(srcdir)/version.c.in $(top_builddir)/.version
 	$(AM_V_GEN) PATH="$(top_builddir)/build-aux:$${PATH}" \
 		yuck$(EXEEXT) scmver --ignore-noscm --force -o $@ \
-			--use-reference --reference $(top_builddir)/.version $<
+			--use-reference --reference $(top_builddir)/.version \
+			$(srcdir)/version.c.in
 
 ## yuck rule
 SUFFIXES += .yuck

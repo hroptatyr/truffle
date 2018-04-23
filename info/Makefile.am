@@ -16,8 +16,7 @@ EXTRA_DIST += $(man1_MANS)
 
 EXTRA_DIST += author.h2m
 
-
-VPATH += @top_srcdir@/src
+VPATH = $(srcdir):@top_srcdir@/src
 SUFFIXES += .yuck
 SUFFIXES += .man
 .yuck.man:
