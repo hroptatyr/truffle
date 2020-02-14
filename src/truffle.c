@@ -890,7 +890,7 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 }
 
 static void
-bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
+bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when, unsigned int lax)
 {
 	echs_instant_t t = daisy_to_instant(when);
 
@@ -899,7 +899,7 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when)
 		truf_trod_t d;
 
 		/* check year validity */
-		if (when < p->valid_from || when > p->valid_till) {
+		if (when < p->valid_from || when > p->valid_till + lax) {
 			/* cline isn't applicable */
 			;
 		} else if (!((d = make_trod_from_cline(p, when)).sym.u)) {
@@ -972,6 +972,7 @@ cmd_migrate(const struct yuck_cmd_migrate_s argi[static 1U])
 	truf_wheap_t q;
 	daisy_t from;
 	daisy_t till;
+	unsigned int lax = 0U;
 
 	if (UNLIKELY((q = make_truf_wheap()) == NULL)) {
 		rc = -1;
@@ -992,6 +993,9 @@ cmd_migrate(const struct yuck_cmd_migrate_s argi[static 1U])
 		echs_instant_t i = {2037U, 12U, 31U, ECHS_ALL_DAY};
 		till = instant_to_daisy(i);
 	}
+	if (argi->lax_arg) {
+		lax = strtoul(argi->lax_arg, NULL, 0);
+	}
 
 	for (size_t i = 0U; i < argi->nargs; i++) {
 		const char *fn = argi->args[i];
@@ -1004,7 +1008,7 @@ cmd_migrate(const struct yuck_cmd_migrate_s argi[static 1U])
 		}
 		/* bang into wheap */
 		for (daisy_t now = from; now <= till; now++) {
-			bang_schema(q, sch, now);
+			bang_schema(q, sch, now, lax);
 		}
 		/* and out again */
 		free_schema(sch);

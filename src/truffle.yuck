@@ -50,6 +50,8 @@ Read recurrence schemas from SCHEMA-FILE and roll them out.
 
    --from=DT            Start event states at DT.
    --till=DT            Finish event streams by DT.
+   --lax=DAYS           Use a very relaxed interpretation of the
+                        validity interval, allow additional DAYS days
 
 
 
