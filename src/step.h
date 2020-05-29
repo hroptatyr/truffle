@@ -1,6 +1,6 @@
 /*** step.h -- symbol-time-exposure-price hash tables
  *
- * Copyright (C) 2009-2018 Sebastian Freundt
+ * Copyright (C) 2009-2020 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
