@@ -65,6 +65,7 @@ extern int isinfd64(_Decimal64);
 #include "daisy.h"
 #include "idate.h"
 #include "schema.h"
+#include "actcon.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
@@ -1423,173 +1424,25 @@ out:
 static int
 cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 {
-	const char *sp, *ep;
-	/* we support 3 operations, + * and /
-	 * and represent any spec in the normal form:
-	 * n*m/X + ... */
-	struct op_s {
-		unsigned int nsum;
-		char *pool;
-		struct timoof_s {
-			/* n*... */
-			unsigned int n;
-			struct {
-				/* m/... */
-				unsigned int m;
-				/* length of x */
-				unsigned int l;
-				const char *x;
-			};
-		} sum[];
-	} *spec;
-	unsigned int nsum = 1U;
+	struct actcon_s *spec;
 
 	if (UNLIKELY(argi->nargs < 1U)) {
 		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	}
 
-	sp = argi->args[0U];
-
-	for (ep = sp; *ep; nsum += *ep == '+', ep++);
-	spec = malloc(sizeof(*spec) + nsum * sizeof(struct timoof_s));
-	spec->nsum = nsum;
-	spec->pool = argi->args[0U];
-
-	/* start parsing */
-	for (size_t j = 0U; j < nsum; j++, sp++) {
-		char *tp = NULL;
-		long unsigned int n;
-
-		n = strtoul(sp, &tp, 10);
-		if (tp == NULL) {
-			goto err;
-		} else if (*tp == '*') {
-			spec->sum[j].n = n;
-			tp++;
-			sp = tp, tp = NULL;
-			n = strtoul(sp, &tp, 10);
-			if (tp == NULL) {
-				goto err;
-			} else if (*tp == '/') {
-				spec->sum[j].m = n;
-				tp++;
-			} else {
-				spec->sum[j].m = 0U;
-			}
-		} else if (*tp == '/') {
-			spec->sum[j].n = 1U;
-			spec->sum[j].m = n;
-			tp++;
-		} else {
-			spec->sum[j].n = 1U;
-			spec->sum[j].m = 0U;
-		}
-		/* see what goes */
-		for (n = 0U, sp = tp; *tp >= 'F' && *tp <= 'Z'; tp++);
-		spec->sum[j].x = sp;
-		spec->sum[j].l = tp - sp;
-		spec->sum[j].m = spec->sum[j].m ?: spec->sum[j].l;
-		/* fast forward beyond + */
-		for (; *sp && *sp != '+'; sp++);
+	if (UNLIKELY((spec = read_actcon(argi->args[0U])) == NULL)) {
+		return 1;
 	}
 
 #if 0
-	/* spell structure */
-	for (size_t j = 0U; j < spec->nsum; j++) {
-		printf("%u*%u/%.*s", spec->sum[j].n, spec->sum[j].m, (int)spec->sum[j].l, spec->sum[j].x);
-		fputc((j + 1U < spec->nsum) ? '+' : '\n', stdout);
-	}
-#endif	/* 1 */
+	prnt_actcon(spec);
+#endif
 
-{
-	size_t cidx[spec->nsum];
-	size_t cite[spec->nsum];
-	size_t ncand = 0U;
-	char *cand;
-	char npiv = '@';
+	xpnd_actcon(spec);
 
-	for (size_t j = 0U; j < spec->nsum; j++) {
-		ncand += spec->sum[j].n * spec->sum[j].m;
-	}
-	cand = malloc(ncand + 2U * (spec->nsum + 1U));
-	/* initialise */
-	memset(cite, 0, sizeof(cite));
-
-	auto inline char pivot_trans(char c, char cur)
-	{
-		c -= cur;
-		c--;
-		c = (char)(c >= 0 ? c : c + ' ');
-		return c;
-	}
-
-	auto inline int any(void)
-	{
-		for (size_t j = 0U; j < spec->nsum; j++) {
-			if (cite[j] < spec->sum[j].l) {
-				return 1;
-			}
-		}
-		return 0;
-	}
-
-	do {
-		for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
-			size_t i = cite[j] % spec->sum[j].l;
-
-			cidx[j] = c;
-			for (size_t o = 0U, n = spec->sum[j].n; o < n; o++) {
-				unsigned int l = spec->sum[j].l;
-
-				for (size_t k = 0U, m = spec->sum[j].m; k < m; k++) {
-					cand[c++] = spec->sum[j].x[(i + k) % l];
-				}
-			}
-			cand[c++] = '~';
-		}
-
-		/* determine who's going to change state next */
-		with (unsigned int next = 0U) {
-			char cmin = pivot_trans(cand[cidx[next]], npiv);
-			for (size_t j = 1U; j < spec->nsum; j++) {
-				if (pivot_trans(cand[cidx[j]], npiv) < cmin) {
-					next = j;
-					cmin = pivot_trans(cand[cidx[next]], npiv);
-				}
-			}
-			npiv = cand[cidx[next]];
-			fputc(npiv, stdout);
-			cidx[next]++;
-			cite[next]++;
-		}
-		for (char curr = npiv;;) {
-			unsigned int min = 0U;
-			char cmin = pivot_trans(cand[cidx[min]], curr);
-
-			/* find the smallest item that is >= curr */
-			for (size_t j = 1U; j < spec->nsum; j++) {
-				if (pivot_trans(cand[cidx[j]], curr) < cmin) {
-					min = j;
-					cmin = pivot_trans(cand[cidx[min]], curr);
-				}
-			}
-			if (UNLIKELY((curr = cand[cidx[min]]) == '~')) {
-				break;
-			}
-			fputc(curr, stdout);
-			cidx[min]++;
-		}
-		fputc('\n', stdout);
-	} while (any());
-
-	free(cand);
-}
-	free(spec);
+	free_actcon(spec);
 	return 0;
-err:
-	free(spec);
-	return 1;
 }
 
 int

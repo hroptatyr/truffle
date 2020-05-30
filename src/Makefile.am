@@ -29,6 +29,7 @@ libtruffle_a_SOURCES += yd.h
 libtruffle_a_SOURCES += idate.c idate.h
 libtruffle_a_SOURCES += daisy.c daisy.h
 libtruffle_a_SOURCES += dt-strpf.c dt-strpf.h
+libtruffle_a_SOURCES += actcon.c actcon.h
 libtruffle_a_SOURCES += nifty.h
 libtruffle_a_SOURCES += coru.h
 ## auxiliary giblets from the old truffle
