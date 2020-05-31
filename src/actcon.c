@@ -140,7 +140,7 @@ xpnd_actcon(struct actcon_s *spec)
 	/* initialise */
 	cidx = cite + spec->nsum;
 	cand = (char*)(cite + 2U * spec->nsum);
-	memset(cite, 0, sizeof(cite));
+	memset(cite, 0, spec->nsum * sizeof(*cite));
 
 	/* 1 year of expansion */
 	for (size_t j = 0U; j < spec->nsum; j++) {
