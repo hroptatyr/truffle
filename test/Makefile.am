@@ -136,6 +136,11 @@ TESTS += migrate_02.clit
 EXTRA_DIST += old_01.truf
 EXTRA_DIST += old_02.truf
 
+TESTS += expcon_01.clit
+TESTS += expcon_02.clit
+TESTS += expcon_03.clit
+TESTS += expcon_04.clit
+
 
 clean-local:
 	-rm -rf *.tmpd

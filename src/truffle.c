@@ -65,6 +65,7 @@ extern int isinfd64(_Decimal64);
 #include "daisy.h"
 #include "idate.h"
 #include "schema.h"
+#include "actcon.h"
 
 #if defined __INTEL_COMPILER
 # pragma warning (disable:1572)
@@ -1420,6 +1421,36 @@ out:
 	return rc < 0;
 }
 
+static int
+cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
+{
+	struct actcon_s *spec;
+	char from, till;
+
+	if (UNLIKELY(argi->nargs < 1U)) {
+		yuck_auto_usage((const yuck_t*)argi);
+		return 1;
+	}
+
+	if (UNLIKELY((spec = read_actcon(argi->args[0U])) == NULL)) {
+		return 1;
+	}
+
+#if 0
+	prnt_actcon(spec);
+#endif
+	if (argi->nargs < 2U) {
+		from = '@';
+		till = (char)(!argi->yes_flag ? 'Z' : '~');
+	} else {
+		from = till = *argi->args[1U];
+	}
+	xpnd_actcon(spec, from, till);
+
+	free_actcon(spec);
+	return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1466,6 +1497,9 @@ See --help to obtain a list of available commands.");
 		break;
 	case TRUFFLE_CMD_FLOW:
 		res = cmd_flow((const void*)argi);
+		break;
+	case TRUFFLE_CMD_EXPCON:
+		res = cmd_expcon((const void*)argi);
 		break;
 	}
 
