@@ -1439,7 +1439,7 @@ cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 	prnt_actcon(spec);
 #endif
 	if (argi->nargs < 2U) {
-		xpnd_actcon(spec);
+		xpnd_actcon(spec, argi->yes_flag);
 	} else {
 		xpnd_actcon1(spec, *argi->args[1U]);
 	}

@@ -99,4 +99,6 @@ Usage: truffle expcon SPEC [MONTH]
 Expand currently active contracts from SPEC, optionally only output
 the current active contracts whose first active contract is MONTH.
 
+  --yes                 Keep iterating through states, like yes(1).
+
 ## truffle.yuck ends here

@@ -124,7 +124,7 @@ pivot_trans(char c, char cur)
 }
 
 void
-xpnd_actcon(const struct actcon_s *spec)
+xpnd_actcon(const struct actcon_s *spec, char yes)
 {
 	size_t *cidx;
 	size_t ncand = 0U;
@@ -135,8 +135,9 @@ xpnd_actcon(const struct actcon_s *spec)
 	}
 	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
 	cand = (char*)(cidx + spec->nsum);
+	yes = (char)(yes > 'F' && yes <= 'Z' ? yes : yes ? '~' : 'Z');
 
-	for (char npiv = '@'; npiv < 'Z';) {
+	for (char npiv = '@'; npiv < yes;) {
 		for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
 			unsigned int l = spec->sum[j].l;
 			size_t i;
