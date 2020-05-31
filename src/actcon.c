@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include "actcon.h"
 #include "nifty.h"
 
@@ -113,6 +114,15 @@ prnt_actcon(struct actcon_s *spec)
 	return;
 }
 
+static inline __attribute__((pure)) char
+pivot_trans(char c, char cur)
+{
+	c -= cur;
+	c--;
+	c = (char)(c >= 0 ? c : c + ' ');
+	return c;
+}
+
 void
 xpnd_actcon(struct actcon_s *spec)
 {
@@ -121,6 +131,7 @@ xpnd_actcon(struct actcon_s *spec)
 	size_t ncand = 0U;
 	char *cand;
 	char npiv = '@';
+	uint_least32_t months = 0U;
 
 	for (size_t j = 0U; j < spec->nsum; j++) {
 		ncand += spec->sum[j].n * spec->sum[j].m;
@@ -131,25 +142,15 @@ xpnd_actcon(struct actcon_s *spec)
 	cand = (char*)(cite + 2U * spec->nsum);
 	memset(cite, 0, sizeof(cite));
 
-	auto inline char pivot_trans(char c, char cur)
-	{
-		c -= cur;
-		c--;
-		c = (char)(c >= 0 ? c : c + ' ');
-		return c;
-	}
-
-	auto inline int any(void)
-	{
-		for (size_t j = 0U; j < spec->nsum; j++) {
-			if (cite[j] < spec->sum[j].l) {
-				return 1;
-			}
+	/* 1 year of expansion */
+	for (size_t j = 0U; j < spec->nsum; j++) {
+		for (size_t k = 0U; k < spec->sum[j].l; k++) {
+			months |= 1 << ((spec->sum[j].x[k] - '@') & 0x1fU);
 		}
-		return 0;
 	}
+	months = __builtin_popcount(months);
 
-	do {
+	for (size_t q = 0U; q < months; q++) {
 		for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
 			size_t i = cite[j] % spec->sum[j].l;
 
@@ -196,7 +197,7 @@ xpnd_actcon(struct actcon_s *spec)
 			cidx[min]++;
 		}
 		fputc('\n', stdout);
-	} while (any());
+	}
 
 	free(cite);
 	return;
