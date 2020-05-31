@@ -104,7 +104,7 @@ free_actcon(struct actcon_s *spec)
 }
 
 void
-prnt_actcon(struct actcon_s *spec)
+prnt_actcon(const struct actcon_s *spec)
 {
 	/* spell structure */
 	for (size_t j = 0U; j < spec->nsum; j++) {
@@ -124,40 +124,27 @@ pivot_trans(char c, char cur)
 }
 
 void
-xpnd_actcon(struct actcon_s *spec)
+xpnd_actcon(const struct actcon_s *spec)
 {
 	size_t *cidx;
-	size_t *cite;
 	size_t ncand = 0U;
 	char *cand;
-	char npiv = '@';
-	uint_least32_t months = 0U;
 
 	for (size_t j = 0U; j < spec->nsum; j++) {
 		ncand += spec->sum[j].n * spec->sum[j].m;
 	}
-	cite = malloc(spec->nsum * sizeof(*cidx) * 2 + ncand + 2U * (spec->nsum + 1U));
-	/* initialise */
-	cidx = cite + spec->nsum;
-	cand = (char*)(cite + 2U * spec->nsum);
-	memset(cite, 0, spec->nsum * sizeof(*cite));
+	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
+	cand = (char*)(cidx + spec->nsum);
 
-	/* 1 year of expansion */
-	for (size_t j = 0U; j < spec->nsum; j++) {
-		for (size_t k = 0U; k < spec->sum[j].l; k++) {
-			months |= 1 << ((spec->sum[j].x[k] - '@') & 0x1fU);
-		}
-	}
-	months = __builtin_popcount(months);
-
-	for (size_t q = 0U; q < months; q++) {
+	for (char npiv = '@'; npiv < 'Z';) {
 		for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
-			size_t i = cite[j] % spec->sum[j].l;
+			unsigned int l = spec->sum[j].l;
+			size_t i;
+
+			for (i = 0U; i < l && spec->sum[j].x[i] <= npiv; i++);
 
 			cidx[j] = c;
 			for (size_t o = 0U, n = spec->sum[j].n; o < n; o++) {
-				unsigned int l = spec->sum[j].l;
-
 				for (size_t k = 0U, m = spec->sum[j].m; k < m; k++) {
 					cand[c++] = spec->sum[j].x[(i + k) % l];
 				}
@@ -177,7 +164,6 @@ xpnd_actcon(struct actcon_s *spec)
 			npiv = cand[cidx[next]];
 			fputc(npiv, stdout);
 			cidx[next]++;
-			cite[next]++;
 		}
 		for (char curr = npiv;;) {
 			unsigned int min = 0U;
@@ -199,7 +185,59 @@ xpnd_actcon(struct actcon_s *spec)
 		fputc('\n', stdout);
 	}
 
-	free(cite);
+	free(cidx);
+	return;
+}
+
+void
+xpnd_actcon1(const struct actcon_s *spec, char piv)
+{
+	size_t *cidx;
+	size_t ncand = 0U;
+	char *cand;
+
+	for (size_t j = 0U; j < spec->nsum; j++) {
+		ncand += spec->sum[j].n * spec->sum[j].m;
+	}
+	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
+	cand = (char*)(cidx + spec->nsum);
+
+	for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
+		unsigned int l = spec->sum[j].l;
+		size_t i;
+
+		for (i = 0U; i < l && spec->sum[j].x[i] < piv; i++);
+
+		cidx[j] = c;
+		for (size_t o = 0U, n = spec->sum[j].n; o < n; o++) {
+			for (size_t k = 0U, m = spec->sum[j].m; k < m; k++) {
+				cand[c++] = spec->sum[j].x[(i + k) % l];
+			}
+		}
+		cand[c++] = '~';
+	}
+
+	/* determine who's going to change state next */
+	for (char curr = (char)(piv - 1);;) {
+		unsigned int min = 0U;
+		char cmin = pivot_trans(cand[cidx[min]], curr);
+
+		/* find the smallest item that is >= curr */
+		for (size_t j = 1U; j < spec->nsum; j++) {
+			if (pivot_trans(cand[cidx[j]], curr) < cmin) {
+				min = j;
+				cmin = pivot_trans(cand[cidx[min]], curr);
+			}
+		}
+		if (UNLIKELY((curr = cand[cidx[min]]) == '~')) {
+			break;
+		}
+		fputc(curr, stdout);
+		cidx[min]++;
+	}
+	fputc('\n', stdout);
+
+	free(cidx);
 	return;
 }
 
