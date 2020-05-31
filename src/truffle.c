@@ -1425,6 +1425,7 @@ static int
 cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 {
 	struct actcon_s *spec;
+	char from, till;
 
 	if (UNLIKELY(argi->nargs < 1U)) {
 		yuck_auto_usage((const yuck_t*)argi);
@@ -1439,10 +1440,12 @@ cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 	prnt_actcon(spec);
 #endif
 	if (argi->nargs < 2U) {
-		xpnd_actcon(spec, argi->yes_flag);
+		from = '@';
+		till = (char)(!argi->yes_flag ? 'Z' : '~');
 	} else {
-		xpnd_actcon1(spec, *argi->args[1U]);
+		from = till = *argi->args[1U];
 	}
+	xpnd_actcon(spec, from, till);
 
 	free_actcon(spec);
 	return 0;

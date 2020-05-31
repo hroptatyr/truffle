@@ -124,7 +124,7 @@ pivot_trans(char c, char cur)
 }
 
 void
-xpnd_actcon(const struct actcon_s *spec, char yes)
+xpnd_actcon(const struct actcon_s *spec, char from, char till)
 {
 	size_t *cidx;
 	size_t ncand = 0U;
@@ -135,9 +135,8 @@ xpnd_actcon(const struct actcon_s *spec, char yes)
 	}
 	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
 	cand = (char*)(cidx + spec->nsum);
-	yes = (char)(yes > 'F' && yes <= 'Z' ? yes : yes ? '~' : 'Z');
 
-	for (char npiv = '@'; npiv < yes;) {
+	for (char npiv = --from; npiv < till;) {
 		for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
 			unsigned int l = spec->sum[j].l;
 			size_t i;
@@ -185,58 +184,6 @@ xpnd_actcon(const struct actcon_s *spec, char yes)
 		}
 		fputc('\n', stdout);
 	}
-
-	free(cidx);
-	return;
-}
-
-void
-xpnd_actcon1(const struct actcon_s *spec, char piv)
-{
-	size_t *cidx;
-	size_t ncand = 0U;
-	char *cand;
-
-	for (size_t j = 0U; j < spec->nsum; j++) {
-		ncand += spec->sum[j].n * spec->sum[j].m;
-	}
-	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
-	cand = (char*)(cidx + spec->nsum);
-
-	for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
-		unsigned int l = spec->sum[j].l;
-		size_t i;
-
-		for (i = 0U; i < l && spec->sum[j].x[i] < piv; i++);
-
-		cidx[j] = c;
-		for (size_t o = 0U, n = spec->sum[j].n; o < n; o++) {
-			for (size_t k = 0U, m = spec->sum[j].m; k < m; k++) {
-				cand[c++] = spec->sum[j].x[(i + k) % l];
-			}
-		}
-		cand[c++] = '~';
-	}
-
-	/* determine who's going to change state next */
-	for (char curr = (char)(piv - 1);;) {
-		unsigned int min = 0U;
-		char cmin = pivot_trans(cand[cidx[min]], curr);
-
-		/* find the smallest item that is >= curr */
-		for (size_t j = 1U; j < spec->nsum; j++) {
-			if (pivot_trans(cand[cidx[j]], curr) < cmin) {
-				min = j;
-				cmin = pivot_trans(cand[cidx[min]], curr);
-			}
-		}
-		if (UNLIKELY((curr = cand[cidx[min]]) == '~')) {
-			break;
-		}
-		fputc(curr, stdout);
-		cidx[min]++;
-	}
-	fputc('\n', stdout);
 
 	free(cidx);
 	return;

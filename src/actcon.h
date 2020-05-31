@@ -59,7 +59,6 @@ struct actcon_s {
 extern struct actcon_s *read_actcon(const char *spec);
 extern void free_actcon(struct actcon_s *spec);
 extern void prnt_actcon(const struct actcon_s *spec);
-extern void xpnd_actcon(const struct actcon_s *spec, char yes);
-extern void xpnd_actcon1(const struct actcon_s *spec, char piv);
+extern void xpnd_actcon(const struct actcon_s *spec, char from, char till);
 
 #endif	/* INCLUDED_actcon_h_ */
