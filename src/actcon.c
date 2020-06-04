@@ -136,7 +136,8 @@ xpnd_actcon(const struct actcon_s *spec, char from, char till)
 	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
 	cand = (char*)(cidx + spec->nsum);
 
-	for (char npiv = --from; npiv < till;) {
+	for (char npiv = --from, prev = (char)(npiv - 1); npiv < till && npiv > prev;) {
+		prev = npiv;
 		for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
 			unsigned int l = spec->sum[j].l;
 			size_t i;
