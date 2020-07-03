@@ -140,6 +140,7 @@ TESTS += expcon_01.clit
 TESTS += expcon_02.clit
 TESTS += expcon_03.clit
 TESTS += expcon_04.clit
+TESTS += expcon_05.clit
 
 
 clean-local:

@@ -46,15 +46,17 @@ read_actcon(const char *spec)
 {
 	struct actcon_s *res;
 	unsigned int nsum = 1U;
+	unsigned int nwrd = 0U;
 	const char *sp, *ep;
 
-	for (ep = sp = spec; *ep; nsum += *ep == '+', ep++);
-	res = malloc(sizeof(*res) + nsum * sizeof(struct timoof_s));
+	for (ep = sp = spec; *ep; nsum += *ep == '+', nwrd += *ep == '|', ep++);
+	res = malloc(sizeof(*res) + (nsum += nwrd) * sizeof(struct timoof_s));
 	res->nsum = nsum;
+	res->nwrd = nwrd;
 	res->pool = spec;
 
 	/* start parsing */
-	for (size_t j = 0U; j < nsum; j++, sp++) {
+	for (size_t j = 0U, w = 0U; j < nsum; j++, w += *sp++ == '|') {
 		char *tp = NULL;
 		long unsigned int n;
 
@@ -87,8 +89,9 @@ read_actcon(const char *spec)
 		res->sum[j].x = sp;
 		res->sum[j].l = tp - sp;
 		res->sum[j].m = res->sum[j].m ?: res->sum[j].l;
+		res->sum[j].w = w;
 		/* fast forward beyond + */
-		for (; *sp && *sp != '+'; sp++);
+		for (; *sp && *sp != '+' && *sp != '|'; sp++);
 	}
 	return res;
 err:
@@ -136,56 +139,68 @@ xpnd_actcon(const struct actcon_s *spec, char from, char till)
 	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
 	cand = (char*)(cidx + spec->nsum);
 
-	for (char npiv = --from, prev = (char)(npiv - 1); npiv < till && npiv > prev;) {
-		prev = npiv;
-		for (size_t j = 0U, c = 0U; j < spec->nsum; j++) {
-			unsigned int l = spec->sum[j].l;
-			size_t i;
+	for (char npiv = --from, prev = '\0'; npiv >= from && npiv < till; prev = npiv) {
+		char curp = npiv;
 
-			for (i = 0U; i < l && spec->sum[j].x[i] <= npiv; i++);
+		for (size_t w = 0U, jb = 0U, je; w <= spec->nwrd; w++, jb = je) {
+			for (je = jb; je < spec->nsum && spec->sum[je].w == w; je++);
 
-			cidx[j] = c;
-			for (size_t o = 0U, n = spec->sum[j].n; o < n; o++) {
-				for (size_t k = 0U, m = spec->sum[j].m; k < m; k++) {
-					cand[c++] = spec->sum[j].x[(i + k) % l];
+			/* get a candidate from every summand */
+			for (size_t j = jb, c = jb; j < je; j++) {
+				unsigned int l = spec->sum[j].l;
+				size_t i;
+
+				for (i = 0U; i < l && spec->sum[j].x[i] <= curp; i++);
+
+				cidx[j] = c;
+				for (size_t o = 0U, n = spec->sum[j].n; o < n; o++) {
+					for (size_t k = 0U, m = spec->sum[j].m; k < m; k++) {
+						cand[c++] = spec->sum[j].x[(i + k) % l];
+					}
 				}
+				cand[c++] = '~';
 			}
-			cand[c++] = '~';
-		}
 
-		/* determine who's going to change state next */
-		with (unsigned int next = 0U) {
-			char cmin = pivot_trans(cand[cidx[next]], npiv);
-			for (size_t j = 1U; j < spec->nsum; j++) {
-				if (pivot_trans(cand[cidx[j]], npiv) < cmin) {
-					next = j;
-					cmin = pivot_trans(cand[cidx[next]], npiv);
+			/* determine who's going to change state next */
+			with (size_t next = jb) {
+				char cmin = pivot_trans(cand[cidx[next]], curp);
+				for (size_t j = jb + 1U; j < je; j++) {
+					if (pivot_trans(cand[cidx[j]], curp) < cmin) {
+						next = j;
+						cmin = pivot_trans(cand[cidx[next]], curp);
+					}
 				}
+				curp = cand[cidx[next]];
+				npiv = (char)(!w ? curp : npiv);
+				if (UNLIKELY(npiv < prev)) {
+					/* avoid loops */
+					goto out;
+				}
+				fputc(curp, stdout);
+				cidx[next]++;
 			}
-			npiv = cand[cidx[next]];
-			fputc(npiv, stdout);
-			cidx[next]++;
-		}
-		for (char curr = npiv;;) {
-			unsigned int min = 0U;
-			char cmin = pivot_trans(cand[cidx[min]], curr);
+			for (;;) {
+				unsigned int min = jb;
+				char cmin = pivot_trans(cand[cidx[min]], curp);
 
-			/* find the smallest item that is >= curr */
-			for (size_t j = 1U; j < spec->nsum; j++) {
-				if (pivot_trans(cand[cidx[j]], curr) < cmin) {
-					min = j;
-					cmin = pivot_trans(cand[cidx[min]], curr);
+				/* find the smallest item that is >= curp */
+				for (size_t j = jb + 1U; j < je; j++) {
+					if (pivot_trans(cand[cidx[j]], curp) < cmin) {
+						min = j;
+						cmin = pivot_trans(cand[cidx[min]], curp);
+					}
 				}
+				if (UNLIKELY(cand[cidx[min]] == '~')) {
+					break;
+				}
+				curp = cand[cidx[min]];
+				fputc(curp, stdout);
+				cidx[min]++;
 			}
-			if (UNLIKELY((curr = cand[cidx[min]]) == '~')) {
-				break;
-			}
-			fputc(curr, stdout);
-			cidx[min]++;
 		}
 		fputc('\n', stdout);
 	}
-
+out:
 	free(cidx);
 	return;
 }

@@ -42,10 +42,13 @@
  * n*m/X + ... */
 struct actcon_s {
 	unsigned int nsum;
+	unsigned int nwrd;
 	const char *pool;
 	struct timoof_s {
 		/* n*... */
 		unsigned int n;
+		/* word we belong to */
+		unsigned int w;
 		struct {
 			/* m/... */
 			unsigned int m;
