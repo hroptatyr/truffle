@@ -45,6 +45,8 @@ typedef struct truf_rpaf_s truf_rpaf_t;
 struct truf_rpaf_s {
 	truf_price_t refprc;
 	truf_price_t cruflo;
+	truf_quant_t cruvol;
+	truf_quant_t cruopi;
 };
 
 

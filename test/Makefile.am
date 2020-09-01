@@ -123,6 +123,10 @@ TESTS += roll_23.clit
 TESTS += roll_24.clit
 EXTRA_DIST += roll_25.tser
 EXTRA_DIST += roll_25.trod
+EXTRA_DIST += roll_26.tser
+TESTS += roll_27.clit
+EXTRA_DIST += roll_28.tser
+TESTS += roll_28.clit
 
 TESTS += string_symbols_01.clit
 TESTS += string_symbols_02.clit

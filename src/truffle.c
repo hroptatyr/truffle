@@ -243,6 +243,8 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 #define FLD_SYMBOL	(1U)
 #define FLD_SETTLE	(2U)
 #define FLD_BIDASK	(4U)
+#define FLD_VOLUME	(8U)
+#define FLD_OPNINT	(16U)
 
 	init_coru();
 	rdr = make_coru(co_echs_rdr, ia->f);
@@ -282,6 +284,27 @@ defcoru(co_tser_rdr, ia, UNUSED(arg))
 			/* got more d32s */
 			flds |= FLD_BIDASK;
 		}
+		if (*on == '\0' || *on == '\n') {
+			break;
+		}
+
+		in = on + 1U;
+		if (dxxp(in, &on) && on > in) {
+			/* got more d32s */
+			flds |= FLD_VOLUME;
+		}
+		if (*on == '\0' || *on == '\n') {
+			break;
+		}
+
+		in = on + 1U;
+		if (dxxp(in, &on) && on > in) {
+			/* got more d32s */
+			flds |= FLD_OPNINT;
+		}
+		if (*on == '\0' || *on == '\n') {
+			break;
+		}
 	}
 
 	do {
@@ -306,15 +329,31 @@ Error: violation of chronologicity in line %zu of time series", ln->nl);
 		/* snarf price(s) */
 		if (LIKELY(flds & (FLD_SETTLE | FLD_BIDASK))) {
 			res.bid = strtopx(on, &on);
-			on++;
 		} else {
 			res.bid = res.ask = NANPX;
 		}
 
 		if (UNLIKELY(flds & FLD_BIDASK)) {
+			on++;
 			res.ask = strtopx(on, &on);
 		} else {
 			res.ask = NANPX;
+			on += *on == '\t';
+		}
+
+		if (UNLIKELY(flds & FLD_VOLUME)) {
+			on++;
+			res.vol = strtoqx(on, &on);
+		} else {
+			res.vol = NANQX;
+			on += *on == '\t';
+		}
+
+		if (UNLIKELY(flds & FLD_OPNINT)) {
+			on++;
+			res.opi = strtoqx(on, &on);
+		} else {
+			res.opi = NANQX;
 		}
 
 		yield(res);
@@ -448,6 +487,8 @@ declcoru(co_roll_out, {
 	}, {
 		echs_instant_t t;
 		truf_price_t prc;
+		truf_quant_t vol;
+		truf_quant_t opi;
 	});
 
 static const void*
@@ -480,6 +521,14 @@ defcoru(co_roll_out, iap, arg)
 				prc = quantized(prc, scal);
 			}
 			bp += pxtostr(bp, ep - bp, prc);
+			if (!isnanqx(arg->vol)) {
+				*bp++ = '\t';
+				bp += qxtostr(bp, ep - bp, arg->vol);
+				if (!isnanqx(arg->opi)) {
+					*bp++ = '\t';
+					bp += qxtostr(bp, ep - bp, arg->opi);
+				}
+			}
 			*bp++ = '\n';
 			*bp = '\0';
 			fputs(buf, ia.f);
@@ -650,6 +699,8 @@ defcoru(co_tser_flt, iap, UNUSED(arg))
 			/* keep track of last price */
 			st->bid = qu->bid;
 			st->ask = qu->ask;
+			st->vol = qu->vol;
+			st->opi = qu->opi;
 
 			if (ia.levp) {
 				if (st->old == st->new && st->new == ZEROEX) {
@@ -1342,7 +1393,7 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 			if (echs_instant_lt_p(metro, t)) {
 				next_with(out, oa);
 			}
-			oa = pack_args(co_roll_out, t, prc);
+			oa = pack_args(co_roll_out, t, prc, r.cruvol, r.cruopi);
 			metro = t;
 		}
 		/* drain */
