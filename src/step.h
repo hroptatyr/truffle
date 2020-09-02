@@ -47,6 +47,8 @@ struct truf_step_s {
 	echs_instant_t t;
 	truf_price_t bid;
 	truf_price_t ask;
+	truf_quant_t vol;
+	truf_quant_t opi;
 	truf_expos_t new;
 	truf_expos_t old;
 };

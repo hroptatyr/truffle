@@ -1,0 +1,13 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truffle roll "${srcdir}/roll_26.tser" "${srcdir}/roll_01.trod"
+2011-01-03	12	86
+2011-01-04	13	47
+2011-01-05	24	48
+2011-01-06	34	49
+2011-01-07	44	50
+2011-01-08	54	51
+2011-01-09	64	52
+$
+
+## roll_27.clit ends here

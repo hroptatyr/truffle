@@ -135,6 +135,8 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 		}
 		/* mimic a 0 flow but with the right quantum */
 		r->cruflo = scalbnd(ZEROPX, quantexpd(st->new));
+		/* just assign volume and interest */
+		goto cp_volopi;
 	} else if ((edif = st->new - st->old) != ZEROEX) {
 		/* we determined it's an edge */
 
@@ -156,6 +158,9 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 		} else {
 			r->refprc = ref;
 		}
+
+		r->cruvol = st->vol * edif;
+		r->cruopi = st->opi * edif;
 	} else {
 		/* it's a level, i.e. operate in settlement mode */
 		if (st->new > ZEROEX) {
@@ -166,7 +171,12 @@ rpaf_scru(srpaf_t sr, const struct truf_step_s st[static 1U])
 
 		r->cruflo += (ref - r->refprc) * st->new;
 		r->refprc = ref;
+
+	cp_volopi:
+		r->cruvol = st->vol;
+		r->cruopi = st->opi;
 	}
+
 	return;
 }
 
