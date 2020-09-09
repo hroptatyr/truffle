@@ -44,7 +44,7 @@
 typedef struct truf_trod_s truf_trod_t;
 
 struct truf_trod_s {
-	truf_sym_t sym;
+	truf_sym_t sym[2U];
 	truf_expos_t exp;
 };
 

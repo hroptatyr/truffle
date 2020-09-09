@@ -48,7 +48,10 @@ truf_sym_rd(const char *str, char **on)
 	truf_sym_t res;
 	char *tmp;
 
-	if (res.mmy = truf_mmy_rd(str, &tmp)) {
+	if (UNLIKELY(str == NULL)) {
+		res.u = 0U;
+		tmp = NULL;
+	} else if (res.mmy = truf_mmy_rd(str, &tmp)) {
 		/* good, it's a mmy, job done */
 		;
 	} else if (res.str = truf_str_rd(str, &tmp)) {

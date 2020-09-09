@@ -383,9 +383,14 @@ defcoru(co_echs_pop, ia, UNUSED(arg))
 	while (!echs_instant_0_p(res.t = truf_wheap_top_rank(q))) {
 		/* assume it's a truf_trod_t */
 		uintptr_t tmp = truf_wheap_pop(q);
-		res.sym = trods[tmp].sym;
+		res.sym = trods[tmp].sym[0U];
 		res.new = trods[tmp].exp;
 		yield(res);
+		if (trods[tmp].sym[1U].u) {
+			res.sym = trods[tmp].sym[1U];
+			res.new = UNITEX;
+			yield(res);
+		}
 	}
 	return 0;
 }
@@ -931,8 +936,9 @@ make_trod_from_cline(const struct cline_s *p, daisy_t when)
 		} else {
 			continue;
 		}
-		res.sym.mmy = make_truf_mmy(
+		res.sym[0U].mmy = make_truf_mmy(
 			y + p->year_off, m_to_i(p->month), 0U);
+		res.sym[1U].u = 0U;
 
 		/* indicate success (as in clear for adding) */
 		return res;
@@ -954,7 +960,7 @@ bang_schema(truf_wheap_t q, trsch_t sch, daisy_t when, unsigned int lax)
 		if (when < p->valid_from || when > p->valid_till + lax) {
 			/* cline isn't applicable */
 			;
-		} else if (!((d = make_trod_from_cline(p, when)).sym.u)) {
+		} else if (!((d = make_trod_from_cline(p, when)).sym[0U].u)) {
 			/* nothing added then */
 			;
 		} else {
