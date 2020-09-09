@@ -58,18 +58,25 @@ truf_trod_rd(const char *str, char **on)
 	static const char sep[] = " \t\n";
 	truf_trod_t res;
 	const char *brk;
+	const char *st2 = NULL;
 
 	switch (*(brk += strcspn(brk = str, sep))) {
+		char *p;
 	case '\0':
 	case '\n':
 		/* no separator, so it's just a symbol
 		 * imply exp = 0.df if ~FOO, exp = 1.df otherwise */
-		if (*str != '~') {
-			res.exp = UNITEX;
-		} else {
+		if (*str == '~') {
 			/* could be ~FOO notation */
 			res.exp = ZEROEX;
 			str++;
+		} else if ((p = strchr(str, '>')) && p[-1] == '-') {
+			/* syntax X->Y */
+			res.exp = ZEROEX;
+			p[-1] = '\0';
+			st2 = p + 1U;
+		} else {
+			res.exp = UNITEX;
 		}
 		/* also set ON pointer */
 		if (LIKELY(on != NULL)) {
@@ -84,7 +91,8 @@ truf_trod_rd(const char *str, char **on)
 	/* before blindly strdup()ing the symbol check if it's not by
 	 * any chance in MMY notation
 	 * thankfully the mmy subsystem does the magic for us. */
-	res.sym = truf_sym_rd(str, NULL);
+	res.sym[0U] = truf_sym_rd(str, NULL);
+	res.sym[1U] = truf_sym_rd(st2, NULL);
 	return res;
 }
 
@@ -94,7 +102,7 @@ truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t)
 	char *restrict bp = buf;
 	const char *const ep = bp + bsz;
 
-	bp += truf_sym_wr(bp, ep - bp, t.sym);
+	bp += truf_sym_wr(bp, ep - bp, t.sym[0U]);
 	if (LIKELY(bp < ep)) {
 		*bp++ = '\t';
 	}
@@ -103,6 +111,19 @@ truf_trod_wr(char *restrict buf, size_t bsz, truf_trod_t t)
 		*bp = '\0';
 	} else if (LIKELY(ep > bp)) {
 		*--bp = '\0';
+	}
+
+	if (UNLIKELY(t.sym[1U].u)) {
+		bp += truf_sym_wr(bp, ep - bp, t.sym[1U]);
+		if (LIKELY(bp < ep)) {
+			*bp++ = '\t';
+		}
+		bp += extostr(bp, ep - bp, UNITEX);
+		if (LIKELY(bp < ep)) {
+			*bp = '\0';
+		} else if (LIKELY(ep > bp)) {
+			*--bp = '\0';
+		}
 	}
 	return bp - buf;
 }
