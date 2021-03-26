@@ -1,6 +1,6 @@
 /*** clitoris.c -- command-line-interface tester or is it?
  *
- * Copyright (C) 2013-2020 Sebastian Freundt
+ * Copyright (C) 2013-2021 Sebastian Freundt
  *
  * Author:  Sebastian Freundt <freundt@ga-group.nl>
  *
@@ -209,7 +209,7 @@ error(const char *fmt, ...)
 	return;
 }
 
-static inline __attribute__((const, pure, always_inline)) char*
+static inline __attribute__((const, always_inline)) char*
 deconst(const char *s)
 {
 	union {
@@ -318,6 +318,7 @@ xmemmem(const char *hay, const size_t hayz, const char *ndl, const size_t ndlz)
 	return NULL;
 }
 
+/* coverity[-tainted_data_sink: arg-0] */
 static char*
 xstrndup(const char *s, size_t z)
 {
@@ -473,19 +474,19 @@ free_argv0dir(char *a0)
 /* clit bit handling */
 #define CLIT_BIT_FD(x)	(clit_bit_fd_p(x) ? (int)(x).z : -1)
 
-static inline __attribute__((const, pure)) bool
+static inline __attribute__((const)) bool
 clit_bit_buf_p(clit_bit_t x)
 {
 	return x.z != -1UL && x.d != NULL;
 }
 
-static inline __attribute__((const, pure)) bool
+static inline __attribute__((const)) bool
 clit_bit_fd_p(clit_bit_t x)
 {
 	return x.d == NULL;
 }
 
-static inline __attribute__((const, pure)) bool
+static inline __attribute__((const)) bool
 clit_bit_fn_p(clit_bit_t x)
 {
 	return x.z == -1UL && x.d != NULL;
