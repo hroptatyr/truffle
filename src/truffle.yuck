@@ -6,6 +6,12 @@ Tool to apply roll-over directives (trod) to time series.
       --oco             Use OCO style for MMY symbols.
       --rel             Use relative contract years for MMY symbols.
 
+Trod files are tab separated with DATE[TIME], CONTRACT, EXPOSURE columns.
+
+Tser files are tab separated with DATE[TIME], CONTRACT,
+PRICE[, [PRICE][, SIZE[, SIZE]]] columns.  Where prices can be mid points
+or bid/ask pairs and sizes can be traded volume and/or open interest.
+
 
 Usage: truffle filter TSER-FILE [TROD-FILE]....
 
