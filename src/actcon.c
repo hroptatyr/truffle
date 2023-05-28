@@ -70,15 +70,17 @@ read_actcon(const char *spec)
 			n = strtoul(sp, &tp, 10);
 			if (tp == NULL) {
 				goto err;
-			} else if (*tp == '/') {
-				res->sum[j].m = n;
+			} else if (*tp == '/' || *tp == '<') {
+				res->sum[j].m = n << 1U;
+				res->sum[j].m ^= *tp == '<';
 				tp++;
 			} else {
 				res->sum[j].m = 0U;
 			}
-		} else if (*tp == '/') {
+		} else if (*tp == '/' || *tp == '<') {
 			res->sum[j].n = 1U;
-			res->sum[j].m = n;
+			res->sum[j].m = n << 1U;
+			res->sum[j].m ^= *tp == '<';
 			tp++;
 		} else {
 			res->sum[j].n = 1U;
@@ -88,7 +90,7 @@ read_actcon(const char *spec)
 		for (n = 0U, sp = tp; *tp >= 'F' && *tp <= 'Z'; tp++);
 		res->sum[j].x = sp;
 		res->sum[j].l = tp - sp;
-		res->sum[j].m = res->sum[j].m ?: res->sum[j].l;
+		res->sum[j].m = ((res->sum[j].m >> 1U) ?: res->sum[j].l) << 1U ^ res->sum[j].m & 0b1U;
 		res->sum[j].w = w;
 		/* fast forward beyond + */
 		for (; *sp && *sp != '+' && *sp != '|'; sp++);
@@ -111,7 +113,7 @@ prnt_actcon(const struct actcon_s *spec)
 {
 	/* spell structure */
 	for (size_t j = 0U; j < spec->nsum; j++) {
-		printf("%u*%u/%.*s", spec->sum[j].n, spec->sum[j].m, (int)spec->sum[j].l, spec->sum[j].x);
+		printf("%u*%u/%.*s", spec->sum[j].n, spec->sum[j].m >> 1U, (int)spec->sum[j].l, spec->sum[j].x);
 		fputc((j + 1U < spec->nsum) ? '+' : '\n', stdout);
 	}
 	return;
@@ -134,7 +136,7 @@ xpnd_actcon(const struct actcon_s *spec, char from, char till)
 	char *cand;
 
 	for (size_t j = 0U; j < spec->nsum; j++) {
-		ncand += spec->sum[j].n * spec->sum[j].m;
+		ncand += spec->sum[j].n * (spec->sum[j].m >> 1U);
 	}
 	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
 	cand = (char*)(cidx + spec->nsum);
@@ -154,8 +156,17 @@ xpnd_actcon(const struct actcon_s *spec, char from, char till)
 
 				cidx[j] = c;
 				for (size_t o = 0U, n = spec->sum[j].n; o < n; o++) {
-					for (size_t k = 0U, m = spec->sum[j].m; k < m; k++) {
-						cand[c++] = spec->sum[j].x[(i + k) % l];
+					size_t k;
+					const size_t m = spec->sum[j].m >> 1U;
+
+					if (spec->sum[j].m & 0b1 && i < m) {
+						for (k = i; k < m; k++) {
+							cand[c++] = spec->sum[j].x[k % l];
+						}
+					} else {
+						for (k = 0U; k < m; k++) {
+							cand[c++] = spec->sum[j].x[(i + k) % l];
+						}
 					}
 				}
 				cand[c++] = '~';
