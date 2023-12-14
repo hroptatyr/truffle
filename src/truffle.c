@@ -1403,7 +1403,7 @@ cmd_roll(const struct yuck_cmd_roll_s argi[static 1U])
 			metro = t;
 		}
 		/* drain */
-		if (rc >= 0) {
+		if (!isnanpx(prc) && rc >= 0) {
 			next_with(out, oa);
 		}
 

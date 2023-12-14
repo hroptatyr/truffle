@@ -127,6 +127,11 @@ EXTRA_DIST += roll_26.tser
 TESTS += roll_27.clit
 EXTRA_DIST += roll_28.tser
 TESTS += roll_28.clit
+TESTS += roll_29.clit
+EXTRA_DIST += roll_29.tser
+EXTRA_DIST += roll_29.trod
+TESTS += roll_30.clit
+EXTRA_DIST += roll_30.trod
 
 TESTS += string_symbols_01.clit
 TESTS += string_symbols_02.clit
