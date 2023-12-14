@@ -1,0 +1,6 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truffle roll "${srcdir}/roll_29.tser" "${srcdir}/roll_29.trod"
+$
+
+## roll_29.clit ends here
