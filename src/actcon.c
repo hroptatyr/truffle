@@ -131,6 +131,7 @@ pivot_trans(char c, char cur)
 void
 xpnd_actcon(const struct actcon_s *spec, char from, char till)
 {
+/* expand currently active contracts */
 	size_t *cidx;
 	size_t ncand = 0U;
 	char *cand;
@@ -213,6 +214,57 @@ xpnd_actcon(const struct actcon_s *spec, char from, char till)
 	}
 out:
 	free(cidx);
+	return;
+}
+
+void
+long_actcon(const struct actcon_s *spec, char from, char till)
+{
+/* print the currently active contract with the longest history
+ * assuming that the expiration of one contract spawns the next one */
+	size_t ys[32U];
+
+	memset(ys, 0, sizeof(ys));
+	for (size_t j = 0U; j < spec->nsum; j++) {
+		size_t y = ((spec->sum[j].m >> 1U) - 1U) / spec->sum[j].l + 1U;
+		y *= spec->sum[j].n;
+		/* go through contracts and assign the number of years
+		 * of history per each contract month */
+		for (size_t i = 0U; i < spec->sum[j].l; i++) {
+			char xp = spec->sum[j].x[i];
+			ys[xp - '@'] += y;
+		}
+	}
+	from = (char)(from >= '@' ? from : '@');
+	till = (char)(till <= 'Z' ? till : 'Z');
+
+	for (char npiv = from; npiv <= till; npiv++) {
+		size_t max = 0U;
+		char cand;
+
+		/* fast forward npiv to actual contracts */
+		for (; npiv <= till && !ys[npiv - '@']; npiv++);
+
+		/* now start at pivot and find the first maximum */
+		for (char cc = npiv; cc <= till; cc++) {
+			if (ys[cc - '@'] <= max) {
+				continue;
+			}
+			cand = cc;
+			max = ys[(cand = cc) - '@'];
+		}
+		/* ... flip around if need be */
+		for (char cc = '@'; cc < npiv; cc++) {
+			if (ys[cc - '@'] <= max) {
+				continue;
+			}
+			cand = cc;
+			max = ys[(cand = cc) - '@'];
+		}
+
+		fputc(cand, stdout);
+		fputc('\n', stdout);
+	}
 	return;
 }
 

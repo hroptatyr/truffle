@@ -1502,7 +1502,11 @@ cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 	} else {
 		from = till = *argi->args[1U];
 	}
-	xpnd_actcon(spec, from, till);
+	if (!argi->longest_flag) {
+		xpnd_actcon(spec, from, till);
+	} else {
+		long_actcon(spec, from, till);
+	}
 
 	free_actcon(spec);
 	return 0;
