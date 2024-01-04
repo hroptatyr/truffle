@@ -5,6 +5,8 @@ HMU
 MUZ
 UZH
 ZHM
+$ truffle expcon '3/HMUZ' V
+ZHM
 $
 
 ## expcon_02.clit ends here
