@@ -92,6 +92,9 @@ read_actcon(const char *spec)
 		res->sum[j].l = tp - sp;
 		res->sum[j].m = ((res->sum[j].m >> 1U) ?: res->sum[j].l) << 1U ^ res->sum[j].m & 0b1U;
 		res->sum[j].w = w;
+		if (UNLIKELY(tp == sp)) {
+			goto err;
+		}
 		/* fast forward beyond + */
 		for (; *sp && *sp != '+' && *sp != '|'; sp++);
 	}

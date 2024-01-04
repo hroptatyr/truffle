@@ -1490,6 +1490,8 @@ cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 	}
 
 	if (UNLIKELY((spec = read_actcon(argi->args[0U])) == NULL)) {
+		errno = 0, error("\
+Error: invalid SPEC");
 		return 1;
 	}
 
