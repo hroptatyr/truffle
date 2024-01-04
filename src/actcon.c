@@ -246,7 +246,7 @@ long_actcon(const struct actcon_s *spec, char from, char till)
 		for (; npiv <= till && !ys[npiv - '@']; npiv++);
 
 		/* now start at pivot and find the first maximum */
-		for (char cc = npiv; cc <= till; cc++) {
+		for (char cc = npiv; cc <= 'Z'; cc++) {
 			if (ys[cc - '@'] <= max) {
 				continue;
 			}

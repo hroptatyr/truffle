@@ -1,0 +1,20 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ truffle expcon --longest '3/FGHJKMNQUVXZ|2*GKQX'
+G
+G
+K
+K
+K
+Q
+Q
+Q
+X
+X
+X
+G
+$ truffle expcon --longest '3/FGHJKMNQUVXZ|2*GKQX' V
+X
+$
+
+## expcon_06.clit ends here
