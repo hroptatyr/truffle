@@ -1481,37 +1481,64 @@ out:
 static int
 cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 {
-	struct actcon_s *spec;
 	char from, till;
+	char *line = NULL;
+	size_t llen = 0UL;
+	size_t lno = 0U;
+	ssize_t nrd;
+	void(*actconf)(const struct actcon_s*, char from, char till);
 
 	if (UNLIKELY(argi->nargs < 1U)) {
 		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	}
 
-	if (UNLIKELY((spec = read_actcon(argi->args[0U])) == NULL)) {
-		errno = 0, error("\
-Error: invalid SPEC");
-		return 1;
-	}
-
-#if 0
-	prnt_actcon(spec);
-#endif
 	if (argi->nargs < 2U) {
 		from = '@';
 		till = (char)(!argi->yes_flag ? 'Z' : '~');
 	} else {
 		from = till = *argi->args[1U];
 	}
-	if (!argi->longest_flag) {
-		xpnd_actcon(spec, from, till);
-	} else {
-		long_actcon(spec, from, till);
+
+	actconf = !argi->longest_flag ? xpnd_actcon : long_actcon;
+
+	if (*argi->args[0U] != '-' || (argi->args[0U])[1U] != '\0') {
+		line = argi->args[0U];
+		goto line_from_cli;
 	}
 
-	free_actcon(spec);
-	return 0;
+	while (++lno, (nrd = getline(&line, &llen, stdin)) > 0) {
+		struct actcon_s *spec;
+
+		/* \nul terminate line */
+		line[--nrd] = '\0';
+
+	line_from_cli:
+		if (UNLIKELY((spec = read_actcon(line)) == NULL)) {
+			errno = 0, error("\
+Error: invalid SPEC on line %zu", lno);
+			rc = 1;
+			goto next;
+		}
+
+#if 0
+		prnt_actcon(spec);
+#endif
+		actconf(spec, from, till);
+		free_actcon(spec);
+
+	next:
+		if (!lno) {
+			break;
+		}
+	}
+
+	if (llen > 0) {
+		free(line);
+	}
+	line = NULL;
+	llen = 0U;
+	return rc;
 }
 
 int
