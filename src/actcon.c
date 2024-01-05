@@ -187,7 +187,7 @@ xpnd_actcon(const struct actcon_s *spec, char from, char till)
 				}
 				curp = cand[cidx[next]];
 				npiv = (char)(!w ? curp : npiv);
-				if (UNLIKELY(npiv < prev)) {
+				if (UNLIKELY(npiv <= prev)) {
 					/* avoid loops */
 					goto out;
 				}
