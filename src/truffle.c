@@ -1481,25 +1481,19 @@ out:
 static int
 cmd_expcon(const struct yuck_cmd_expcon_s argi[static 1U])
 {
-	char from, till;
+	char month;
 	char *line = NULL;
 	size_t llen = 0UL;
 	size_t lno = 0U;
 	ssize_t nrd;
-	void(*actconf)(const struct actcon_s*, char from, char till);
+	void(*actconf)(const struct actcon_s*, char month);
 
 	if (UNLIKELY(argi->nargs < 1U)) {
 		yuck_auto_usage((const yuck_t*)argi);
 		return 1;
 	}
 
-	if (argi->nargs < 2U) {
-		from = '@';
-		till = (char)(!argi->yes_flag ? 'Z' : '~');
-	} else {
-		from = till = *argi->args[1U];
-	}
-
+	month = (char)(argi->nargs > 1U ? *argi->args[1U] : '\0');
 	actconf = !argi->longest_flag ? xpnd_actcon : long_actcon;
 
 	if (*argi->args[0U] != '-' || (argi->args[0U])[1U] != '\0') {
@@ -1524,7 +1518,7 @@ Error: invalid SPEC on line %zu", lno);
 #if 0
 		prnt_actcon(spec);
 #endif
-		actconf(spec, from, till);
+		actconf(spec, month);
 		free_actcon(spec);
 
 	next:

@@ -132,12 +132,15 @@ pivot_trans(char c, char cur)
 }
 
 void
-xpnd_actcon(const struct actcon_s *spec, char from, char till)
+xpnd_actcon(const struct actcon_s *spec, char month)
 {
-/* expand currently active contracts */
+/* expand currently active contracts
+ * for specific MONTH or all transitioning months if \nul
+ * assuming that the expiration of one contract spawns the next one */
 	size_t *cidx;
 	size_t ncand = 0U;
 	char *cand;
+	char from, till;
 
 	for (size_t j = 0U; j < spec->nsum; j++) {
 		ncand += spec->sum[j].n * (spec->sum[j].m >> 1U);
@@ -145,6 +148,8 @@ xpnd_actcon(const struct actcon_s *spec, char from, char till)
 	cidx = malloc(spec->nsum * sizeof(*cidx) + ncand + 2U * (spec->nsum + 1U));
 	cand = (char*)(cidx + spec->nsum);
 
+	from = (char)(month ?: '@');
+	till = (char)(month ?: 'Z');
 	for (char npiv = --from, prev = '\0'; npiv >= from && npiv < till; prev = npiv) {
 		char curp = npiv;
 
@@ -221,11 +226,13 @@ out:
 }
 
 void
-long_actcon(const struct actcon_s *spec, char from, char till)
+long_actcon(const struct actcon_s *spec, char month)
 {
 /* print the currently active contract with the longest history
+ * for specific MONTH or all transitioning months if \nul
  * assuming that the expiration of one contract spawns the next one */
 	size_t ys[32U];
+	char from, till;
 
 	memset(ys, 0, sizeof(ys));
 	for (size_t j = 0U; j < spec->nsum; j++) {
@@ -238,8 +245,8 @@ long_actcon(const struct actcon_s *spec, char from, char till)
 			ys[xp - '@'] += y;
 		}
 	}
-	from = (char)(from >= '@' ? from : '@');
-	till = (char)(till <= 'Z' ? till : 'Z');
+	from = (char)(month ?: '@');
+	till = (char)(month ?: 'Z');
 
 	for (char npiv = from; npiv <= till; npiv++) {
 		size_t max = 0U;
