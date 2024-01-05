@@ -231,10 +231,9 @@ long_actcon(const struct actcon_s *spec, char month)
 /* print the currently active contract with the longest history
  * for specific MONTH or all transitioning months if \nul
  * assuming that the expiration of one contract spawns the next one */
-	size_t ys[32U];
-	char from, till;
+	size_t ys[32U] = {};
+	char npiv;
 
-	memset(ys, 0, sizeof(ys));
 	for (size_t j = 0U; j < spec->nsum; j++) {
 		size_t y = ((spec->sum[j].m >> 1U) - 1U) / spec->sum[j].l + 1U;
 		y *= spec->sum[j].n;
@@ -245,15 +244,16 @@ long_actcon(const struct actcon_s *spec, char month)
 			ys[xp - '@'] += y;
 		}
 	}
-	from = (char)(month ?: '@');
-	till = (char)(month ?: 'Z');
 
-	for (char npiv = from; npiv <= till; npiv++) {
+	/* find the actual pivot, i.e. contracts that are
+	 * mentioned in the summands of SPEC */
+	for (npiv = (char)(month | '@'); npiv <= 'Z' && !ys[npiv - '@']; npiv++);
+	if (npiv > 'Z') {
+		for (npiv = '@'; npiv <= 'Z' && !ys[npiv - '@']; npiv++);
+	}
+	do {
 		size_t max = 0U;
 		char cand;
-
-		/* fast forward npiv to actual contracts */
-		for (; npiv <= till && !ys[npiv - '@']; npiv++);
 
 		/* now start at pivot and find the first maximum */
 		for (char cc = npiv; cc <= 'Z'; cc++) {
@@ -271,10 +271,12 @@ long_actcon(const struct actcon_s *spec, char month)
 			cand = cc;
 			max = ys[(cand = cc) - '@'];
 		}
-
 		fputc(cand, stdout);
 		fputc('\n', stdout);
-	}
+
+		/* find the next actual pivot */
+		while (++npiv <= 'Z' && !ys[npiv - '@']);
+	} while (!month && npiv <= 'Z');
 	return;
 }
 
